@@ -1,0 +1,442 @@
+# Invoices API Contract
+# InvoiceMe MVP - Invoice Management
+
+openapi: 3.0.3
+info:
+  title: InvoiceMe Invoices API
+  version: 1.0.0
+  description: Invoice upload, viewing, and editing endpoints
+
+paths:
+  /invoices:
+    get:
+      summary: List invoices with pagination and filtering
+      operationId: listInvoices
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vendorId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by vendor
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search in invoice name, vendor name
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter invoices from this date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter invoices until this date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: groupByMonth
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Group results by month/year
+      responses:
+        '200':
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /invoices/upload:
+    post:
+      summary: Upload and process an invoice
+      operationId: uploadInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF or image file (JPEG, PNG)
+                vendorId:
+                  type: string
+                  format: uuid
+                  description: Optional - pre-assign to vendor
+      responses:
+        '201':
+          description: Invoice uploaded and processing started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceUploadResponse'
+        '400':
+          description: Invalid file type or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          description: Extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractionErrorResponse'
+
+  /invoices/{id}:
+    get:
+      summary: Get invoice details
+      operationId: getInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Invoice details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      summary: Update invoice
+      operationId: updateInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInvoiceRequest'
+      responses:
+        '200':
+          description: Invoice updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Delete invoice
+      operationId: deleteInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Invoice deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedInvoiceId:
+                    type: string
+                    format: uuid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /invoices/{id}/file:
+    get:
+      summary: Download invoice file
+      operationId: downloadInvoiceFile
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/InvoiceId'
+      responses:
+        '200':
+          description: Invoice file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    InvoiceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Invoice ID
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        vendorId:
+          type: string
+          format: uuid
+        vendorName:
+          type: string
+        name:
+          type: string
+          nullable: true
+        originalAmount:
+          type: number
+        originalCurrency:
+          type: string
+        normalizedAmount:
+          type: number
+          nullable: true
+        invoiceDate:
+          type: string
+          format: date
+        needsReview:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    InvoiceDetail:
+      allOf:
+        - $ref: '#/components/schemas/Invoice'
+        - type: object
+          properties:
+            invoiceNumber:
+              type: string
+              nullable: true
+            fxRate:
+              type: number
+              nullable: true
+            fxDate:
+              type: string
+              format: date
+              nullable: true
+            fileUrl:
+              type: string
+            extractionRun:
+              $ref: '#/components/schemas/ExtractionRunSummary'
+
+    ExtractionRunSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, OCR_COMPLETE, LLM_COMPLETE, VALIDATION_FAILED, SUCCESS, ERROR]
+        processingTimeMs:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    InvoiceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+        groupedByMonth:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Invoice'
+          description: Only present if groupByMonth=true
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    InvoiceUploadResponse:
+      type: object
+      properties:
+        invoice:
+          $ref: '#/components/schemas/InvoiceDetail'
+        vendor:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            isNew:
+              type: boolean
+              description: True if vendor was auto-created
+        extraction:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: [SUCCESS, NEEDS_REVIEW]
+            confidence:
+              type: object
+              properties:
+                vendorName:
+                  type: number
+                invoiceDate:
+                  type: number
+                totalAmount:
+                  type: number
+                currency:
+                  type: number
+            warnings:
+              type: array
+              items:
+                type: string
+
+    ExtractionErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 422
+        message:
+          type: string
+          example: "Failed to extract invoice data"
+        error:
+          type: string
+          example: "ExtractionFailed"
+        details:
+          type: object
+          properties:
+            ocrFailed:
+              type: boolean
+            llmFailed:
+              type: boolean
+            validationErrors:
+              type: array
+              items:
+                type: string
+
+    UpdateInvoiceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        originalAmount:
+          type: number
+          minimum: 0
+        originalCurrency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+        invoiceDate:
+          type: string
+          format: date
+        vendorId:
+          type: string
+          format: uuid
+        needsReview:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
