@@ -1,0 +1,114 @@
+/// API Constants Configuration
+/// 
+/// Copy this file to api_constants.dart and fill in the values.
+/// 
+/// IMPORTANT: Never commit the actual api_constants.dart file!
+/// Add it to .gitignore if not already present.
+library;
+
+class ApiConstants {
+  // ============================================
+  // BACKEND API
+  // ============================================
+  
+  /// Base URL for the NestJS backend
+  /// 
+  /// Development: http://localhost:3000
+  /// Production: https://api.yourdomain.com
+  static const String baseUrl = 'http://localhost:3000';
+  
+  /// API version prefix
+  static const String apiVersion = '/api/v1';
+  
+  /// Full API URL
+  static String get apiUrl => '$baseUrl$apiVersion';
+  
+  // ============================================
+  // SUPABASE AUTH
+  // ============================================
+  
+  /// Supabase project URL
+  /// Get from: https://app.supabase.com/project/[project-id]/settings/api
+  static const String supabaseUrl = 'https://your-project-ref.supabase.co';
+  
+  /// Supabase anonymous key (safe to expose)
+  /// Get from: Supabase Dashboard > Settings > API > Project API keys
+  static const String supabaseAnonKey = 'your-supabase-anon-key';
+  
+  // ============================================
+  // TIMEOUTS
+  // ============================================
+  
+  /// Connection timeout in milliseconds
+  static const int connectTimeout = 30000; // 30 seconds
+  
+  /// Receive timeout in milliseconds
+  static const int receiveTimeout = 60000; // 60 seconds
+  
+  /// Upload timeout in milliseconds (longer for file uploads)
+  static const int uploadTimeout = 120000; // 2 minutes
+  
+  // ============================================
+  // ENDPOINTS
+  // ============================================
+  
+  /// Auth endpoints
+  static const String loginEndpoint = '/auth/login';
+  static const String signupEndpoint = '/auth/signup';
+  static const String logoutEndpoint = '/auth/logout';
+  static const String refreshEndpoint = '/auth/refresh';
+  
+  /// User endpoints
+  static const String userMeEndpoint = '/users/me';
+  static const String userSettingsEndpoint = '/users/settings';
+  
+  /// Vendor endpoints
+  static const String vendorsEndpoint = '/vendors';
+  
+  /// Invoice endpoints
+  static const String invoicesEndpoint = '/invoices';
+  static const String uploadEndpoint = '/invoices/upload';
+  
+  /// Analytics endpoints
+  static const String overallAnalyticsEndpoint = '/analytics/overall';
+  static String vendorAnalyticsEndpoint(String vendorId) => '/analytics/vendor/$vendorId';
+  
+  /// Insights endpoints
+  static const String insightsEndpoint = '/insights';
+  static const String generateInsightsEndpoint = '/insights/generate';
+  
+  /// Export endpoints
+  static const String exportInvoicesEndpoint = '/export/invoices';
+  static const String exportAnalyticsEndpoint = '/export/analytics';
+  
+  // ============================================
+  // LOCAL STORAGE KEYS
+  // ============================================
+  
+  static const String accessTokenKey = 'access_token';
+  static const String refreshTokenKey = 'refresh_token';
+  static const String userDataKey = 'user_data';
+  static const String themeModeKey = 'theme_mode';
+  static const String systemCurrencyKey = 'system_currency';
+  
+  // ============================================
+  // VALIDATION
+  // ============================================
+  
+  /// Minimum password length
+  static const int minPasswordLength = 6;
+  
+  /// Maximum file size for upload (10MB)
+  static const int maxFileSizeBytes = 10 * 1024 * 1024;
+  
+  /// Allowed file extensions
+  static const List<String> allowedFileExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+  
+  /// Allowed MIME types
+  static const List<String> allowedMimeTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+  ];
+}
