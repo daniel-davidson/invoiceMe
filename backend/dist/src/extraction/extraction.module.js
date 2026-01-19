@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExtractionModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const extraction_service_1 = require("./extraction.service");
 const pdf_processor_service_1 = require("./ocr/pdf-processor.service");
 const ocr_service_1 = require("./ocr/ocr.service");
@@ -22,7 +23,7 @@ let ExtractionModule = class ExtractionModule {
 exports.ExtractionModule = ExtractionModule;
 exports.ExtractionModule = ExtractionModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, storage_module_1.StorageModule, currency_module_1.CurrencyModule],
+        imports: [config_1.ConfigModule, prisma_module_1.PrismaModule, storage_module_1.StorageModule, currency_module_1.CurrencyModule],
         providers: [
             extraction_service_1.ExtractionService,
             pdf_processor_service_1.PdfProcessorService,

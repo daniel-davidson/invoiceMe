@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { ExtractionService } from './extraction.service';
 import { PdfProcessorService } from './ocr/pdf-processor.service';
 import { OcrService } from './ocr/ocr.service';
@@ -10,7 +11,7 @@ import { StorageModule } from '../storage/storage.module';
 import { CurrencyModule } from '../currency/currency.module';
 
 @Module({
-  imports: [PrismaModule, StorageModule, CurrencyModule],
+  imports: [ConfigModule, PrismaModule, StorageModule, CurrencyModule],
   providers: [
     ExtractionService,
     PdfProcessorService,

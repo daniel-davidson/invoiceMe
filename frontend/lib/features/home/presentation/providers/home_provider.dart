@@ -1,20 +1,59 @@
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
+class LatestInvoice {
+  final String id;
+  final String? name;
+  final double originalAmount;
+  final String originalCurrency;
+  final DateTime invoiceDate;
+  final bool needsReview;
+
+  LatestInvoice({
+    required this.id,
+    this.name,
+    required this.originalAmount,
+    required this.originalCurrency,
+    required this.invoiceDate,
+    required this.needsReview,
+  });
+
+  factory LatestInvoice.fromJson(Map<String, dynamic> json) {
+    return LatestInvoice(
+      id: json['id'] as String,
+      name: json['name'] as String?,
+      originalAmount: _parseDouble(json['originalAmount']),
+      originalCurrency: json['originalCurrency'] as String,
+      invoiceDate: DateTime.parse(json['invoiceDate'] as String),
+      needsReview: json['needsReview'] as bool? ?? false,
+    );
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+}
+
 class Vendor {
   final String id;
   final String name;
   final int? invoiceCount;
   final double? monthlyLimit;
+  final List<LatestInvoice>? latestInvoices;
 
   Vendor({
     required this.id,
     required this.name,
     this.invoiceCount,
     this.monthlyLimit,
+    this.latestInvoices,
   });
 
   factory Vendor.fromJson(Map<String, dynamic> json) {
@@ -23,30 +62,59 @@ class Vendor {
       name: json['name'] as String,
       invoiceCount: json['invoiceCount'] as int?,
       monthlyLimit: json['monthlyLimit'] != null
-          ? (json['monthlyLimit'] as num).toDouble()
+          ? _parseDouble(json['monthlyLimit'])
+          : null,
+      latestInvoices: json['latestInvoices'] != null
+          ? (json['latestInvoices'] as List)
+              .map((e) => LatestInvoice.fromJson(e as Map<String, dynamic>))
+              .toList()
           : null,
     );
   }
+
+  static double _parseDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
 }
+
+/// Upload state to track progress, errors, and success
+class UploadState {
+  final bool isUploading;
+  final String? error;
+  final String? successMessage;
+  final double? progress;
+
+  const UploadState({
+    this.isUploading = false,
+    this.error,
+    this.successMessage,
+    this.progress,
+  });
+}
+
+final uploadStateProvider = StateProvider<UploadState>((ref) => const UploadState());
 
 final vendorsProvider =
     StateNotifierProvider<VendorsNotifier, AsyncValue<List<Vendor>>>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  return VendorsNotifier(apiClient);
+  return VendorsNotifier(apiClient, ref);
 });
 
 class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
   final ApiClient _apiClient;
+  final Ref _ref;
   final ImagePicker _imagePicker = ImagePicker();
 
-  VendorsNotifier(this._apiClient) : super(const AsyncValue.loading()) {
+  VendorsNotifier(this._apiClient, this._ref) : super(const AsyncValue.loading()) {
     loadVendors();
   }
 
   Future<void> loadVendors() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _apiClient.get('/vendors?includeInvoiceCount=true');
+      final response = await _apiClient.get('/vendors?includeInvoiceCount=true&includeLatestInvoices=true');
       final List<dynamic> data = response.data as List<dynamic>;
       final vendors = data
           .map((json) => Vendor.fromJson(json as Map<String, dynamic>))
@@ -85,47 +153,171 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
   }
 
   Future<void> uploadFromCamera() async {
+    if (kIsWeb) {
+      _setError('Camera is not available on web. Use Gallery or PDF.');
+      return;
+    }
+    
     try {
+      _setUploading(true);
       final XFile? image = await _imagePicker.pickImage(source: ImageSource.camera);
       if (image != null) {
-        await _uploadFile(image.path, image.name);
+        await _uploadFileFromPath(image.path, image.name);
       }
     } catch (e) {
-      // Handle error
+      _setError('Failed to pick image: $e');
+    } finally {
+      _setUploading(false);
     }
   }
 
   Future<void> uploadFromGallery() async {
     try {
-      final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        await _uploadFile(image.path, image.name);
+      _setUploading(true);
+      
+      if (kIsWeb) {
+        // On web, use file_picker for images too (more reliable)
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          withData: true, // Get bytes on web
+        );
+        if (result != null && result.files.single.bytes != null) {
+          await _uploadFileFromBytes(
+            result.files.single.bytes!,
+            result.files.single.name,
+          );
+        }
+      } else {
+        final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery);
+        if (image != null) {
+          await _uploadFileFromPath(image.path, image.name);
+        }
       }
     } catch (e) {
-      // Handle error
+      _setError('Failed to pick image: $e');
+    } finally {
+      _setUploading(false);
     }
   }
 
   Future<void> uploadPdf() async {
     try {
+      _setUploading(true);
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
+        withData: kIsWeb, // Get bytes on web
       );
-      if (result != null && result.files.single.path != null) {
-        await _uploadFile(result.files.single.path!, result.files.single.name);
+      
+      if (result != null) {
+        final file = result.files.single;
+        if (kIsWeb) {
+          // On web, use bytes
+          if (file.bytes != null) {
+            await _uploadFileFromBytes(file.bytes!, file.name);
+          } else {
+            _setError('Failed to read file data');
+          }
+        } else {
+          // On mobile/desktop, use path
+          if (file.path != null) {
+            await _uploadFileFromPath(file.path!, file.name);
+          } else {
+            _setError('Failed to get file path');
+          }
+        }
       }
     } catch (e) {
-      // Handle error
+      _setError('Failed to pick file: $e');
+    } finally {
+      _setUploading(false);
     }
   }
 
-  Future<void> _uploadFile(String path, String name) async {
+  Future<void> _uploadFileFromPath(String path, String name) async {
     try {
-      await _apiClient.uploadFile('/invoices/upload', path, name);
+      final response = await _apiClient.uploadFile(
+        '/invoices/upload',
+        path,
+        name,
+        onSendProgress: (sent, total) {
+          _ref.read(uploadStateProvider.notifier).state = UploadState(
+            isUploading: true,
+            progress: sent / total,
+          );
+        },
+      );
+      
+      // Extract vendor name from response
+      final vendorName = response.data['vendor']?['name'] ?? 'Unknown vendor';
+      final needsReview = response.data['invoice']?['needsReview'] ?? false;
+      
+      // Reload vendors to get updated invoice counts
       await loadVendors();
+      
+      // Set success message
+      _ref.read(uploadStateProvider.notifier).state = UploadState(
+        error: null, // Using error field for success message
+      );
+      
+      // Show success message with details
+      _setSuccessMessage(
+        needsReview 
+          ? 'Invoice uploaded for $vendorName. Please review the extracted data.'
+          : 'Invoice uploaded successfully for $vendorName!'
+      );
     } catch (e) {
-      // Handle error
+      _setError('Upload failed: $e');
     }
+  }
+
+  Future<void> _uploadFileFromBytes(Uint8List bytes, String name) async {
+    try {
+      final response = await _apiClient.uploadFileBytes(
+        '/invoices/upload',
+        bytes,
+        name,
+        onSendProgress: (sent, total) {
+          _ref.read(uploadStateProvider.notifier).state = UploadState(
+            isUploading: true,
+            progress: sent / total,
+          );
+        },
+      );
+      
+      // Extract vendor name from response
+      final vendorName = response.data['vendor']?['name'] ?? 'Unknown vendor';
+      final needsReview = response.data['invoice']?['needsReview'] ?? false;
+      
+      // Reload vendors to get updated invoice counts
+      await loadVendors();
+      
+      // Show success message with details
+      _setSuccessMessage(
+        needsReview 
+          ? 'Invoice uploaded for $vendorName. Please review the extracted data.'
+          : 'Invoice uploaded successfully for $vendorName!'
+      );
+    } catch (e) {
+      _setError('Upload failed: $e');
+    }
+  }
+
+  void _setUploading(bool uploading) {
+    _ref.read(uploadStateProvider.notifier).state = UploadState(
+      isUploading: uploading,
+    );
+  }
+
+  void _setError(String error) {
+    _ref.read(uploadStateProvider.notifier).state = UploadState(
+      error: error,
+    );
+  }
+
+  void _setSuccessMessage(String message) {
+    _ref.read(uploadStateProvider.notifier).state = UploadState(
+      successMessage: message,
+    );
   }
 }

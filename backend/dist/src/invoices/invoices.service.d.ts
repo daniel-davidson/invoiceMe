@@ -48,7 +48,7 @@ export declare class InvoicesService {
             id: string;
             createdAt: Date;
             tenantId: string;
-            status: import("@prisma/client").$Enums.ExtractionStatus;
+            status: import(".prisma/client").$Enums.ExtractionStatus;
             ocrText: string | null;
             llmResponse: import("@prisma/client/runtime/library").JsonValue | null;
             errorMessage: string | null;

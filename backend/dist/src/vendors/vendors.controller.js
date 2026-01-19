@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VendorsController = void 0;
 const common_1 = require("@nestjs/common");
 const vendors_service_1 = require("./vendors.service");
+const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
+const tenant_guard_1 = require("../common/guards/tenant.guard");
 const tenant_decorator_1 = require("../common/decorators/tenant.decorator");
 const create_vendor_dto_1 = require("./dto/create-vendor.dto");
 const update_vendor_dto_1 = require("./dto/update-vendor.dto");
@@ -24,8 +26,8 @@ let VendorsController = class VendorsController {
     constructor(vendorsService) {
         this.vendorsService = vendorsService;
     }
-    async findAll(tenantId, includeInvoiceCount) {
-        return this.vendorsService.findAll(tenantId, includeInvoiceCount === 'true');
+    async findAll(tenantId, includeInvoiceCount, includeLatestInvoices) {
+        return this.vendorsService.findAll(tenantId, includeInvoiceCount === 'true', includeLatestInvoices === 'true');
     }
     async findOne(tenantId, id) {
         return this.vendorsService.findOne(tenantId, id);
@@ -48,8 +50,9 @@ __decorate([
     (0, common_1.Get)(),
     __param(0, (0, tenant_decorator_1.Tenant)()),
     __param(1, (0, common_1.Query)('includeInvoiceCount')),
+    __param(2, (0, common_1.Query)('includeLatestInvoices')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], VendorsController.prototype, "findAll", null);
 __decorate([
@@ -95,6 +98,7 @@ __decorate([
 ], VendorsController.prototype, "reorder", null);
 exports.VendorsController = VendorsController = __decorate([
     (0, common_1.Controller)('vendors'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),
     __metadata("design:paramtypes", [vendors_service_1.VendorsService])
 ], VendorsController);
 //# sourceMappingURL=vendors.controller.js.map

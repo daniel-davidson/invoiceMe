@@ -9,6 +9,8 @@ export declare class AuthController {
         accessToken: string | undefined;
         refreshToken: string | undefined;
         expiresIn: number | undefined;
+        expiresAt: number | undefined;
+        tokenType: "bearer";
         user: {
             id: string;
             email: string;
@@ -22,6 +24,8 @@ export declare class AuthController {
         accessToken: string;
         refreshToken: string;
         expiresIn: number;
+        expiresAt: number | undefined;
+        tokenType: "bearer";
         user: {
             id: string;
             email: string;
@@ -35,8 +39,10 @@ export declare class AuthController {
         message: string;
     }>;
     refresh(refreshToken: string): Promise<{
-        accessToken: string | undefined;
-        refreshToken: string | undefined;
-        expiresIn: number | undefined;
+        accessToken: string;
+        refreshToken: string;
+        expiresIn: number;
+        expiresAt: number | undefined;
+        tokenType: "bearer";
     }>;
 }

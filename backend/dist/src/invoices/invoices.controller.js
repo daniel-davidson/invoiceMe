@@ -16,6 +16,8 @@ exports.InvoicesController = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const invoices_service_1 = require("./invoices.service");
+const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
+const tenant_guard_1 = require("../common/guards/tenant.guard");
 const tenant_decorator_1 = require("../common/decorators/tenant.decorator");
 const upload_invoice_dto_1 = require("./dto/upload-invoice.dto");
 const update_invoice_dto_1 = require("./dto/update-invoice.dto");
@@ -120,6 +122,7 @@ __decorate([
 ], InvoicesController.prototype, "getFile", null);
 exports.InvoicesController = InvoicesController = __decorate([
     (0, common_1.Controller)('invoices'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),
     __metadata("design:paramtypes", [invoices_service_1.InvoicesService])
 ], InvoicesController);
 //# sourceMappingURL=invoices.controller.js.map

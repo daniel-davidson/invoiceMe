@@ -30,13 +30,19 @@ export class AppController {
    */
   @Get('api/config')
   getConfig() {
+    // Get the appropriate client key (new publishable or legacy anon)
+    const supabaseClientKey = 
+      this.configService.get('supabase.publishableKey') || 
+      this.configService.get('supabase.anonKey');
+
     return {
       // API URL (frontend can use this or infer from current request)
       apiVersion: 'v1',
       
-      // Supabase public config (anon key is designed to be public)
+      // Supabase public config
+      // Note: publishable key and anon key are both safe for frontend
       supabaseUrl: this.configService.get('supabase.url'),
-      supabaseAnonKey: this.configService.get('supabase.anonKey'),
+      supabaseAnonKey: supabaseClientKey,
       
       // Feature flags
       features: {

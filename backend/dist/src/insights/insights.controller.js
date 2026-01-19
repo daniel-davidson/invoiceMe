@@ -15,6 +15,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InsightsController = void 0;
 const common_1 = require("@nestjs/common");
 const insights_service_1 = require("./insights.service");
+const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
+const tenant_guard_1 = require("../common/guards/tenant.guard");
 const tenant_decorator_1 = require("../common/decorators/tenant.decorator");
 const insight_dto_1 = require("./dto/insight.dto");
 let InsightsController = class InsightsController {
@@ -71,6 +73,7 @@ __decorate([
 ], InsightsController.prototype, "remove", null);
 exports.InsightsController = InsightsController = __decorate([
     (0, common_1.Controller)('insights'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),
     __metadata("design:paramtypes", [insights_service_1.InsightsService])
 ], InsightsController);
 //# sourceMappingURL=insights.controller.js.map

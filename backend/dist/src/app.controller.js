@@ -31,10 +31,12 @@ let AppController = class AppController {
         };
     }
     getConfig() {
+        const supabaseClientKey = this.configService.get('supabase.publishableKey') ||
+            this.configService.get('supabase.anonKey');
         return {
             apiVersion: 'v1',
             supabaseUrl: this.configService.get('supabase.url'),
-            supabaseAnonKey: this.configService.get('supabase.anonKey'),
+            supabaseAnonKey: supabaseClientKey,
             features: {
                 aiInsights: true,
                 currencyConversion: true,

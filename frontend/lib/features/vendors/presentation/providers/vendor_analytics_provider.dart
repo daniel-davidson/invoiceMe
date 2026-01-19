@@ -19,16 +19,22 @@ class VendorKpis {
 
   factory VendorKpis.fromJson(Map<String, dynamic> json) {
     return VendorKpis(
-      currentMonthSpend: (json['currentMonthSpend'] as num).toDouble(),
+      currentMonthSpend: _parseDouble(json['currentMonthSpend']),
       monthlyLimit: json['monthlyLimit'] != null
-          ? (json['monthlyLimit'] as num).toDouble()
+          ? _parseDouble(json['monthlyLimit'])
           : null,
-      monthlyAverage: (json['monthlyAverage'] as num).toDouble(),
-      yearlyAverage: (json['yearlyAverage'] as num).toDouble(),
+      monthlyAverage: _parseDouble(json['monthlyAverage']),
+      yearlyAverage: _parseDouble(json['yearlyAverage']),
       limitUtilization: json['limitUtilization'] != null
-          ? (json['limitUtilization'] as num).toDouble()
+          ? _parseDouble(json['limitUtilization'])
           : null,
     );
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.parse(value);
+    return 0.0;
   }
 }
 
@@ -47,7 +53,11 @@ class ChartDataset {
     return ChartDataset(
       label: json['label'] as String,
       data: (json['data'] as List<dynamic>)
-          .map((e) => (e as num).toDouble())
+          .map((e) {
+            if (e is num) return e.toDouble();
+            if (e is String) return double.parse(e);
+            return 0.0;
+          })
           .toList(),
       color: json['color'] as String,
     );

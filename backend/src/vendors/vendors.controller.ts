@@ -8,14 +8,18 @@ import {
   Body,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { VendorsService } from './vendors.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { Tenant } from '../common/decorators/tenant.decorator';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { ReorderVendorsDto } from './dto/reorder-vendors.dto';
 
 @Controller('vendors')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class VendorsController {
   constructor(private readonly vendorsService: VendorsService) {}
 
@@ -23,10 +27,12 @@ export class VendorsController {
   async findAll(
     @Tenant() tenantId: string,
     @Query('includeInvoiceCount') includeInvoiceCount?: string,
+    @Query('includeLatestInvoices') includeLatestInvoices?: string,
   ) {
     return this.vendorsService.findAll(
       tenantId,
       includeInvoiceCount === 'true',
+      includeLatestInvoices === 'true',
     );
   }
 

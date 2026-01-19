@@ -10,9 +10,18 @@ export default () => ({
   // Supabase Auth
   supabase: {
     url: process.env.SUPABASE_URL,
+    // New key system (projects after May 2025)
+    publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+    secretKey: process.env.SUPABASE_SECRET_KEY,
+    jwksUrl: process.env.SUPABASE_JWKS_URL,
+    // Legacy key system (older projects)
     anonKey: process.env.SUPABASE_ANON_KEY,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     jwtSecret: process.env.JWT_SECRET,
+    // Computed: which key to use for frontend config
+    get clientKey() {
+      return process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+    },
   },
 
   // LLM Configuration

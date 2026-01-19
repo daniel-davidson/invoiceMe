@@ -13,10 +13,19 @@ import { PrismaModule } from '../prisma/prisma.module';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('supabase.jwtSecret') || '',
-        // Note: We rely on Supabase's token expiration, not our own
-      }),
+      useFactory: async (configService: ConfigService) => {
+        // For JWKS-based verification (new system), secret is not needed here
+        // The JwtStrategy handles verification via JWKS endpoint
+        // For legacy system, we use the JWT secret
+        const jwtSecret = configService.get<string>('supabase.jwtSecret');
+        const jwksUrl = configService.get<string>('supabase.jwksUrl');
+        
+        return {
+          // Only set secret for legacy system; for JWKS, passport-jwt handles it
+          secret: jwksUrl ? undefined : (jwtSecret || ''),
+          // Note: We rely on Supabase's token expiration, not our own
+        };
+      },
       inject: [ConfigService],
     }),
   ],

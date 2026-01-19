@@ -158,10 +158,25 @@ export class ExtractionService {
       }
     }
 
-    // Step 7: Parse invoice date
-    const invoiceDate = extractedData.invoiceDate
-      ? new Date(extractedData.invoiceDate)
-      : new Date();
+    // Step 7: Parse invoice date with validation
+    let invoiceDate: Date;
+    if (extractedData.invoiceDate) {
+      const parsedDate = new Date(extractedData.invoiceDate);
+      // Check if date is valid
+      if (!isNaN(parsedDate.getTime())) {
+        invoiceDate = parsedDate;
+      } else {
+        this.logger.warn(`Invalid date format: ${extractedData.invoiceDate}, using today's date`);
+        invoiceDate = new Date();
+        validationResult.warnings.push('Invalid date format, using today\'s date');
+        validationResult.needsReview = true;
+      }
+    } else {
+      this.logger.warn('No invoice date found, using today\'s date');
+      invoiceDate = new Date();
+      validationResult.warnings.push('No invoice date found');
+      validationResult.needsReview = true;
+    }
 
     // Step 8: Create invoice record
     const processingTimeMs = Date.now() - startTime;

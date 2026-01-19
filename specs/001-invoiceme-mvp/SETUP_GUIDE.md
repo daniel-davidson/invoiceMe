@@ -33,19 +33,57 @@ Supabase provides authentication and optionally database hosting.
 
 ### Step 2: Get API Keys
 
-1. Go to **Settings → API** (left sidebar)
-2. Copy these values:
+> ⚠️ **Important**: Supabase has transitioned to a new API key system. Projects created after May 2025 use the new keys by default.
 
-| Value | Where to Find | Usage |
-|-------|---------------|-------|
+Go to **Settings → API** (left sidebar)
+
+#### New Key System (Projects after May 2025)
+
+| Key Type | Where to Find | Environment Variable |
+|----------|---------------|---------------------|
+| **Project URL** | Under "Project URL" | `SUPABASE_URL` |
+| **Publishable Key** | Under "API Keys" → `sb_publishable_...` | `SUPABASE_PUBLISHABLE_KEY` |
+| **Secret Key** | Under "API Keys" → `sb_secret_...` (Reveal) | `SUPABASE_SECRET_KEY` |
+
+#### Legacy Key System (Older Projects)
+
+| Key Type | Where to Find | Environment Variable |
+|----------|---------------|---------------------|
 | **Project URL** | Under "Project URL" | `SUPABASE_URL` |
 | **anon public** | Under "Project API keys" | `SUPABASE_ANON_KEY` |
-| **service_role secret** | Under "Project API keys" (click "Reveal") | `SUPABASE_SERVICE_ROLE_KEY` |
+| **service_role** | Under "Project API keys" (Reveal) | `SUPABASE_SERVICE_ROLE_KEY` |
 
-### Step 3: Get JWT Secret
+### Step 3: JWT Configuration
+
+> ℹ️ **New System**: Supabase now uses **JWT Signing Keys** instead of a single JWT secret. This supports asymmetric keys (RSA, EC) for better security.
+
+#### For New Projects (Asymmetric JWT)
+
+Your project uses asymmetric JWT signing by default. No `JWT_SECRET` needed!
+
+For JWT verification, use the JWKS endpoint:
+```
+https://[your-project-ref].supabase.co/auth/v1/.well-known/jwks.json
+```
+
+Set in your `.env`:
+```bash
+SUPABASE_JWKS_URL="https://[your-project-ref].supabase.co/auth/v1/.well-known/jwks.json"
+```
+
+#### For Legacy Projects (Symmetric JWT)
 
 1. Go to **Settings → API → JWT Settings**
-2. Copy the **JWT Secret** → `JWT_SECRET`
+2. Click "Reveal" on **JWT Secret**
+3. Copy to `JWT_SECRET`
+
+#### Migrating Legacy to New Keys
+
+1. Go to **Settings → JWT Signing Keys**
+2. Click **"Migrate JWT Secret"**
+3. Generate a **Standby Key** (asymmetric recommended)
+4. Click **"Rotate"** to make it active
+5. After testing, revoke the legacy secret
 
 ### Step 4: Configure Email Auth
 
@@ -55,25 +93,33 @@ Supabase provides authentication and optionally database hosting.
    - Disable "Confirm email" for faster testing
    - Set **Site URL** to your frontend URL
 
-### Step 5: (Optional) Custom SMTP
+### Step 5: (Optional) Custom SMTP - NOT REQUIRED
 
-For production email delivery:
+> ⚠️ **You can skip this step entirely!** Supabase sends auth emails automatically using their default email service. This is sufficient for development, testing, and demos.
+
+Custom SMTP is only needed if you want:
+- Emails from your own domain (branding)
+- Higher email volume limits
+- Custom email templates
+
+If you do want custom SMTP later:
 
 1. Go to **Settings → Auth → SMTP Settings**
 2. Enable "Custom SMTP"
 3. Configure with your email provider:
 
-| Provider | SMTP Host | Port |
-|----------|-----------|------|
-| SendGrid | smtp.sendgrid.net | 587 |
-| Mailgun | smtp.mailgun.org | 587 |
-| AWS SES | email-smtp.{region}.amazonaws.com | 587 |
-| Resend | smtp.resend.com | 587 |
+| Provider | SMTP Host | Port | Free Tier |
+|----------|-----------|------|-----------|
+| [Resend](https://resend.com) | smtp.resend.com | 587 | 3,000/month |
+| [SendGrid](https://sendgrid.com) | smtp.sendgrid.net | 587 | 100/day |
+| [Mailgun](https://mailgun.com) | smtp.mailgun.org | 587 | 1,000/month |
+| AWS SES | email-smtp.{region}.amazonaws.com | 587 | 62,000/month (if on EC2) |
 
 ### Documentation
 
 - [Supabase Auth Setup](https://supabase.com/docs/guides/auth)
 - [Supabase API Keys](https://supabase.com/docs/guides/api/api-keys)
+- [JWT Signing Keys](https://supabase.com/docs/guides/auth/signing-keys)
 - [Custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
 
 ---
@@ -89,7 +135,7 @@ For production email delivery:
    - Replace `[YOUR-PASSWORD]` with your database password
 
 ```
-DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
+DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
 ```
 
 ### Option B: Local PostgreSQL
@@ -134,10 +180,10 @@ DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co
 - **Base URL**: `https://api.frankfurter.app`
 - **Docs**: [https://www.frankfurter.app/docs/](https://www.frankfurter.app/docs/)
 
-Update backend to use:
-```typescript
-// No API key needed!
-const FX_API_URL = 'https://api.frankfurter.app/latest';
+Set in your `.env`:
+```bash
+FX_PROVIDER="frankfurter"
+# No API key needed!
 ```
 
 ### Alternative: Open Exchange Rates
@@ -154,16 +200,6 @@ If you need historical data or more features:
 1. Go to [https://www.exchangerate-api.com](https://www.exchangerate-api.com)
 2. Free tier: 1,500 requests/month
 3. Copy API key → `FX_API_KEY`
-
-### NPM Packages
-
-```bash
-# For Frankfurter (no key needed)
-npm install axios  # Just use axios, no special package
-
-# For Open Exchange Rates
-npm install oxr
-```
 
 ---
 
@@ -221,11 +257,17 @@ tesseract --list-langs  # Should show: eng, heb
 ### Option A: Local Ollama (Development)
 
 ```bash
-# Install
-curl -fsSL https://ollama.ai/install.sh | sh
+# Install - macOS
+brew install ollama
 
-# Start
-ollama serve
+# Install - Linux
+# curl -fsSL https://ollama.ai/install.sh | sh
+
+# Install - Windows
+# Download from https://ollama.ai/download
+
+# Start (runs in background)
+ollama serve &
 
 # Pull model
 ollama pull llama3.2:3b
@@ -238,7 +280,7 @@ curl http://localhost:11434/api/tags
 
 | Service | Free Tier | Setup |
 |---------|-----------|-------|
-| **Groq** | 14,400 requests/day | [Get API Key](https://console.groq.com) |
+| **Groq** ⭐ | 14,400 requests/day | [Get API Key](https://console.groq.com) |
 | **Together AI** | $25 credit | [Get API Key](https://api.together.xyz) |
 | **OpenRouter** | Pay-per-use | [Get API Key](https://openrouter.ai) |
 | **Replicate** | Some free models | [Get API Key](https://replicate.com) |
@@ -375,16 +417,16 @@ The frontend should **NOT** contain any secrets. Instead:
 ### Build Commands
 
 ```bash
-# Web
-flutter build web --release
+# Web (with production API URL)
+flutter build web --release --dart-define=API_URL=https://your-api.railway.app
 # Deploy build/web folder
 
 # Android
-flutter build apk --release
+flutter build apk --release --dart-define=API_URL=https://your-api.railway.app
 # Or: flutter build appbundle --release
 
 # iOS
-flutter build ios --release
+flutter build ios --release --dart-define=API_URL=https://your-api.railway.app
 ```
 
 ---
@@ -397,11 +439,19 @@ flutter build ios --release
 # ===== DATABASE =====
 DATABASE_URL="postgresql://..."
 
-# ===== SUPABASE AUTH =====
+# ===== SUPABASE AUTH (Choose ONE option) =====
+
+# --- Option A: New Key System (Projects after May 2025) ---
 SUPABASE_URL="https://xxx.supabase.co"
-SUPABASE_ANON_KEY="eyJ..."
-SUPABASE_SERVICE_ROLE_KEY="eyJ..."
-JWT_SECRET="your-jwt-secret"
+SUPABASE_PUBLISHABLE_KEY="sb_publishable_..."
+SUPABASE_SECRET_KEY="sb_secret_..."
+SUPABASE_JWKS_URL="https://xxx.supabase.co/auth/v1/.well-known/jwks.json"
+
+# --- Option B: Legacy Key System (Older Projects) ---
+# SUPABASE_URL="https://xxx.supabase.co"
+# SUPABASE_ANON_KEY="eyJ..."
+# SUPABASE_SERVICE_ROLE_KEY="eyJ..."
+# JWT_SECRET="your-jwt-secret"
 
 # ===== LLM SERVICE =====
 # Option 1: Local Ollama
@@ -409,37 +459,18 @@ LLM_PROVIDER="ollama"
 OLLAMA_URL="http://localhost:11434"
 OLLAMA_MODEL="llama3.2:3b"
 
-# Option 2: Groq (Cloud)
-LLM_PROVIDER="groq"
-LLM_API_KEY="gsk_..."
-LLM_MODEL="llama-3.2-3b-preview"
-
-# Option 3: Together AI
-LLM_PROVIDER="together"
-LLM_API_KEY="..."
-LLM_MODEL="meta-llama/Llama-3.2-3B-Instruct-Turbo"
+# Option 2: Groq (Cloud - FREE tier, 14400 req/day)
+# LLM_PROVIDER="groq"
+# LLM_API_KEY="gsk_..."
+# LLM_MODEL="llama-3.2-3b-preview"
 
 # ===== OCR SERVICE =====
-# Option 1: Local Tesseract
 OCR_PROVIDER="tesseract"
 TESSERACT_LANGS="eng+heb"
 
-# Option 2: Google Cloud Vision
-OCR_PROVIDER="google"
-GOOGLE_APPLICATION_CREDENTIALS="/path/to/key.json"
-
-# Option 3: OCR.space
-OCR_PROVIDER="ocrspace"
-OCR_API_KEY="..."
-
 # ===== CURRENCY API =====
-# Option 1: Frankfurter (FREE, no key)
 FX_PROVIDER="frankfurter"
-FX_API_URL="https://api.frankfurter.app"
-
-# Option 2: Open Exchange Rates
-FX_PROVIDER="openexchangerates"
-FX_API_KEY="..."
+# No API key needed for Frankfurter!
 
 # ===== APPLICATION =====
 PORT=3000
@@ -493,6 +524,7 @@ This way:
 ## Support Resources
 
 - [Supabase Docs](https://supabase.com/docs)
+- [Supabase JWT Signing Keys](https://supabase.com/docs/guides/auth/signing-keys)
 - [NestJS Docs](https://docs.nestjs.com)
 - [Flutter Docs](https://docs.flutter.dev)
 - [Prisma Docs](https://www.prisma.io/docs)

@@ -13,26 +13,70 @@ import 'package:frontend/features/settings/presentation/screens/settings_screen.
 import 'package:frontend/features/insights/presentation/screens/insights_screen.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
+/// Notifier that triggers router refresh when auth state changes
+class AuthChangeNotifier extends ChangeNotifier {
+  AuthChangeNotifier(Ref ref) {
+    ref.listen(authStateProvider, (previous, next) {
+      // Only notify when we transition between logged in/out states
+      final wasLoggedIn =
+          previous?.maybeWhen(
+            data: (user) => user != null,
+            orElse: () => false,
+          ) ??
+          false;
+
+      final isLoggedIn = next.maybeWhen(
+        data: (user) => user != null,
+        orElse: () => false,
+      );
+
+      final wasLoading = previous?.isLoading ?? true;
+      final isLoading = next.isLoading;
+
+      // Notify on: loading->data, data change (login/logout)
+      if (wasLoading != isLoading || wasLoggedIn != isLoggedIn) {
+        notifyListeners();
+      }
+    });
+  }
+}
+
+final authChangeNotifierProvider = Provider<AuthChangeNotifier>((ref) {
+  return AuthChangeNotifier(ref);
+});
+
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final authChangeNotifier = ref.watch(authChangeNotifierProvider);
 
   return GoRouter(
     initialLocation: '/',
     debugLogDiagnostics: true,
+    refreshListenable: authChangeNotifier,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+
+      // While loading, don't redirect - stay on current page
+      final isLoading = authState.isLoading;
+      if (isLoading) {
+        return null;
+      }
+
       final isLoggedIn = authState.maybeWhen(
         data: (user) => user != null,
         orElse: () => false,
       );
-      
-      final isAuthRoute = state.matchedLocation == '/' ||
+
+      final isAuthRoute =
+          state.matchedLocation == '/' ||
           state.matchedLocation == '/login' ||
           state.matchedLocation == '/signup';
 
+      // Not logged in and trying to access protected route -> redirect to welcome
       if (!isLoggedIn && !isAuthRoute) {
         return '/';
       }
 
+      // Logged in and on auth route -> redirect to home
       if (isLoggedIn && isAuthRoute) {
         return '/home';
       }
@@ -98,9 +142,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      body: Center(
-        child: Text('Page not found: ${state.uri.path}'),
-      ),
+      body: Center(child: Text('Page not found: ${state.uri.path}')),
     ),
   );
 });

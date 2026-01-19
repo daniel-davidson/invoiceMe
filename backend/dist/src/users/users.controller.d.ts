@@ -3,6 +3,28 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export declare class UsersController {
     private readonly usersService;
     constructor(usersService: UsersService);
+    getMe(tenantId: string): Promise<{
+        id: string;
+        email: string;
+        fullName: string;
+        personalBusinessId: string | null;
+        systemCurrency: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+    updateMe(tenantId: string, updateUserDto: UpdateUserDto): Promise<{
+        id: string;
+        email: string;
+        fullName: string;
+        personalBusinessId: string | null;
+        systemCurrency: string;
+        createdAt: Date;
+        updatedAt: Date;
+    }>;
+}
+export declare class SettingsController {
+    private readonly usersService;
+    constructor(usersService: UsersService);
     getProfile(tenantId: string): Promise<{
         id: string;
         email: string;

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/home/presentation/screens/home_screen.dart';
 import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/widgets/vendor_card.dart';
+import 'package:frontend/features/home/presentation/providers/home_provider.dart';
 
 void main() {
   group('HomeScreen', () {
@@ -89,7 +90,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: VendorCard(
-              vendor: _MockVendor(
+              vendor: Vendor(
+                id: '1',
                 name: 'Google',
                 invoiceCount: 5,
               ),
@@ -114,7 +116,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: VendorCard(
-              vendor: _MockVendor(
+              vendor: Vendor(
+                id: '2',
                 name: 'Test Vendor',
                 invoiceCount: 3,
               ),
@@ -128,18 +131,5 @@ void main() {
       await tester.tap(find.byType(InkWell));
       expect(tapped, isTrue);
     });
-  });
-}
-
-// Mock vendor for testing
-class _MockVendor {
-  final String name;
-  final int? invoiceCount;
-  final double? monthlySpend;
-
-  _MockVendor({
-    required this.name,
-    this.invoiceCount,
-    this.monthlySpend,
   });
 }

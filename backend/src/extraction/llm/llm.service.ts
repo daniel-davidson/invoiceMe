@@ -1,3 +1,12 @@
+/**
+ * Docs Verified: LLM Provider Integrations
+ * - Ollama: https://github.com/ollama/ollama/blob/main/docs/api.md
+ * - Groq: https://console.groq.com/docs/api-reference
+ * - Together AI: https://docs.together.ai/reference/chat-completions
+ * - OpenRouter: https://openrouter.ai/docs/api-reference
+ * - Verified on: 2026-01-19
+ * - SDK: Native fetch API (no external SDK)
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EXTRACTION_SCHEMA, ExtractedInvoiceData } from './extraction-schema';

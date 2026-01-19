@@ -1,9 +1,12 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Query, Body, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { InsightsService } from './insights.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { Tenant } from '../common/decorators/tenant.decorator';
 import { InsightType, GenerateInsightsDto } from './dto/insight.dto';
 
 @Controller('insights')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class InsightsController {
   constructor(private readonly insightsService: InsightsService) {}
 

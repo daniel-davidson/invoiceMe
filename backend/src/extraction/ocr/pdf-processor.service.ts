@@ -1,3 +1,10 @@
+/**
+ * Docs Verified: PDF Text Extraction
+ * - pdf-parse: https://www.npmjs.com/package/pdf-parse
+ * - pdf.js (underlying): https://mozilla.github.io/pdf.js/
+ * - Verified on: 2026-01-19
+ * - SDK: pdf-parse 1.1.1 (v2.x requires DOM polyfills not available in Node.js)
+ */
 import pdfParse from 'pdf-parse';
 import { Injectable, Logger } from '@nestjs/common';
 

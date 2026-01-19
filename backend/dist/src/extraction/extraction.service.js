@@ -109,9 +109,25 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
                 validationResult.needsReview = true;
             }
         }
-        const invoiceDate = extractedData.invoiceDate
-            ? new Date(extractedData.invoiceDate)
-            : new Date();
+        let invoiceDate;
+        if (extractedData.invoiceDate) {
+            const parsedDate = new Date(extractedData.invoiceDate);
+            if (!isNaN(parsedDate.getTime())) {
+                invoiceDate = parsedDate;
+            }
+            else {
+                this.logger.warn(`Invalid date format: ${extractedData.invoiceDate}, using today's date`);
+                invoiceDate = new Date();
+                validationResult.warnings.push('Invalid date format, using today\'s date');
+                validationResult.needsReview = true;
+            }
+        }
+        else {
+            this.logger.warn('No invoice date found, using today\'s date');
+            invoiceDate = new Date();
+            validationResult.warnings.push('No invoice date found');
+            validationResult.needsReview = true;
+        }
         const processingTimeMs = Date.now() - startTime;
         const invoice = await this.prisma.invoice.create({
             data: {

@@ -5,15 +5,7 @@ import { Prisma } from '@prisma/client';
 export declare class VendorsService {
     private prisma;
     constructor(prisma: PrismaService);
-    findAll(tenantId: string, includeInvoiceCount?: boolean): Promise<{
-        id: string;
-        tenantId: string;
-        name: string;
-        displayOrder: number;
-        monthlyLimit: number | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    findAll(tenantId: string, includeInvoiceCount?: boolean, includeLatestInvoices?: boolean): Promise<any[]>;
     findOne(tenantId: string, id: string): Promise<{
         recentInvoices: {
             id: string;
@@ -53,13 +45,5 @@ export declare class VendorsService {
         deletedVendorId: string;
         deletedInvoicesCount: number;
     }>;
-    reorder(tenantId: string, vendorIds: string[]): Promise<{
-        id: string;
-        tenantId: string;
-        name: string;
-        displayOrder: number;
-        monthlyLimit: number | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    reorder(tenantId: string, vendorIds: string[]): Promise<any[]>;
 }

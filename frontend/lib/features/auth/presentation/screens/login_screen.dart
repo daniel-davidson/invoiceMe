@@ -16,7 +16,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,23 +27,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-
     await ref.read(authStateProvider.notifier).signIn(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
+    // Navigation is handled automatically by router's refreshListenable
+  }
 
-    if (mounted) {
-      setState(() => _isLoading = false);
+  @override
+  Widget build(BuildContext context) {
+    // Listen to auth state for loading and error handling
+    final authState = ref.watch(authStateProvider);
+    final isLoading = authState.isLoading;
 
-      final authState = ref.read(authStateProvider);
-      authState.whenOrNull(
-        data: (user) {
-          if (user != null) {
-            context.go('/home');
-          }
-        },
+    // Show error snackbar when error occurs
+    ref.listen(authStateProvider, (previous, next) {
+      next.whenOrNull(
         error: (error, _) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -54,11 +52,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
         },
       );
-    }
-  }
+    });
 
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -87,6 +82,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: !isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email_outlined),
@@ -105,6 +101,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  enabled: !isLoading,
                   decoration: InputDecoration(
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outlined),
@@ -130,8 +127,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
+                    onPressed: isLoading ? null : _handleLogin,
+                    child: isLoading
                         ? const LoadingIndicator(size: 24, color: Colors.white)
                         : const Text('Login'),
                   ),
@@ -145,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     GestureDetector(
-                      onTap: () => context.push('/signup'),
+                      onTap: isLoading ? null : () => context.push('/signup'),
                       child: Text(
                         'Sign up',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(

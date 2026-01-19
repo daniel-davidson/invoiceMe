@@ -6,9 +6,13 @@ declare const _default: () => {
     };
     supabase: {
         url: string | undefined;
+        publishableKey: string | undefined;
+        secretKey: string | undefined;
+        jwksUrl: string | undefined;
         anonKey: string | undefined;
         serviceRoleKey: string | undefined;
         jwtSecret: string | undefined;
+        readonly clientKey: string | undefined;
     };
     llm: {
         provider: string;

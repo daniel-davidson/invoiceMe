@@ -8,15 +8,37 @@ import { Prisma } from '@prisma/client';
 export class VendorsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(tenantId: string, includeInvoiceCount = false) {
-    if (includeInvoiceCount) {
-      const vendors = await this.prisma.vendor.findMany({
-        where: { tenantId },
-        orderBy: { displayOrder: 'asc' },
-        include: { _count: { select: { invoices: true } } },
-      });
+  async findAll(tenantId: string, includeInvoiceCount = false, includeLatestInvoices = false) {
+    const includeClause: any = {};
+    
+    if (includeInvoiceCount || includeLatestInvoices) {
+      includeClause._count = { select: { invoices: true } };
+    }
+    
+    if (includeLatestInvoices) {
+      includeClause.invoices = {
+        orderBy: { invoiceDate: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          name: true,
+          originalAmount: true,
+          originalCurrency: true,
+          normalizedAmount: true,
+          invoiceDate: true,
+          needsReview: true,
+        },
+      };
+    }
 
-      return vendors.map((vendor) => ({
+    const vendors = await this.prisma.vendor.findMany({
+      where: { tenantId },
+      orderBy: { displayOrder: 'asc' },
+      include: Object.keys(includeClause).length > 0 ? includeClause : undefined,
+    });
+
+    return vendors.map((vendor) => {
+      const result: any = {
         id: vendor.id,
         tenantId: vendor.tenantId,
         name: vendor.name,
@@ -24,24 +46,22 @@ export class VendorsService {
         monthlyLimit: vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null,
         createdAt: vendor.createdAt,
         updatedAt: vendor.updatedAt,
-        invoiceCount: vendor._count.invoices,
-      }));
-    }
+      };
 
-    const vendors = await this.prisma.vendor.findMany({
-      where: { tenantId },
-      orderBy: { displayOrder: 'asc' },
+      if (includeInvoiceCount || includeLatestInvoices) {
+        result.invoiceCount = (vendor as any)._count.invoices;
+      }
+
+      if (includeLatestInvoices) {
+        result.latestInvoices = (vendor as any).invoices.map((inv: any) => ({
+          ...inv,
+          originalAmount: Number(inv.originalAmount),
+          normalizedAmount: inv.normalizedAmount ? Number(inv.normalizedAmount) : null,
+        }));
+      }
+
+      return result;
     });
-
-    return vendors.map((vendor) => ({
-      id: vendor.id,
-      tenantId: vendor.tenantId,
-      name: vendor.name,
-      displayOrder: vendor.displayOrder,
-      monthlyLimit: vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null,
-      createdAt: vendor.createdAt,
-      updatedAt: vendor.updatedAt,
-    }));
   }
 
   async findOne(tenantId: string, id: string) {

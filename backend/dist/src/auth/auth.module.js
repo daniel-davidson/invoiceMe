@@ -25,9 +25,13 @@ exports.AuthModule = AuthModule = __decorate([
             passport_1.PassportModule.register({ defaultStrategy: 'jwt' }),
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
-                useFactory: async (configService) => ({
-                    secret: configService.get('supabase.jwtSecret') || '',
-                }),
+                useFactory: async (configService) => {
+                    const jwtSecret = configService.get('supabase.jwtSecret');
+                    const jwksUrl = configService.get('supabase.jwksUrl');
+                    return {
+                        secret: jwksUrl ? undefined : (jwtSecret || ''),
+                    };
+                },
                 inject: [config_1.ConfigService],
             }),
         ],

@@ -16,13 +16,13 @@ abstract class Failure extends Equatable {
 
 /// Server-related failures
 class ServerFailure extends Failure {
-  const ServerFailure([String message = 'Server error occurred'])
+  const ServerFailure({String message = 'Server error occurred'})
       : super(message: message);
 }
 
 /// Network/Connection failures
 class NetworkFailure extends Failure {
-  const NetworkFailure([String message = 'Network connection failed'])
+  const NetworkFailure({String message = 'Network connection failed'})
       : super(message: message);
 }
 
@@ -44,7 +44,7 @@ class ValidationFailure extends Failure {
 
 /// Cache-related failures
 class CacheFailure extends Failure {
-  const CacheFailure([String message = 'Cache error occurred'])
+  const CacheFailure({String message = 'Cache error occurred'})
       : super(message: message);
 }
 
@@ -82,6 +82,6 @@ class FileFailure extends Failure {
 
 /// Unknown/Unexpected failures
 class UnknownFailure extends Failure {
-  const UnknownFailure([String message = 'An unexpected error occurred'])
+  const UnknownFailure({String message = 'An unexpected error occurred'})
       : super(message: message);
 }

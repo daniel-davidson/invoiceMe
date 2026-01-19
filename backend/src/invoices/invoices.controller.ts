@@ -12,16 +12,20 @@ import {
   ParseUUIDPipe,
   Res,
   StreamableFile,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { InvoicesService } from './invoices.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { Tenant } from '../common/decorators/tenant.decorator';
 import { UploadInvoiceDto } from './dto/upload-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { InvoiceQueryDto } from './dto/invoice-query.dto';
 
 @Controller('invoices')
+@UseGuards(JwtAuthGuard, TenantGuard)
 export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 

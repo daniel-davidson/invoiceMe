@@ -5,9 +5,28 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { Tenant } from '../common/decorators/tenant.decorator';
 import { UpdateUserDto } from './dto/update-user.dto';
 
-@Controller('settings')
+@Controller('users')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class UsersController {
+  constructor(private readonly usersService: UsersService) { }
+
+  @Get('me')
+  async getMe(@Tenant() tenantId: string) {
+    return this.usersService.findById(tenantId, tenantId);
+  }
+
+  @Patch('me')
+  async updateMe(
+    @Tenant() tenantId: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.update(tenantId, tenantId, updateUserDto);
+  }
+}
+
+@Controller('settings')
+@UseGuards(JwtAuthGuard, TenantGuard)
+export class SettingsController {
   constructor(private readonly usersService: UsersService) { }
 
   @Get('profile')

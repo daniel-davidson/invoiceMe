@@ -1,3 +1,11 @@
+/**
+ * Docs Verified: Currency Exchange Rate APIs
+ * - Frankfurter (FREE): https://www.frankfurter.app/docs/
+ * - Open Exchange Rates: https://docs.openexchangerates.org/reference/latest-json
+ * - ExchangeRate-API: https://www.exchangerate-api.com/docs/pair-conversion-requests
+ * - Verified on: 2026-01-19
+ * - SDK: Native fetch API
+ */
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FxCacheService } from './fx-cache.service';

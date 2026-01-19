@@ -12,9 +12,10 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences must be overridden in main');
 });
 
-// API Client provider
+// API Client provider - now includes SharedPreferences for auth token
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return ApiClient(prefs: prefs);
 });
 
 // Auth datasources
@@ -47,11 +48,15 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> _checkAuth() async {
-    final result = await _repository.getCurrentUser();
-    result.fold(
-      (failure) => state = const AsyncValue.data(null),
-      (user) => state = AsyncValue.data(user),
-    );
+    try {
+      final result = await _repository.getCurrentUser();
+      result.fold(
+        (failure) => state = const AsyncValue.data(null),
+        (user) => state = AsyncValue.data(user),
+      );
+    } catch (e) {
+      state = const AsyncValue.data(null);
+    }
   }
 
   Future<void> signUp({
@@ -62,17 +67,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     required String systemCurrency,
   }) async {
     state = const AsyncValue.loading();
-    final result = await _repository.signUp(
-      email: email,
-      password: password,
-      fullName: fullName,
-      personalBusinessId: personalBusinessId,
-      systemCurrency: systemCurrency,
-    );
-    result.fold(
-      (failure) => state = AsyncValue.error(failure.message, StackTrace.current),
-      (user) => state = AsyncValue.data(user),
-    );
+    try {
+      final result = await _repository.signUp(
+        email: email,
+        password: password,
+        fullName: fullName,
+        personalBusinessId: personalBusinessId,
+        systemCurrency: systemCurrency,
+      );
+      result.fold(
+        (failure) => state = AsyncValue.error(failure.message, StackTrace.current),
+        (user) => state = AsyncValue.data(user),
+      );
+    } catch (e) {
+      state = AsyncValue.error(e.toString(), StackTrace.current);
+    }
   }
 
   Future<void> signIn({
@@ -80,19 +89,28 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     required String password,
   }) async {
     state = const AsyncValue.loading();
-    final result = await _repository.signIn(
-      email: email,
-      password: password,
-    );
-    result.fold(
-      (failure) => state = AsyncValue.error(failure.message, StackTrace.current),
-      (user) => state = AsyncValue.data(user),
-    );
+    try {
+      final result = await _repository.signIn(
+        email: email,
+        password: password,
+      );
+      result.fold(
+        (failure) => state = AsyncValue.error(failure.message, StackTrace.current),
+        (user) => state = AsyncValue.data(user),
+      );
+    } catch (e) {
+      state = AsyncValue.error(e.toString(), StackTrace.current);
+    }
   }
 
   Future<void> signOut() async {
     state = const AsyncValue.loading();
-    await _repository.signOut();
-    state = const AsyncValue.data(null);
+    try {
+      await _repository.signOut();
+      state = const AsyncValue.data(null);
+    } catch (e) {
+      // Still set to null even if signout fails
+      state = const AsyncValue.data(null);
+    }
   }
 }

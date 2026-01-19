@@ -10,7 +10,7 @@ export declare class InsightsService {
         id: string;
         createdAt: Date;
         tenantId: string;
-        insightType: import("@prisma/client").$Enums.InsightType;
+        insightType: import(".prisma/client").$Enums.InsightType;
         title: string;
         content: string;
         relatedMetrics: import("@prisma/client/runtime/library").JsonValue;
@@ -20,7 +20,7 @@ export declare class InsightsService {
         id: string;
         createdAt: Date;
         tenantId: string;
-        insightType: import("@prisma/client").$Enums.InsightType;
+        insightType: import(".prisma/client").$Enums.InsightType;
         title: string;
         content: string;
         relatedMetrics: import("@prisma/client/runtime/library").JsonValue;

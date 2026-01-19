@@ -1,31 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/utils/currency_formatter.dart';
+import 'package:frontend/core/utils/date_formatter.dart';
 import 'package:frontend/features/vendors/presentation/providers/vendor_analytics_provider.dart';
+import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
 
-class VendorAnalyticsScreen extends ConsumerWidget {
+class VendorAnalyticsScreen extends ConsumerStatefulWidget {
   final String vendorId;
 
   const VendorAnalyticsScreen({super.key, required this.vendorId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final analyticsState = ref.watch(vendorAnalyticsProvider(vendorId));
+  ConsumerState<VendorAnalyticsScreen> createState() => _VendorAnalyticsScreenState();
+}
+
+class _VendorAnalyticsScreenState extends ConsumerState<VendorAnalyticsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final analyticsState = ref.watch(vendorAnalyticsProvider(widget.vendorId));
+    final invoicesState = ref.watch(invoicesProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Vendor Analytics'),
+        title: const Text('Vendor Details'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Analytics', icon: Icon(Icons.analytics_outlined)),
+            Tab(text: 'Invoices', icon: Icon(Icons.receipt_outlined)),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: () =>
-                ref.read(vendorAnalyticsProvider(vendorId).notifier).exportCsv(),
+                ref.read(vendorAnalyticsProvider(widget.vendorId).notifier).exportCsv(),
           ),
         ],
       ),
-      body: analyticsState.when(
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Analytics Tab
+          _buildAnalyticsTab(context, analyticsState),
+          // Invoices Tab
+          _buildInvoicesTab(context, invoicesState),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab(BuildContext context, AsyncValue analyticsState) {
+    return analyticsState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Error: $error')),
         data: (analytics) {
@@ -125,7 +169,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
                               .entries
                               .map((e) => FlSpot(
                                     e.key.toDouble(),
-                                    e.value,
+                                    (e.value as num).toDouble(),
                                   ))
                               .toList(),
                           isCurved: true,
@@ -145,7 +189,95 @@ class VendorAnalyticsScreen extends ConsumerWidget {
             ),
           );
         },
-      ),
+      );
+  }
+
+  Widget _buildInvoicesTab(BuildContext context, AsyncValue<List<Invoice>> invoicesState) {
+    return invoicesState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text('Error: $error')),
+      data: (allInvoices) {
+        // Filter invoices for this vendor
+        final vendorInvoices = allInvoices
+            .where((invoice) => invoice.vendorId == widget.vendorId)
+            .toList();
+
+        if (vendorInvoices.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.receipt_outlined, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(
+                  'No invoices yet',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Upload an invoice to see it here',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(invoicesProvider),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: vendorInvoices.length,
+            itemBuilder: (context, index) {
+              final invoice = vendorInvoices[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  onTap: () => context.push('/invoice/${invoice.id}'),
+                  leading: CircleAvatar(
+                    backgroundColor: invoice.needsReview
+                        ? Colors.orange.withValues(alpha: 0.2)
+                        : Colors.green.withValues(alpha: 0.2),
+                    child: Icon(
+                      invoice.needsReview ? Icons.warning : Icons.receipt,
+                      color: invoice.needsReview ? Colors.orange : Colors.green,
+                    ),
+                  ),
+                  title: Text(
+                    invoice.name ?? 'Invoice #${invoice.invoiceNumber ?? "N/A"}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  subtitle: Text(DateFormatter.format(invoice.invoiceDate)),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        CurrencyFormatter.format(
+                          invoice.originalAmount,
+                          invoice.originalCurrency,
+                        ),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      if (invoice.normalizedAmount != null &&
+                          invoice.originalCurrency != 'USD')
+                        Text(
+                          CurrencyFormatter.format(
+                            invoice.normalizedAmount!,
+                            'USD',
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -176,7 +308,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
             onPressed: () {
               final limit = double.tryParse(controller.text);
               ref
-                  .read(vendorAnalyticsProvider(vendorId).notifier)
+                  .read(vendorAnalyticsProvider(widget.vendorId).notifier)
                   .updateLimit(limit);
               Navigator.pop(context);
             },

@@ -20,7 +20,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _personalIdController = TextEditingController();
   String _selectedCurrency = 'USD';
   bool _obscurePassword = true;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -34,8 +33,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
-
     await ref.read(authStateProvider.notifier).signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -45,27 +42,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               : null,
           systemCurrency: _selectedCurrency,
         );
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-
-      final authState = ref.read(authStateProvider);
-      authState.whenOrNull(
-        data: (user) {
-          if (user != null) {
-            context.go('/home');
-          }
-        },
-        error: (error, _) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(error.toString()),
-              backgroundColor: Colors.red,
-            ),
-          );
-        },
-      );
-    }
+    // Navigation is handled automatically by router's refreshListenable
   }
 
   void _showCurrencyPicker() {
@@ -83,6 +60,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to auth state for loading and error handling
+    final authState = ref.watch(authStateProvider);
+    final isLoading = authState.isLoading;
+
+    // Show error snackbar when error occurs
+    ref.listen(authStateProvider, (previous, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.toString()),
+              backgroundColor: Colors.red,
+            ),
+          );
+        },
+      );
+    });
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -111,6 +106,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 TextFormField(
                   controller: _fullNameController,
                   textCapitalization: TextCapitalization.words,
+                  enabled: !isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Full Name',
                     prefixIcon: Icon(Icons.person_outlined),
@@ -126,6 +122,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  enabled: !isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email_outlined),
@@ -144,6 +141,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  enabled: !isLoading,
                   decoration: InputDecoration(
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outlined),
@@ -171,6 +169,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _personalIdController,
+                  enabled: !isLoading,
                   decoration: const InputDecoration(
                     labelText: 'Personal/Business ID (Optional)',
                     prefixIcon: Icon(Icons.badge_outlined),
@@ -178,7 +177,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
                 const SizedBox(height: 16),
                 InkWell(
-                  onTap: _showCurrencyPicker,
+                  onTap: isLoading ? null : _showCurrencyPicker,
                   child: InputDecorator(
                     decoration: const InputDecoration(
                       labelText: 'System Currency',
@@ -197,8 +196,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleSignup,
-                    child: _isLoading
+                    onPressed: isLoading ? null : _handleSignup,
+                    child: isLoading
                         ? const LoadingIndicator(size: 24, color: Colors.white)
                         : const Text('Create Account'),
                   ),
@@ -212,7 +211,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     GestureDetector(
-                      onTap: () => context.push('/login'),
+                      onTap: isLoading ? null : () => context.push('/login'),
                       child: Text(
                         'Login',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(

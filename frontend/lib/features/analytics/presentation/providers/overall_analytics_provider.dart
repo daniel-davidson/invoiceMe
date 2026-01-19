@@ -20,12 +20,18 @@ class OverallKpis {
 
   factory OverallKpis.fromJson(Map<String, dynamic> json) {
     return OverallKpis(
-      totalSpend: (json['totalSpend'] as num).toDouble(),
-      totalLimits: (json['totalLimits'] as num).toDouble(),
-      remainingBalance: (json['remainingBalance'] as num).toDouble(),
+      totalSpend: _parseDouble(json['totalSpend']),
+      totalLimits: _parseDouble(json['totalLimits']),
+      remainingBalance: _parseDouble(json['remainingBalance']),
       vendorCount: json['vendorCount'] as int,
       invoiceCount: json['invoiceCount'] as int,
     );
+  }
+
+  static double _parseDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 }
 
@@ -45,10 +51,16 @@ class PieChartSegment {
   factory PieChartSegment.fromJson(Map<String, dynamic> json) {
     return PieChartSegment(
       label: json['label'] as String,
-      value: (json['value'] as num).toDouble(),
-      percentage: (json['percentage'] as num).toDouble(),
+      value: _parseDoubleStatic(json['value']),
+      percentage: _parseDoubleStatic(json['percentage']),
       color: json['color'] as String,
     );
+  }
+
+  static double _parseDoubleStatic(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
   }
 }
 

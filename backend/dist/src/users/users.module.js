@@ -17,7 +17,7 @@ exports.UsersModule = UsersModule;
 exports.UsersModule = UsersModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
-        controllers: [users_controller_1.UsersController],
+        controllers: [users_controller_1.UsersController, users_controller_1.SettingsController],
         providers: [users_service_1.UsersService],
         exports: [users_service_1.UsersService],
     })

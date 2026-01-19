@@ -18,11 +18,8 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _apiClient.patch('/users/me', data: {'fullName': name});
-      // Refresh auth state
-      await _ref.read(authStateProvider.notifier).signIn(
-            email: '', // Would need to re-fetch
-            password: '',
-          );
+      // Invalidate auth state to trigger a re-fetch of user data
+      _ref.invalidate(authStateProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

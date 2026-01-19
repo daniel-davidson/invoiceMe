@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UsersController = void 0;
+exports.SettingsController = exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const users_service_1 = require("./users.service");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
@@ -20,6 +20,39 @@ const tenant_guard_1 = require("../common/guards/tenant.guard");
 const tenant_decorator_1 = require("../common/decorators/tenant.decorator");
 const update_user_dto_1 = require("./dto/update-user.dto");
 let UsersController = class UsersController {
+    usersService;
+    constructor(usersService) {
+        this.usersService = usersService;
+    }
+    async getMe(tenantId) {
+        return this.usersService.findById(tenantId, tenantId);
+    }
+    async updateMe(tenantId, updateUserDto) {
+        return this.usersService.update(tenantId, tenantId, updateUserDto);
+    }
+};
+exports.UsersController = UsersController;
+__decorate([
+    (0, common_1.Get)('me'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "getMe", null);
+__decorate([
+    (0, common_1.Patch)('me'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateMe", null);
+exports.UsersController = UsersController = __decorate([
+    (0, common_1.Controller)('users'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),
+    __metadata("design:paramtypes", [users_service_1.UsersService])
+], UsersController);
+let SettingsController = class SettingsController {
     usersService;
     constructor(usersService) {
         this.usersService = usersService;
@@ -34,14 +67,14 @@ let UsersController = class UsersController {
         return this.usersService.updateSystemCurrency(tenantId, tenantId, currency);
     }
 };
-exports.UsersController = UsersController;
+exports.SettingsController = SettingsController;
 __decorate([
     (0, common_1.Get)('profile'),
     __param(0, (0, tenant_decorator_1.Tenant)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "getProfile", null);
+], SettingsController.prototype, "getProfile", null);
 __decorate([
     (0, common_1.Patch)('profile'),
     __param(0, (0, tenant_decorator_1.Tenant)()),
@@ -49,7 +82,7 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "updateProfile", null);
+], SettingsController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.Patch)('currency'),
     __param(0, (0, tenant_decorator_1.Tenant)()),
@@ -57,10 +90,10 @@ __decorate([
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
-], UsersController.prototype, "updateCurrency", null);
-exports.UsersController = UsersController = __decorate([
+], SettingsController.prototype, "updateCurrency", null);
+exports.SettingsController = SettingsController = __decorate([
     (0, common_1.Controller)('settings'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),
     __metadata("design:paramtypes", [users_service_1.UsersService])
-], UsersController);
+], SettingsController);
 //# sourceMappingURL=users.controller.js.map

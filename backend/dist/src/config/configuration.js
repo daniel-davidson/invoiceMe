@@ -8,9 +8,15 @@ exports.default = () => ({
     },
     supabase: {
         url: process.env.SUPABASE_URL,
+        publishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+        secretKey: process.env.SUPABASE_SECRET_KEY,
+        jwksUrl: process.env.SUPABASE_JWKS_URL,
         anonKey: process.env.SUPABASE_ANON_KEY,
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
         jwtSecret: process.env.JWT_SECRET,
+        get clientKey() {
+            return process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+        },
     },
     llm: {
         provider: process.env.LLM_PROVIDER || 'ollama',

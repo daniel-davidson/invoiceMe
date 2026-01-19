@@ -5,15 +5,7 @@ import { ReorderVendorsDto } from './dto/reorder-vendors.dto';
 export declare class VendorsController {
     private readonly vendorsService;
     constructor(vendorsService: VendorsService);
-    findAll(tenantId: string, includeInvoiceCount?: string): Promise<{
-        id: string;
-        tenantId: string;
-        name: string;
-        displayOrder: number;
-        monthlyLimit: number | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    findAll(tenantId: string, includeInvoiceCount?: string, includeLatestInvoices?: string): Promise<any[]>;
     findOne(tenantId: string, id: string): Promise<{
         recentInvoices: {
             id: string;
@@ -53,13 +45,5 @@ export declare class VendorsController {
         deletedVendorId: string;
         deletedInvoicesCount: number;
     }>;
-    reorder(tenantId: string, dto: ReorderVendorsDto): Promise<{
-        id: string;
-        tenantId: string;
-        name: string;
-        displayOrder: number;
-        monthlyLimit: number | null;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    reorder(tenantId: string, dto: ReorderVendorsDto): Promise<any[]>;
 }

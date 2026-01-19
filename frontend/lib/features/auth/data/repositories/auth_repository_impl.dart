@@ -31,12 +31,20 @@ class AuthRepositoryImpl implements AuthRepository {
       await _localDataSource.cacheToken(response.accessToken);
       await _localDataSource.cacheUser(response.user);
       return Right(response.user.toEntity());
+    } on UnauthorizedException catch (e) {
+      return Left(AuthFailure(message: e.message));
+    } on ValidationException catch (e) {
+      return Left(ValidationFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(message: e.message));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(e.message));
+      return Left(NetworkFailure(message: e.message));
+    } on TimeoutException catch (e) {
+      return Left(NetworkFailure(message: e.message));
+    } on AppException catch (e) {
+      return Left(ServerFailure(message: e.message));
     } catch (e) {
-      return Left(UnknownFailure(e.toString()));
+      return Left(UnknownFailure(message: e.toString()));
     }
   }
 
@@ -53,12 +61,20 @@ class AuthRepositoryImpl implements AuthRepository {
       await _localDataSource.cacheToken(response.accessToken);
       await _localDataSource.cacheUser(response.user);
       return Right(response.user.toEntity());
+    } on UnauthorizedException catch (e) {
+      return Left(AuthFailure(message: e.message));
+    } on ValidationException catch (e) {
+      return Left(ValidationFailure(message: e.message));
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(message: e.message));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(e.message));
+      return Left(NetworkFailure(message: e.message));
+    } on TimeoutException catch (e) {
+      return Left(NetworkFailure(message: e.message));
+    } on AppException catch (e) {
+      return Left(ServerFailure(message: e.message));
     } catch (e) {
-      return Left(UnknownFailure(e.toString()));
+      return Left(UnknownFailure(message: e.toString()));
     }
   }
 
@@ -84,7 +100,7 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       return const Right(null);
     } catch (e) {
-      return Left(CacheFailure(e.toString()));
+      return Left(CacheFailure(message: e.toString()));
     }
   }
 
