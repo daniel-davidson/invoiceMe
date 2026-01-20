@@ -32,7 +32,7 @@ export class LlmService {
 
     // Default models per provider
     const defaultModels = {
-      groq: 'qwen-3-32b', // Best multilingual support (Hebrew/English)
+      groq: 'llama-3.1-70b-versatile', // Best for structured JSON extraction
       ollama: 'llama3.2:3b',
       together: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
       openrouter: 'meta-llama/llama-3.2-3b-instruct:free',
@@ -191,6 +191,7 @@ export class LlmService {
             messages,
             temperature: 0, // Deterministic extraction
             max_tokens: 2048,
+            response_format: { type: 'json_object' }, // CRITICAL: Force JSON output like Ollama
           }),
           signal: controller.signal,
         },

@@ -51,7 +51,7 @@ services:
       - key: LLM_API_KEY
         generateValue: false
       - key: LLM_MODEL
-        value: qwen-3-32b
+        value: llama-3.1-70b-versatile
       
       # OCR
       - key: OCR_PROVIDER

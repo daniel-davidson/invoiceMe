@@ -26,7 +26,7 @@ let LlmService = LlmService_1 = class LlmService {
         this.configService = configService;
         this.provider = this.configService.get('llm.provider') || 'groq';
         const defaultModels = {
-            groq: 'qwen-3-32b',
+            groq: 'llama-3.1-70b-versatile',
             ollama: 'llama3.2:3b',
             together: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
             openrouter: 'meta-llama/llama-3.2-3b-instruct:free',
@@ -121,6 +121,7 @@ let LlmService = LlmService_1 = class LlmService {
                     messages,
                     temperature: 0,
                     max_tokens: 2048,
+                    response_format: { type: 'json_object' },
                 }),
                 signal: controller.signal,
             });
