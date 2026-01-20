@@ -51,7 +51,7 @@ model Vendor {
   tenantId     String    // FK to User.id
   name         String
   displayOrder Int       @default(0)
-  monthlyLimit Decimal?  @db.Decimal(15, 2)
+  monthlyLimit Decimal   @db.Decimal(15, 2)  // ❗ REQUIRED (v2.0), must be > 0
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -65,10 +65,13 @@ model Vendor {
 }
 ```
 
-**Stabilization Notes**:
-- `monthlyLimit`: Used in analytics KPIs (remaining balance calculation)
+**Stabilization Notes (v2.0)**:
+- **`monthlyLimit`**: ✅ **Made required (non-nullable)**
+  - Backend validates: must be provided + must be > 0
+  - Frontend enforces: input field required, Save button disabled until valid
+  - Default value: None (user must explicitly set)
+- Analytics KPIs depend on this field (remaining balance calculation)
 - `displayOrder`: Used for vendor card ordering on home screen
-- No changes required
 
 ---
 
@@ -80,7 +83,7 @@ model Vendor {
 model Invoice {
   id               String    @id @default(uuid())
   tenantId         String    // FK to User.id
-  vendorId         String    // FK to Vendor.id
+  vendorId         String?   // FK to Vendor.id (nullable until user assigns - v2.0)
   name             String?   // User-editable name
   originalAmount   Decimal   @db.Decimal(15, 2)
   originalCurrency String    // ISO 4217
@@ -90,31 +93,39 @@ model Invoice {
   invoiceDate      DateTime
   invoiceNumber    String?
   fileUrl          String    // Path to stored file
+  fileHash         String?   // SHA-256 hash for dedupe (v2.0)
+  useItemsTotal    Boolean   @default(true)  // Use items sum for total (v2.0)
   needsReview      Boolean   @default(false)  // ✅ CRITICAL for Step 3 (LLM fallback)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   // Relations
   user           User            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  vendor         Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor         Vendor?         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   extractionRuns ExtractionRun[]
+  items          InvoiceItem[]   // Line items (v2.0)
 
+  @@unique([tenantId, fileHash])  // Dedupe constraint (v2.0)
   @@index([tenantId])
   @@index([tenantId, vendorId])
   @@index([tenantId, invoiceDate])
+  @@index([tenantId, fileHash])  // Dedupe index (v2.0)
 }
 ```
 
-**Stabilization Notes**:
-- **`needsReview`**: ✅ **Used in Step 3 (LLM Extraction Fallback)**
-  - Set to `true` when: OCR confidence <0.7, missing required fields, LLM extraction fails
-  - Allows invoice to be saved instead of hard-failing
-- **`normalizedAmount`**: ✅ **Used in Step 5 (Analytics Aggregation)**
-  - Backend aggregates using this field (converted to system currency)
-  - Must be returned as `number` (not Decimal string)
-- **`originalAmount`, `originalCurrency`**: Preserved for audit trail
-- **`fileUrl`**: Path to uploaded PDF/image
-- No changes required
+**Stabilization Notes (v2.0)**:
+- **`vendorId`**: ✅ **Made nullable**
+  - Set to `null` on upload (never auto-created)
+  - User assigns via post-upload modal or Edit Invoice Screen
+  - If null: `needsReview` MUST be true
+- **`needsReview`**: ✅ **Always true when vendorId is null**
+- **`fileHash`**: ✅ **Added for dedupe (v2.0)**
+  - SHA-256 hash of uploaded file
+  - Unique constraint prevents duplicate uploads per tenant
+- **`useItemsTotal`**: ✅ **Added for items sum toggle (v2.0)**
+  - Default true: totalAmount calculated from items
+  - False: manual totalAmount entry
+- Backend validates: `(vendorId != null) OR (needsReview == true)`
 
 ---
 
