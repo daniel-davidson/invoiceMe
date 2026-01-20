@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/utils/file_hash.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 /// Upload stages for progress indication
@@ -474,13 +475,6 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
     _ref.read(uploadStateProvider.notifier).state = UploadState(
       error: error,
       uploadStage: UploadStage.error,
-    );
-  }
-
-  void _setSuccessMessage(String message) {
-    _ref.read(uploadStateProvider.notifier).state = UploadState(
-      successMessage: message,
-      uploadStage: UploadStage.complete,
     );
   }
 

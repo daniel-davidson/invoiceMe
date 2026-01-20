@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
-import 'dart:convert';
 
 /// Utility for computing file hashes for deduplication
 /// Per FLOW_CONTRACT §6a: Duplicate Invoice Detection
