@@ -97,7 +97,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -117,7 +117,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -137,7 +137,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -157,7 +157,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -177,7 +177,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -253,14 +253,14 @@ class ApiClient {
         ),
       );
       // For now, just return - actual file saving would be platform-specific
-      _handleResponse(response);
+      await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
   }
 
   /// Handle response and check for errors
-  Response _handleResponse(Response response) {
+  Future<Response> _handleResponse(Response response) async {
     final statusCode = response.statusCode ?? 0;
 
     if (statusCode >= 200 && statusCode < 300) {
@@ -275,15 +275,20 @@ class ApiClient {
                      errorMessage;
     }
 
+    // Handle 401/403 - trigger session expired callback BEFORE throwing
+    if (statusCode == 401 || statusCode == 403) {
+      if (_onSessionExpired != null) {
+        await _onSessionExpired!();
+      }
+    }
+
     // Handle specific status codes
     switch (statusCode) {
       case 400:
         throw ValidationException(message: errorMessage);
       case 401:
-        // Session expired callback will be triggered by interceptor
         throw UnauthorizedException(message: errorMessage);
       case 403:
-        // Session expired callback will be triggered by interceptor
         throw ForbiddenException(message: errorMessage);
       case 404:
         throw NotFoundException(message: errorMessage);
