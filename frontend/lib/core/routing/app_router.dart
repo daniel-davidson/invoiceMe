@@ -49,7 +49,7 @@ final authChangeNotifierProvider = Provider<AuthChangeNotifier>((ref) {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authChangeNotifier = ref.watch(authChangeNotifierProvider);
-  
+
   // Get the navigator key from main.dart for session manager
   final navKey = ref.read(navigatorKeyProvider);
 

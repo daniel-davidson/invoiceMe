@@ -203,6 +203,8 @@ class ApiClient {
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
+          sendTimeout: Duration(milliseconds: ApiConstants.uploadTimeout),
+          receiveTimeout: Duration(milliseconds: ApiConstants.uploadReceiveTimeout),
         ),
         onSendProgress: onSendProgress,
       );
@@ -233,6 +235,8 @@ class ApiClient {
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
+          sendTimeout: Duration(milliseconds: ApiConstants.uploadTimeout),
+          receiveTimeout: Duration(milliseconds: ApiConstants.uploadReceiveTimeout),
         ),
         onSendProgress: onSendProgress,
       );
