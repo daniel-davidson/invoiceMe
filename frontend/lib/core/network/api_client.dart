@@ -277,8 +277,17 @@ class ApiClient {
 
     // Handle 401/403 - trigger session expired callback BEFORE throwing
     if (statusCode == 401 || statusCode == 403) {
+      // ignore: avoid_print
+      print('[ApiClient] Detected ${statusCode}, triggering session expired callback');
       if (_onSessionExpired != null) {
+        // ignore: avoid_print
+        print('[ApiClient] Calling _onSessionExpired callback');
         await _onSessionExpired!();
+        // ignore: avoid_print
+        print('[ApiClient] Session expired callback completed');
+      } else {
+        // ignore: avoid_print
+        print('[ApiClient] WARNING: _onSessionExpired is null!');
       }
     }
 

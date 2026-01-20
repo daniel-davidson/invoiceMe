@@ -18,23 +18,36 @@ class SessionManager {
 
   /// Call this when API returns 401 or 403
   Future<void> handleSessionExpired({String? message}) async {
+    // ignore: avoid_print
+    print('[SessionManager] handleSessionExpired called');
+    
     // Prevent multiple simultaneous session expired handlers
     if (_hasShownExpiredMessage) {
+      // ignore: avoid_print
+      print('[SessionManager] Already shown message, skipping');
       return;
     }
     _hasShownExpiredMessage = true;
 
     final context = _navigatorKey.currentContext;
     if (context == null) {
+      // ignore: avoid_print
+      print('[SessionManager] WARNING: No navigator context available');
       _hasShownExpiredMessage = false;
       return;
     }
 
+    // ignore: avoid_print
+    print('[SessionManager] Forcing logout...');
+    
     // Import auth provider dynamically to avoid circular dependencies
     final authProvider = _ref.read(sessionManagerAuthProvider);
     
     // Force logout (this will clear storage and trigger navigation via router)
     await authProvider.forceLogout();
+    
+    // ignore: avoid_print
+    print('[SessionManager] Logout complete');
 
     // Show session expired message
     if (context.mounted) {
