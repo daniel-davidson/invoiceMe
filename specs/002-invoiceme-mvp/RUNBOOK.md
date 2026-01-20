@@ -8,13 +8,19 @@ Complete step-by-step guide to run InvoiceMe locally.
 
 ### Required Software
 
-| Software | Version | Installation |
-|----------|---------|--------------|
-| Node.js | 18+ | https://nodejs.org/ or `nvm install 18` |
-| Flutter | 3.19+ | https://flutter.dev/docs/get-started/install |
-| PostgreSQL | 14+ | https://www.postgresql.org/download/ or Homebrew |
-| Tesseract OCR | 5+ | `brew install tesseract` (macOS) |
-| Ollama | Latest | https://ollama.ai/download |
+| Software | Version | Installation | Required For |
+|----------|---------|--------------|--------------|
+| Node.js | 18+ | https://nodejs.org/ or `nvm install 18` | Backend |
+| Flutter | 3.19+ | https://flutter.dev/docs/get-started/install | Frontend |
+| PostgreSQL | 14+ | https://www.postgresql.org/download/ or Homebrew | Database (or use Supabase cloud) |
+| Tesseract OCR | 5+ | `brew install tesseract` (macOS) | OCR processing |
+
+### Optional Software (Choose ONE LLM provider)
+
+| Software | Purpose | Notes |
+|----------|---------|-------|
+| **Groq API** (Recommended) | LLM extraction | No install needed, requires API key (free) |
+| Ollama (Alternative) | LLM extraction | For offline dev, requires local model |
 
 ### Verify Installation
 
@@ -23,9 +29,10 @@ Complete step-by-step guide to run InvoiceMe locally.
 node --version      # Should be 18+
 npm --version       # Should be 9+
 flutter --version   # Should be 3.19+
-psql --version      # Should be 14+
+psql --version      # Should be 14+ (or skip if using Supabase cloud)
 tesseract --version # Should be 5+
-ollama --version    # Should show version
+# Groq API: No version check needed (cloud service)
+# Ollama (if using): ollama --version
 ```
 
 ---
@@ -77,7 +84,29 @@ CREATE DATABASE invoiceme;
 
 ---
 
-## Step 4: Ollama Setup
+## Step 4: LLM Provider Setup (Choose ONE)
+
+### Option A: Groq API (RECOMMENDED for production and most local dev)
+
+**Pros**: Fast, free tier generous, no local installation needed  
+**Cons**: Requires internet connection, API key needed
+
+1. Create account at https://console.groq.com
+2. Go to **API Keys** → **Create API Key**
+3. Copy the key (starts with `gsk_...`)
+4. Set in `.env`:
+   ```bash
+   LLM_PROVIDER=groq
+   LLM_API_KEY=gsk_your_api_key_here
+   LLM_MODEL=mixtral-8x7b-32768
+   ```
+
+**No additional setup needed!** Backend will call Groq API automatically.
+
+### Option B: Ollama (For offline development)
+
+**Pros**: Works offline, no API key needed  
+**Cons**: Requires local installation, slower than Groq
 
 ```bash
 # Start Ollama service
@@ -91,6 +120,13 @@ ollama list
 ```
 
 Keep Ollama running in background.
+
+Set in `.env`:
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:3b
+```
 
 ---
 
