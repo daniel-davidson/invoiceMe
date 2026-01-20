@@ -41,7 +41,7 @@ export class AnalyticsController {
   async updateVendorLimit(
     @Tenant() tenantId: string,
     @Param('vendorId', ParseUUIDPipe) vendorId: string,
-    @Body() body: { monthlyLimit: number | null },
+    @Body() body: { monthlyLimit: number }, // v2.0: monthlyLimit required, cannot be null
   ) {
     return this.analyticsService.updateVendorLimit(tenantId, vendorId, body.monthlyLimit);
   }

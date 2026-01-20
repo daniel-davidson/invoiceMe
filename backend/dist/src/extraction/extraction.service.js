@@ -157,36 +157,10 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
             validationResult.warnings.push(`OCR error: ${ocrError}`);
         if (llmError)
             validationResult.warnings.push(`LLM error: ${llmError}`);
-        let vendor;
-        if (extractedData.vendorName === 'Unknown Vendor') {
-            this.logger.warn('Vendor name is "Unknown Vendor", skipping vendor creation');
-            const existingUnknown = await this.prisma.vendor.findFirst({
-                where: { tenantId, name: 'Unknown Vendor' },
-            });
-            if (existingUnknown) {
-                vendor = { id: existingUnknown.id, name: existingUnknown.name, isNew: false };
-            }
-            else {
-                const maxOrderVendor = await this.prisma.vendor.findFirst({
-                    where: { tenantId },
-                    orderBy: { displayOrder: 'desc' },
-                    select: { displayOrder: true },
-                });
-                const newUnknown = await this.prisma.vendor.create({
-                    data: {
-                        name: 'Unknown Vendor',
-                        tenantId,
-                        displayOrder: (maxOrderVendor?.displayOrder ?? 0) + 1,
-                    },
-                });
-                vendor = { id: newUnknown.id, name: newUnknown.name, isNew: true };
-            }
-            validationResult.warnings.push('Invoice assigned to "Unknown Vendor" - please review and reassign');
-        }
-        else {
-            this.logger.log('Matching vendor');
-            vendor = await this.vendorMatcher.matchVendor(extractedData.vendorName || 'Unknown Vendor', tenantId);
-        }
+        const extractedVendorNameCandidate = extractedData.vendorName || 'Unknown Vendor';
+        this.logger.log(`Extracted vendor name candidate: "${extractedVendorNameCandidate}" (will NOT auto-create)`);
+        validationResult.needsReview = true;
+        validationResult.warnings.push(`Vendor extraction: "${extractedVendorNameCandidate}" - user must assign business manually`);
         let normalizedAmount = null;
         let fxRate = null;
         let fxDate = null;
@@ -232,7 +206,7 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
         const invoice = await this.prisma.invoice.create({
             data: {
                 tenantId,
-                vendorId: vendor.id,
+                vendorId: null,
                 name: extractedData.invoiceNumber || null,
                 originalAmount: extractedData.totalAmount || 0,
                 originalCurrency: extractedData.currency || 'ILS',
@@ -243,7 +217,7 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
                 fxDate,
                 fileHash: fileHash || null,
                 useItemsTotal,
-                needsReview: shouldReview,
+                needsReview: true,
                 fileUrl,
             },
         });
@@ -290,11 +264,7 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
                 needsReview: invoice.needsReview,
                 fileUrl: invoice.fileUrl,
             },
-            vendor: {
-                id: vendor.id,
-                name: vendor.name,
-                isNew: vendor.isNew,
-            },
+            extractedVendorNameCandidate,
             extraction: {
                 status: validationResult.needsReview ? 'NEEDS_REVIEW' : 'SUCCESS',
                 confidence: extractedData.confidence,

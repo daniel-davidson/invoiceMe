@@ -26,9 +26,14 @@ export declare class PieChartDto {
     segments: PieChartSegmentDto[];
     otherTotal: number;
 }
+export declare class SelectedPeriodDto {
+    year: number;
+    month: number;
+}
 export declare class VendorAnalyticsDto {
     vendorId: string;
     vendorName: string;
+    selectedPeriod: SelectedPeriodDto;
     kpis: KpisDto;
     pieChart: PieChartDto;
     lineChart: LineChartDto;

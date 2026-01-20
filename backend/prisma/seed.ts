@@ -40,7 +40,7 @@ async function main() {
     {
       name: 'Coffee Shop',
       displayOrder: 3,
-      monthlyLimit: null,
+      monthlyLimit: 50.0, // v2.0: monthlyLimit required
     },
     {
       name: 'Internet Provider',

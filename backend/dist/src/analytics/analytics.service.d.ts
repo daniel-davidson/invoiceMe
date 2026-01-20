@@ -8,16 +8,29 @@ export declare class AnalyticsService {
     private toNumber;
     private getMonthLabels;
     private getMonthRanges;
-    getVendorAnalytics(tenantId: string, vendorId: string): Promise<VendorAnalyticsDto>;
+    getAvailablePeriods(tenantId: string, vendorId: string): Promise<{
+        periods: never[];
+        latestPeriod: null;
+    } | {
+        periods: {
+            year: number;
+            month: number;
+        }[];
+        latestPeriod: {
+            year: number;
+            month: number;
+        };
+    }>;
+    getVendorAnalytics(tenantId: string, vendorId: string, year?: number, month?: number): Promise<VendorAnalyticsDto>;
     getOverallAnalytics(tenantId: string): Promise<OverallAnalyticsDto>;
-    updateVendorLimit(tenantId: string, vendorId: string, monthlyLimit: number | null): Promise<{
+    updateVendorLimit(tenantId: string, vendorId: string, monthlyLimit: number): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: Decimal | null;
+        monthlyLimit: Decimal;
     }>;
     exportVendorCsv(tenantId: string, vendorId: string): Promise<string>;
     exportOverallCsv(tenantId: string): Promise<string>;

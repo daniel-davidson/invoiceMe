@@ -337,11 +337,7 @@ export class ExtractionService {
         needsReview: invoice.needsReview,
         fileUrl: invoice.fileUrl,
       },
-      vendor: {
-        id: vendor.id,
-        name: vendor.name,
-        isNew: vendor.isNew,
-      },
+      extractedVendorNameCandidate, // v2.0: For prefilling in post-upload modal
       extraction: {
         status: validationResult.needsReview ? 'NEEDS_REVIEW' : 'SUCCESS',
         confidence: extractedData.confidence,

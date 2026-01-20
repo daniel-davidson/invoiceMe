@@ -80,21 +80,23 @@ let InvoicesService = class InvoicesService {
         const systemCurrency = user?.systemCurrency || 'USD';
         const result = await this.extractionService.processInvoice(file.buffer, file.originalname, file.mimetype, tenantId, systemCurrency, fileHash);
         console.log('[InvoicesService] Extraction result:', {
-            extractedVendorId: result.vendor.id,
-            extractedVendorName: result.vendor.name,
-            isNewVendor: result.vendor.isNew,
+            extractedVendorNameCandidate: result.extractedVendorNameCandidate,
+            vendorId: result.invoice.vendorId,
             explicitVendorIdProvided: vendorId,
         });
-        if (vendorId && vendorId !== result.vendor.id) {
-            console.log('[InvoicesService] OVERRIDING vendor assignment:', {
-                from: result.vendor.id,
-                to: vendorId,
+        if (vendorId) {
+            console.log('[InvoicesService] Assigning vendor via explicit vendorId:', {
+                vendorId,
             });
             await this.prisma.invoice.update({
                 where: { id: result.invoice.id },
-                data: { vendorId },
+                data: {
+                    vendorId,
+                    needsReview: false,
+                },
             });
             result.invoice.vendorId = vendorId;
+            result.invoice.needsReview = false;
         }
         return result;
     }
@@ -280,7 +282,7 @@ let InvoicesService = class InvoicesService {
                 existingInvoice: {
                     id: existing.id,
                     name: existing.name,
-                    vendorName: existing.vendor.name,
+                    vendorName: existing.vendor?.name || 'Unassigned',
                     originalAmount: Number(existing.originalAmount),
                     originalCurrency: existing.originalCurrency,
                     invoiceDate: existing.invoiceDate,

@@ -21,7 +21,7 @@ export declare class VendorsService {
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: Prisma.Decimal | null;
+        monthlyLimit: Prisma.Decimal;
     }>;
     create(tenantId: string, dto: CreateVendorDto): Promise<{
         id: string;
@@ -30,7 +30,7 @@ export declare class VendorsService {
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: Prisma.Decimal | null;
+        monthlyLimit: Prisma.Decimal;
     }>;
     update(tenantId: string, id: string, dto: UpdateVendorDto): Promise<{
         id: string;
@@ -39,7 +39,7 @@ export declare class VendorsService {
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: Prisma.Decimal | null;
+        monthlyLimit: Prisma.Decimal;
     }>;
     remove(tenantId: string, id: string): Promise<{
         deletedVendorId: string;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OverallAnalyticsDto = exports.OverallKpisDto = exports.VendorAnalyticsDto = exports.PieChartDto = exports.PieChartSegmentDto = exports.LineChartDto = exports.ChartDatasetDto = exports.KpisDto = void 0;
+exports.OverallAnalyticsDto = exports.OverallKpisDto = exports.VendorAnalyticsDto = exports.SelectedPeriodDto = exports.PieChartDto = exports.PieChartSegmentDto = exports.LineChartDto = exports.ChartDatasetDto = exports.KpisDto = void 0;
 class KpisDto {
     currentMonthSpend;
     monthlyLimit;
@@ -34,9 +34,15 @@ class PieChartDto {
     otherTotal;
 }
 exports.PieChartDto = PieChartDto;
+class SelectedPeriodDto {
+    year;
+    month;
+}
+exports.SelectedPeriodDto = SelectedPeriodDto;
 class VendorAnalyticsDto {
     vendorId;
     vendorName;
+    selectedPeriod;
     kpis;
     pieChart;
     lineChart;

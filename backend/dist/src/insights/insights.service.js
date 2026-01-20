@@ -157,7 +157,7 @@ let InsightsService = class InsightsService {
             const currentAmount = this.toNumber(current._sum.normalizedAmount);
             const previousAmount = previous ? this.toNumber(previous._sum.normalizedAmount) : 0;
             const change = currentAmount - previousAmount;
-            if (Math.abs(change) > Math.abs(maxChange)) {
+            if (current.vendorId && Math.abs(change) > Math.abs(maxChange)) {
                 maxChange = change;
                 topVendorId = current.vendorId;
             }
@@ -185,7 +185,7 @@ let InsightsService = class InsightsService {
             }
             else {
                 patterns.set(key, {
-                    vendor: invoice.vendor.name,
+                    vendor: invoice.vendor?.name || 'Unassigned',
                     amount,
                     count: 1,
                 });
@@ -226,7 +226,7 @@ let InsightsService = class InsightsService {
                 items.push({
                     category: 'duplicate',
                     invoiceIds: ids,
-                    vendor: invoice?.vendor.name,
+                    vendor: invoice?.vendor?.name || 'Unassigned',
                     amount: invoice?.originalAmount ? this.toNumber(invoice.originalAmount) : 0,
                     action: 'Review for potential double-charge',
                 });
@@ -245,7 +245,7 @@ let InsightsService = class InsightsService {
                 items.push({
                     category: 'spike',
                     invoiceIds: [invoice.id],
-                    vendor: invoice.vendor.name,
+                    vendor: invoice.vendor?.name || 'Unassigned',
                     amount: invoiceAmount,
                     expectedAmount: Math.round(avgAmount * 100) / 100,
                     action: 'Unusually high - verify this purchase',

@@ -9,7 +9,7 @@ import { DeterministicParserService } from './ocr/deterministic-parser.service';
 export interface ProcessInvoiceResult {
     invoice: {
         id: string;
-        vendorId: string;
+        vendorId: string | null;
         name: string | null;
         originalAmount: number;
         originalCurrency: string;
@@ -21,11 +21,7 @@ export interface ProcessInvoiceResult {
         needsReview: boolean;
         fileUrl: string;
     };
-    vendor: {
-        id: string;
-        name: string;
-        isNew: boolean;
-    };
+    extractedVendorNameCandidate: string;
     extraction: {
         status: string;
         confidence: {

@@ -314,7 +314,7 @@ export class InvoicesService {
         existingInvoice: {
           id: existing.id,
           name: existing.name,
-          vendorName: existing.vendor.name,
+          vendorName: existing.vendor?.name || 'Unassigned', // v2.0: vendor can be null
           originalAmount: Number(existing.originalAmount),
           originalCurrency: existing.originalCurrency,
           invoiceDate: existing.invoiceDate,

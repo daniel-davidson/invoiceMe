@@ -76,6 +76,7 @@ let VendorMatcherService = VendorMatcherService_1 = class VendorMatcherService {
                 name: vendorName,
                 tenantId,
                 displayOrder: (maxOrderVendor?.displayOrder ?? 0) + 1,
+                monthlyLimit: 5000,
             },
             select: { id: true, name: true },
         });

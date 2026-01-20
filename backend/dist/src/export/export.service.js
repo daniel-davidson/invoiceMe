@@ -48,7 +48,7 @@ let ExportService = class ExportService {
         });
         const records = invoices.map((invoice) => ({
             invoiceDate: invoice.invoiceDate.toISOString().split('T')[0],
-            vendorName: invoice.vendor.name,
+            vendorName: invoice.vendor?.name || 'Unassigned',
             name: invoice.name || '',
             originalAmount: Number(invoice.originalAmount).toFixed(2),
             originalCurrency: invoice.originalCurrency,
@@ -75,13 +75,14 @@ let ExportService = class ExportService {
         const monthlyData = new Map();
         for (const invoice of invoices) {
             const month = invoice.invoiceDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-            const key = `${month}-${invoice.vendor.name}`;
+            const vendorName = invoice.vendor?.name || 'Unassigned';
+            const key = `${month}-${vendorName}`;
             const amount = Number(invoice.normalizedAmount || invoice.originalAmount);
             if (monthlyData.has(key)) {
                 monthlyData.get(key).total += amount;
             }
             else {
-                monthlyData.set(key, { month, vendor: invoice.vendor.name, total: amount });
+                monthlyData.set(key, { month, vendor: vendorName, total: amount });
             }
         }
         const csvStringifier = (0, csv_writer_1.createObjectCsvStringifier)({

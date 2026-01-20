@@ -23,8 +23,11 @@ let AnalyticsController = class AnalyticsController {
     constructor(analyticsService) {
         this.analyticsService = analyticsService;
     }
-    async getVendorAnalytics(tenantId, vendorId, year) {
-        return this.analyticsService.getVendorAnalytics(tenantId, vendorId);
+    async getVendorAnalytics(tenantId, vendorId, year, month) {
+        return this.analyticsService.getVendorAnalytics(tenantId, vendorId, year, month);
+    }
+    async getAvailablePeriods(tenantId, vendorId) {
+        return this.analyticsService.getAvailablePeriods(tenantId, vendorId);
     }
     async getOverallAnalytics(tenantId, year) {
         return this.analyticsService.getOverallAnalytics(tenantId);
@@ -57,10 +60,19 @@ __decorate([
     __param(0, (0, tenant_decorator_1.Tenant)()),
     __param(1, (0, common_1.Param)('vendorId', common_1.ParseUUIDPipe)),
     __param(2, (0, common_1.Query)('year')),
+    __param(3, (0, common_1.Query)('month')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Number]),
+    __metadata("design:paramtypes", [String, String, Number, Number]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getVendorAnalytics", null);
+__decorate([
+    (0, common_1.Get)('vendor/:vendorId/available-periods'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Param)('vendorId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getAvailablePeriods", null);
 __decorate([
     (0, common_1.Get)('overall'),
     __param(0, (0, tenant_decorator_1.Tenant)()),

@@ -29,7 +29,7 @@ export declare class InvoicesController {
             vendor: {
                 id: string;
                 name: string;
-            };
+            } | null;
             items: {
                 id: string;
                 createdAt: Date;
@@ -60,7 +60,7 @@ export declare class InvoicesController {
             fileHash: string | null;
             useItemsTotal: boolean;
             needsReview: boolean;
-            vendorId: string;
+            vendorId: string | null;
         })[];
         pagination: {
             page: number;
@@ -73,7 +73,7 @@ export declare class InvoicesController {
         vendor: {
             id: string;
             name: string;
-        };
+        } | null;
         extractionRuns: {
             id: string;
             createdAt: Date;
@@ -115,13 +115,13 @@ export declare class InvoicesController {
         fileHash: string | null;
         useItemsTotal: boolean;
         needsReview: boolean;
-        vendorId: string;
+        vendorId: string | null;
     }>;
     update(tenantId: string, id: string, dto: UpdateInvoiceDto): Promise<({
         vendor: {
             id: string;
             name: string;
-        };
+        } | null;
         items: {
             id: string;
             createdAt: Date;
@@ -152,7 +152,7 @@ export declare class InvoicesController {
         fileHash: string | null;
         useItemsTotal: boolean;
         needsReview: boolean;
-        vendorId: string;
+        vendorId: string | null;
     }) | null>;
     remove(tenantId: string, id: string): Promise<{
         deletedInvoiceId: string;
