@@ -13,7 +13,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 export interface ProcessInvoiceResult {
   invoice: {
     id: string;
-    vendorId: string;
+    vendorId: null; // ❗ v2.0: Always null on upload
     name: string | null;
     originalAmount: number;
     originalCurrency: string;
@@ -22,14 +22,10 @@ export interface ProcessInvoiceResult {
     invoiceNumber: string | null;
     fxRate: number | null;
     fxDate: Date | null;
-    needsReview: boolean;
+    needsReview: true; // ❗ v2.0: Always true when vendorId is null
     fileUrl: string;
   };
-  vendor: {
-    id: string;
-    name: string;
-    isNew: boolean;
-  };
+  extractedVendorNameCandidate: string; // ❗ v2.0: For prefilling in post-upload modal
   extraction: {
     status: string;
     confidence: {
@@ -199,42 +195,15 @@ export class ExtractionService {
     if (ocrError) validationResult.warnings.push(`OCR error: ${ocrError}`);
     if (llmError) validationResult.warnings.push(`LLM error: ${llmError}`);
 
-    // Step 5: Match or create vendor (skip if "Unknown Vendor")
-    let vendor: { id: string; name: string; isNew: boolean };
+    // Step 5: NEVER auto-create vendor (v2.0 - user assigns via post-upload modal)
+    // Store extracted vendor name as candidate for frontend to use
+    const extractedVendorNameCandidate = extractedData.vendorName || 'Unknown Vendor';
     
-    if (extractedData.vendorName === 'Unknown Vendor') {
-      this.logger.warn('Vendor name is "Unknown Vendor", skipping vendor creation');
-      // Find or create a placeholder vendor for unknown vendors
-      const existingUnknown = await this.prisma.vendor.findFirst({
-        where: { tenantId, name: 'Unknown Vendor' },
-      });
-      
-      if (existingUnknown) {
-        vendor = { id: existingUnknown.id, name: existingUnknown.name, isNew: false };
-      } else {
-        const maxOrderVendor = await this.prisma.vendor.findFirst({
-          where: { tenantId },
-          orderBy: { displayOrder: 'desc' },
-          select: { displayOrder: true },
-        });
-        
-        const newUnknown = await this.prisma.vendor.create({
-          data: {
-            name: 'Unknown Vendor',
-            tenantId,
-            displayOrder: (maxOrderVendor?.displayOrder ?? 0) + 1,
-          },
-        });
-        vendor = { id: newUnknown.id, name: newUnknown.name, isNew: true };
-      }
-      validationResult.warnings.push('Invoice assigned to "Unknown Vendor" - please review and reassign');
-    } else {
-      this.logger.log('Matching vendor');
-      vendor = await this.vendorMatcher.matchVendor(
-        extractedData.vendorName || 'Unknown Vendor',
-        tenantId,
-      );
-    }
+    this.logger.log(`Extracted vendor name candidate: "${extractedVendorNameCandidate}" (will NOT auto-create)`);
+    
+    // Mark as needs review since no vendor assigned
+    validationResult.needsReview = true;
+    validationResult.warnings.push(`Vendor extraction: "${extractedVendorNameCandidate}" - user must assign business manually`);
 
     // Step 6: Convert currency
     let normalizedAmount: number | null = null;
@@ -297,7 +266,7 @@ export class ExtractionService {
     const invoice = await this.prisma.invoice.create({
       data: {
         tenantId,
-        vendorId: vendor.id,
+        vendorId: null, // ❗ v2.0: Never auto-assign, user assigns via post-upload modal
         name: extractedData.invoiceNumber || null,
         originalAmount: extractedData.totalAmount || 0,
         originalCurrency: extractedData.currency || 'ILS',
@@ -308,7 +277,7 @@ export class ExtractionService {
         fxDate,
         fileHash: fileHash || null,
         useItemsTotal,
-        needsReview: shouldReview,
+        needsReview: true, // ❗ v2.0: Always true when vendorId is null
         fileUrl,
       },
     });
