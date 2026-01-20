@@ -1,0 +1,234 @@
+# Auth API Contract
+# InvoiceMe MVP - Authentication Endpoints
+# VERSION 002: Enhanced error messages for better UX
+
+openapi: 3.0.3
+info:
+  title: InvoiceMe Auth API
+  version: 2.0.0
+  description: |
+    Authentication endpoints (proxy to Supabase Auth).
+    
+    **Version 002 Changes**:
+    - Error responses include specific `code` field for frontend error mapping
+    - Error messages are user-friendly and actionable
+    - Frontend can map error codes to inline validation feedback
+
+paths:
+  /auth/signup:
+    post:
+      summary: Register a new user
+      operationId: signup
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidEmail:
+                  value:
+                    statusCode: 400
+                    code: "INVALID_EMAIL"
+                    message: "Please enter a valid email address"
+                weakPassword:
+                  value:
+                    statusCode: 400
+                    code: "WEAK_PASSWORD"
+                    message: "Password must be at least 8 characters"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                statusCode: 409
+                code: "EMAIL_EXISTS"
+                message: "An account with this email already exists"
+
+  /auth/login:
+    post:
+      summary: Login with email and password
+      operationId: login
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                statusCode: 401
+                code: "INVALID_CREDENTIALS"
+                message: "Invalid email or password"
+
+  /auth/logout:
+    post:
+      summary: Logout current user
+      operationId: logout
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout successful
+        "401":
+          description: Not authenticated
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      operationId: refreshToken
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid refresh token
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SignupRequest:
+      type: object
+      required: [email, password, fullName, systemCurrency]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          example: "SecurePass123!"
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "John Doe"
+        personalBusinessId:
+          type: string
+          maxLength: 50
+          example: "123456789"
+        systemCurrency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          example: "USD"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          example: "SecurePass123!"
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: Refresh token for getting new access tokens
+        expiresIn:
+          type: integer
+          description: Token expiry in seconds
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        personalBusinessId:
+          type: string
+          nullable: true
+        systemCurrency:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [statusCode, code, message]
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        code:
+          type: string
+          description: Machine-readable error code for frontend mapping
+          enum: [INVALID_EMAIL, WEAK_PASSWORD, EMAIL_EXISTS, INVALID_CREDENTIALS, VALIDATION_ERROR]
+          example: "INVALID_EMAIL"
+        message:
+          type: string
+          description: User-friendly error message (display directly to user)
+          example: "Please enter a valid email address"
+        error:
+          type: string
+          description: HTTP error name (deprecated, use code instead)
+          example: "Bad Request"

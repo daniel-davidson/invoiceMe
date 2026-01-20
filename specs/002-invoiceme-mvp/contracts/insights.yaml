@@ -1,0 +1,266 @@
+# Insights API Contract
+# InvoiceMe MVP - AI-Generated Insights
+
+openapi: 3.0.3
+info:
+  title: InvoiceMe Insights API
+  version: 1.0.0
+  description: AI-generated spending insights endpoints
+
+paths:
+  /insights:
+    get:
+      summary: Get recent insights for current tenant
+      operationId: listInsights
+      tags: [Insights]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [MONTHLY_NARRATIVE, RECURRING_CHARGES, ANOMALIES]
+          description: Filter by insight type
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        "200":
+          description: List of insights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Insight"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /insights/generate:
+    post:
+      summary: Generate new insights based on current data
+      operationId: generateInsights
+      tags: [Insights]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                types:
+                  type: array
+                  items:
+                    type: string
+                    enum: [MONTHLY_NARRATIVE, RECURRING_CHARGES, ANOMALIES]
+                  description: Specific insight types to generate (default all)
+      responses:
+        "201":
+          description: Insights generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  generated:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Insight"
+                  processingTimeMs:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: Not enough data to generate insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /insights/{id}:
+    get:
+      summary: Get insight by ID
+      operationId: getInsight
+      tags: [Insights]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Insight details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete insight
+      operationId: deleteInsight
+      tags: [Insights]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Insight deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    Insight:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        insightType:
+          type: string
+          enum: [MONTHLY_NARRATIVE, RECURRING_CHARGES, ANOMALIES]
+        title:
+          type: string
+          example: "January 2026 Spending Summary"
+        content:
+          type: string
+          description: LLM-generated narrative text
+        generatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    InsightDetail:
+      allOf:
+        - $ref: "#/components/schemas/Insight"
+        - type: object
+          properties:
+            relatedMetrics:
+              oneOf:
+                - $ref: "#/components/schemas/MonthlyNarrativeMetrics"
+                - $ref: "#/components/schemas/RecurringChargesMetrics"
+                - $ref: "#/components/schemas/AnomaliesMetrics"
+
+    MonthlyNarrativeMetrics:
+      type: object
+      description: Metrics for MONTHLY_NARRATIVE insight type
+      properties:
+        currentMonthSpend:
+          type: number
+        previousMonthSpend:
+          type: number
+        changePercent:
+          type: number
+        topVendorChange:
+          type: object
+          properties:
+            name:
+              type: string
+            change:
+              type: number
+
+    RecurringChargesMetrics:
+      type: object
+      description: Metrics for RECURRING_CHARGES insight type
+      properties:
+        detected:
+          type: array
+          items:
+            type: object
+            properties:
+              vendor:
+                type: string
+              amount:
+                type: number
+              frequency:
+                type: string
+                enum: [weekly, monthly, quarterly, yearly]
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 1
+              monthsDetected:
+                type: integer
+
+    AnomaliesMetrics:
+      type: object
+      description: Metrics for ANOMALIES insight type
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+                enum: [duplicate, spike, mismatch]
+              invoiceIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+              vendor:
+                type: string
+              amount:
+                type: number
+              expectedAmount:
+                type: number
+                description: For spikes, the average/expected amount
+              action:
+                type: string
+                description: Recommended action
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string

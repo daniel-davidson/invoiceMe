@@ -1,0 +1,267 @@
+# Analytics API Contract
+# InvoiceMe MVP - Analytics and KPIs
+# VERSION 002: Backend aggregation for performance and type safety
+
+openapi: 3.0.3
+info:
+  title: InvoiceMe Analytics API
+  version: 2.0.0
+  description: |
+    Analytics endpoints for vendor and overall spending insights.
+    
+    **Version 002 Changes**:
+    - All KPIs and chart data are **backend-aggregated** (no client-side summation)
+    - All numeric values are returned as `number` type (not Decimal strings)
+    - Analytics queries optimized for <2 second load time
+
+paths:
+  /analytics/vendor/{vendorId}:
+    get:
+      summary: Get analytics for a single vendor
+      operationId: getVendorAnalytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Filter to specific year (default current year)
+      responses:
+        '200':
+          description: Vendor analytics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorAnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /analytics/overall:
+    get:
+      summary: Get aggregate analytics across all vendors
+      operationId: getOverallAnalytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Filter to specific year (default current year)
+      responses:
+        '200':
+          description: Overall analytics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverallAnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/vendor/{vendorId}/limit:
+    patch:
+      summary: Update vendor monthly spending limit
+      operationId: updateVendorLimit
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [monthlyLimit]
+              properties:
+                monthlyLimit:
+                  type: number
+                  minimum: 0
+                  nullable: true
+                  description: Set to null to remove limit
+      responses:
+        '200':
+          description: Limit updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vendorId:
+                    type: string
+                    format: uuid
+                  monthlyLimit:
+                    type: number
+                    nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    VendorAnalyticsResponse:
+      type: object
+      properties:
+        vendorId:
+          type: string
+          format: uuid
+        vendorName:
+          type: string
+        kpis:
+          $ref: '#/components/schemas/VendorKPIs'
+        pieChart:
+          $ref: '#/components/schemas/PieChartData'
+        lineChart:
+          $ref: '#/components/schemas/LineChartData'
+
+    VendorKPIs:
+      type: object
+      properties:
+        currentMonthSpend:
+          type: number
+          description: Total spend in current month
+        monthlyLimit:
+          type: number
+          nullable: true
+          description: User-defined spending limit
+        monthlyAverage:
+          type: number
+          description: Average monthly spend over last 12 months
+        yearlyAverage:
+          type: number
+          description: Average yearly spend
+        limitUtilization:
+          type: number
+          nullable: true
+          description: currentMonthSpend / monthlyLimit (percentage)
+
+    OverallAnalyticsResponse:
+      type: object
+      properties:
+        kpis:
+          $ref: '#/components/schemas/OverallKPIs'
+        pieChart:
+          $ref: '#/components/schemas/PieChartData'
+        lineChart:
+          $ref: '#/components/schemas/LineChartData'
+
+    OverallKPIs:
+      type: object
+      properties:
+        totalSpend:
+          type: number
+          description: Total spend in current month
+        totalLimits:
+          type: number
+          description: Sum of all vendor limits
+        remainingBalance:
+          type: number
+          description: totalLimits - totalSpend
+        vendorCount:
+          type: integer
+          description: Number of active vendors
+        invoiceCount:
+          type: integer
+          description: Total invoice count
+
+    PieChartData:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Top 5 Vendors by Spend"
+        segments:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                example: "AWS"
+              value:
+                type: number
+                example: 1500.00
+              percentage:
+                type: number
+                example: 35.2
+              color:
+                type: string
+                example: "#FF6384"
+        otherTotal:
+          type: number
+          description: Sum of vendors not in top 5
+
+    LineChartData:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Monthly Spending"
+        labels:
+          type: array
+          items:
+            type: string
+          example: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+        datasets:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+                example: "Spend"
+              data:
+                type: array
+                items:
+                  type: number
+              color:
+                type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
