@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { PdfProcessorService } from './ocr/pdf-processor.service';
 import { OcrService } from './ocr/ocr.service';
-import { OllamaService } from './llm/ollama.service';
+import { LlmService } from './llm/llm.service';
 import { VendorMatcherService } from './vendor-matcher.service';
 import { CurrencyService } from '../currency/currency.service';
 import { DeterministicParserService } from './ocr/deterministic-parser.service';
@@ -47,7 +47,7 @@ export class ExtractionService {
     private readonly storage: StorageService,
     private readonly pdfProcessor: PdfProcessorService,
     private readonly ocr: OcrService,
-    private readonly ollama: OllamaService,
+    private readonly llmService: LlmService, // Changed from OllamaService to LlmService
     private readonly vendorMatcher: VendorMatcherService,
     private readonly currency: CurrencyService,
     private readonly deterministicParser: DeterministicParserService,
@@ -164,7 +164,7 @@ export class ExtractionService {
         this.logger.log(
           'Extracting structured data with LLM (with deterministic hints)',
         );
-        extractedData = await this.ollama.extractFromText(
+        extractedData = await this.llmService.extractFromText(
           extractedText,
           candidates,
         );

@@ -28,13 +28,13 @@ export default () => ({
 
   // LLM Configuration
   llm: {
-    provider: process.env.LLM_PROVIDER || 'ollama', // ollama, groq, together, openrouter
-    // Ollama
+    provider: process.env.LLM_PROVIDER || 'groq', // groq (production default), ollama (local dev), together, openrouter
+    // Groq (production - recommended)
+    apiKey: process.env.LLM_API_KEY || process.env.GROQ_API_KEY,
+    model: process.env.LLM_MODEL || process.env.GROQ_MODEL || 'mixtral-8x7b-32768',
+    // Ollama (local development)
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
     ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2:3b',
-    // Cloud LLM
-    apiKey: process.env.LLM_API_KEY,
-    model: process.env.LLM_MODEL,
   },
 
   // OCR Configuration

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OllamaService } from '../extraction/llm/ollama.service';
+import { LlmService } from '../extraction/llm/llm.service';
 import { InsightType } from './dto/insight.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -8,7 +8,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class InsightsService {
   constructor(
     private prisma: PrismaService,
-    private ollamaService: OllamaService,
+    private llmService: LlmService,
   ) {}
 
   private toNumber(value: Decimal | null): number {
@@ -356,7 +356,7 @@ Generate a 2-3 sentence insight explaining these patterns and suggesting one act
 Return ONLY the narrative text, no JSON or formatting.`;
 
     try {
-      const response = await this.ollamaService.generate(prompt);
+      const response = await this.llmService.generate(prompt);
       return response.trim();
     } catch (error) {
       // Fallback narrative if LLM fails
