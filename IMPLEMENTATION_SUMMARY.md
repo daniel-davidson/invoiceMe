@@ -286,7 +286,6 @@
 - [ ] T044: Auto-focus next field on Enter key
 - [ ] T045: Show success animation on signup/login
 
-**Estimated Effort**: 5-7 hours
 
 **Files to Modify**:
 - `frontend/lib/features/auth/presentation/screens/login_screen.dart`
@@ -310,7 +309,6 @@
 - [ ] T052: Add responsive navigation (drawer on mobile, rail on desktop)
 - [ ] T053: Test on multiple screen sizes (mobile, tablet, desktop)
 
-**Estimated Effort**: 5.5-6.5 hours
 
 **Files to Modify**:
 - `frontend/lib/core/constants/ui_constants.dart` (new - responsive breakpoints)
@@ -329,7 +327,6 @@
 - [ ] T056-T057: Fix any drift issues found (placeholder tasks)
 - [ ] T058: Final compliance verification and sign-off
 
-**Estimated Effort**: 5-8 hours
 
 **Process**:
 1. Open each screen in Flutter app

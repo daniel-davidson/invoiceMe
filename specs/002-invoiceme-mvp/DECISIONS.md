@@ -130,15 +130,14 @@ Question: Should MVP implement export functionality or defer it?
 3. **Faster Delivery**: Skip export implementation, ship faster
 
 **Implementation Effort**:
-- Frontend: 0.25 hours (add toast)
-- Documentation: 0.25 hours (update FLOW_CONTRACT)
-- **Total**: ~0.5 hours
+- Frontend: add toast
+- Documentation: update FLOW_CONTRACT
 
 #### Recommendation
 
 **Choose Option A** unless timeline is extremely tight.
 
-**Reasoning**: 2-3 hours of effort is minimal, and CSV export provides significant value. "Coming Soon" toasts are poor UX for visible UI elements.
+**Reasoning**: CSV export provides significant value. "Coming Soon" toasts are poor UX for visible UI elements.
 
 #### Implementation Impact
 
@@ -207,7 +206,6 @@ Question: What fallback strategy should we use for upload failures?
 
 - **Backend**: Tasks T059-T060 (PDF fallback), T012-T013 (OCR fallback), T008-T011 (LLM fallback), T064-T067 (LLM robustness)
 - **Frontend**: Task T014 (success message with review status)
-- **Effort**: ~5-6 hours total
 
 #### Future Considerations
 
@@ -294,7 +292,6 @@ Text('${kpis.monthlySpent.toStringAsFixed(2)}')
 
 - **Backend**: Tasks T023-T027 (vendor analytics), T032-T036 (overall analytics)
 - **Frontend**: Tasks T028-T031 (vendor parsing), T035-T036 (overall parsing)
-- **Effort**: ~10-12 hours total
 
 #### Future Considerations
 
@@ -381,7 +378,6 @@ getVendors(@Request() req) {
 #### Implementation Impact
 
 - **Backend**: Tasks T068-T071 (audit + E2E test)
-- **Effort**: ~3-4 hours (mostly code review)
 
 #### Future Considerations
 
@@ -443,7 +439,6 @@ Multi-pass OCR with scoring significantly improves accuracy for:
 #### Implementation Impact
 
 - **Backend**: Already implemented in `backend/src/extraction/ocr/ocr.service.ts`
-- **Effort**: 0 hours (verification only, ~1 hour for code review)
 
 #### Future Considerations
 
@@ -548,7 +543,6 @@ function extractTotalFallback(ocrText: string): number | null {
 #### Implementation Impact
 
 - **Backend**: Tasks T064-T067 (chunking + fallback + prompt improvement)
-- **Effort**: ~3-4 hours
 
 #### Future Considerations
 

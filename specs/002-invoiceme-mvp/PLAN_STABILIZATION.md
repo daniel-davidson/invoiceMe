@@ -126,7 +126,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Run app locally, upload 3 invoices, verify logs appear in console
 - Verify no performance degradation from logging
 
-**Effort**: 1-2 hours  
 **Risk**: Low
 
 ---
@@ -178,7 +177,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Verify invoice saves with `needsReview=true`
 - Verify user sees "needs review" message
 
-**Effort**: 2-3 hours  
 **Risk**: Low
 
 #### Task 1.3: OCR Failure Fallback
@@ -208,10 +206,8 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Verify invoice saves with `needsReview=true`
 - Verify user sees "needs review" message
 
-**Effort**: 1-2 hours  
 **Risk**: Low
 
-**Phase 1 Total Effort**: 3-5 hours
 
 ---
 
@@ -304,10 +300,8 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Verify all 4 stages appear in sequence
 - Verify timing feels natural (not too fast)
 
-**Effort**: 2-3 hours  
 **Risk**: Low
 
-**Phase 2 Total Effort**: 2-3 hours
 
 ---
 
@@ -411,7 +405,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Verify all numeric fields are numbers (not strings)
 - Verify response time < 2 seconds
 
-**Effort**: 4-5 hours  
 **Risk**: Medium (SQL query complexity)
 
 #### Task 3.3: Frontend Analytics Rendering (Fix Type Errors)
@@ -442,7 +435,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Verify charts render without errors
 - Check console for type errors (should be none)
 
-**Effort**: 2 hours  
 **Risk**: Low
 
 #### Task 3.4: Businesses Analytics Performance (Same Approach)
@@ -478,7 +470,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 **Effort**: 3-4 hours  
 **Risk**: Medium
 
-**Phase 3 Total Effort**: 10-12 hours
 
 ---
 
@@ -530,7 +521,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Type short password → verify error shows
 - Correct both → verify button enables
 
-**Effort**: 1-2 hours  
 **Risk**: Low
 
 #### Task 4.2: Frontend Input Validation (Sign Up)
@@ -551,7 +541,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Leave fields empty → verify errors
 - Fill all fields correctly → verify button enables
 
-**Effort**: 2 hours  
 **Risk**: Low
 
 #### Task 4.3: User-Friendly Error Messages (Backend Mapping)
@@ -594,10 +583,8 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Try to sign up with existing email → verify friendly message
 - Try to log in with wrong password → verify friendly message
 
-**Effort**: 2-3 hours  
 **Risk**: Low
 
-**Phase 4 Total Effort**: 5-7 hours
 
 ---
 
@@ -628,7 +615,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
    }
    ```
 
-**Effort**: 0.5 hours  
 **Risk**: Low
 
 #### Task 5.2: Home Screen Responsiveness
@@ -668,7 +654,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Resize browser window
 - Verify layout changes at breakpoints
 
-**Effort**: 2 hours  
 **Risk**: Low
 
 #### Task 5.3: Analytics Screens Responsiveness
@@ -696,7 +681,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 **Testing**:
 - Resize window, verify KPI layout
 
-**Effort**: 1-2 hours  
 **Risk**: Low
 
 #### Task 5.4: Dialogs Responsiveness
@@ -727,10 +711,8 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Open dialogs on mobile, tablet, desktop
 - Verify width behavior
 
-**Effort**: 2 hours  
 **Risk**: Low
 
-**Phase 5 Total Effort**: 5.5-6.5 hours
 
 ---
 
@@ -778,10 +760,8 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 - Invoices tab in analytics (already fixing in Phase 3)
 - Possibly extra UI elements or missing states
 
-**Effort**: 2-4 hours (depends on findings)  
 **Risk**: Low-Medium
 
-**Phase 6 Total Effort**: 5-8 hours
 
 ---
 
@@ -797,7 +777,6 @@ This plan translates FLOW_CONTRACT, ROUTES_MAP, and UI_STATES into a prioritized
 | **5** | Responsive UI | P3 | 5.5-6.5h | Low | Breakpoints for mobile/tablet/desktop |
 | **6** | Spec Compliance Audit | P4 | 5-8h | Low-Medium | COMPLIANCE_AUDIT.md, fix drift |
 
-**Total Estimated Effort**: 32-43.5 hours  
 **Suggested Timeline**: 1-2 weeks (part-time) or 5-6 days (full-time)
 
 ---

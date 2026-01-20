@@ -33,26 +33,26 @@
 
 ---
 
-## ⏭️ REMAINING (Est. 6-8 hours)
+## ⏭️ REMAINING
 
 ### High Priority
-1. **Edit Invoice Screen** (3-4 hours)
+1. **Edit Invoice Screen**
    - Header fields (name, number, amount, date, business)
    - Invoice items CRUD
    - UseItemsTotal toggle
    - Atomic save
 
-2. **Search** (1 hour)
+2. **Search**
    - Home screen: filter businesses
    - Invoices list: search by vendor, number, amount
 
-3. **Snackbar fixes** (30min)
+3. **Snackbar fixes**
    - Single snackbar manager
    - Auto-dismiss
 
 ### Medium Priority
-4. **Auth UX** (2-3 hours) - validation, errors, loading
-5. **Responsive UI** (2-3 hours) - breakpoints
+4. **Auth UX** - validation, errors, loading
+5. **Responsive UI** - breakpoints
 
 ---
 
@@ -68,4 +68,4 @@
 
 ---
 
-**Next Immediate Action**: Wire assignment modal into upload flow (10 min)
+**Next Immediate Action**: Wire assignment modal into upload flow

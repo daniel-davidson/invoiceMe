@@ -492,14 +492,12 @@ Each task includes:
 
 ### Estimated Effort
 
-- **Foundation (T001-T007)**: 1-2 hours
-- **P0 (T008-T019)**: 5-8 hours
-- **P1 (T020-T036)**: 10-12 hours
-- **P2 (T037-T045)**: 5-7 hours
-- **P3 (T046-T053)**: 5.5-6.5 hours
-- **P4 (T054-T058)**: 5-8 hours
-
-**Total Estimated Effort**: 32-43.5 hours  
+- **Foundation (T001-T007)**
+- **P0 (T008-T019)**
+- **P1 (T020-T036)**
+- **P2 (T037-T045)**
+- **P3 (T046-T053)**
+- **P4 (T054-T058)**  
 **Timeline**: 1-2 weeks (part-time) or 5-6 days (full-time)
 
 ---
@@ -699,14 +697,12 @@ All tasks completed (58/58 ✅) AND:
 
 ### Updated Estimated Effort
 
-- **Foundation (T001-T007)**: 1-2 hours
-- **P0 (T008-T019, T059-T067)**: 8-12 hours (was 5-8)
-- **P1 (T020-T036, T068-T074)**: 14-17 hours (was 10-12)
-- **P2 (T037-T045)**: 5-7 hours
-- **P3 (T046-T053)**: 5.5-6.5 hours
-- **P4 (T054-T058)**: 5-8 hours
-
-**Total Estimated Effort**: 38.5-52.5 hours (was 32-43.5 hours)  
+- **Foundation (T001-T007)**
+- **P0 (T008-T019, T059-T067)**
+- **P1 (T020-T036, T068-T074)**
+- **P2 (T037-T045)**
+- **P3 (T046-T053)**
+- **P4 (T054-T058)**  
 **Timeline**: 1.5-2.5 weeks (part-time) or 6-8 days (full-time)
 
 ---
