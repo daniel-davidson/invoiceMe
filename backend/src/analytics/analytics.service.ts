@@ -1,7 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
-import { VendorAnalyticsDto, OverallAnalyticsDto } from './dto/analytics-response.dto';
+import {
+  VendorAnalyticsDto,
+  OverallAnalyticsDto,
+} from './dto/analytics-response.dto';
 
 @Injectable()
 export class AnalyticsService {
@@ -16,8 +19,14 @@ export class AnalyticsService {
   private getMonthLabels(referenceDate: Date): string[] {
     const labels: string[] = [];
     for (let i = 11; i >= 0; i--) {
-      const date = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
-      labels.push(date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+      const date = new Date(
+        referenceDate.getFullYear(),
+        referenceDate.getMonth() - i,
+        1,
+      );
+      labels.push(
+        date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      );
     }
     return labels;
   }
@@ -25,8 +34,19 @@ export class AnalyticsService {
   private getMonthRanges(referenceDate: Date): { start: Date; end: Date }[] {
     const ranges: { start: Date; end: Date }[] = [];
     for (let i = 11; i >= 0; i--) {
-      const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
-      const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i + 1, 0, 23, 59, 59);
+      const start = new Date(
+        referenceDate.getFullYear(),
+        referenceDate.getMonth() - i,
+        1,
+      );
+      const end = new Date(
+        referenceDate.getFullYear(),
+        referenceDate.getMonth() - i + 1,
+        0,
+        23,
+        59,
+        59,
+      );
       ranges.push({ start, end });
     }
     return ranges;
@@ -80,7 +100,7 @@ export class AnalyticsService {
     month?: number,
   ): Promise<VendorAnalyticsDto> {
     const startTime = Date.now();
-    
+
     const vendor = await this.prisma.vendor.findFirst({
       where: { id: vendorId, tenantId },
     });
@@ -92,7 +112,7 @@ export class AnalyticsService {
     // If year/month not provided, use current date
     // If year provided without month, use latest month in that year with data
     let referenceDate: Date;
-    
+
     if (year && month) {
       // Specific year and month provided
       referenceDate = new Date(year, month - 1, 1); // month is 1-12, Date expects 0-11
@@ -116,9 +136,17 @@ export class AnalyticsService {
       referenceDate = new Date();
     }
 
-    const startOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
+    const startOfMonth = new Date(
+      referenceDate.getFullYear(),
+      referenceDate.getMonth(),
+      1,
+    );
     const startOfYear = new Date(referenceDate.getFullYear(), 0, 1);
-    const twelveMonthsAgo = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 11, 1);
+    const twelveMonthsAgo = new Date(
+      referenceDate.getFullYear(),
+      referenceDate.getMonth() - 11,
+      1,
+    );
 
     // Current month spend
     const currentMonthResult = await this.prisma.invoice.aggregate({
@@ -130,8 +158,9 @@ export class AnalyticsService {
       _sum: { normalizedAmount: true, originalAmount: true },
     });
     // Fallback to originalAmount if normalizedAmount is null (FX conversion failed)
-    const currentMonthSpend = this.toNumber(currentMonthResult._sum.normalizedAmount) 
-      || this.toNumber(currentMonthResult._sum.originalAmount);
+    const currentMonthSpend =
+      this.toNumber(currentMonthResult._sum.normalizedAmount) ||
+      this.toNumber(currentMonthResult._sum.originalAmount);
 
     // Monthly average (last 12 months)
     const last12MonthsResult = await this.prisma.invoice.aggregate({
@@ -142,8 +171,9 @@ export class AnalyticsService {
       },
       _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const total12Months = this.toNumber(last12MonthsResult._sum.normalizedAmount) 
-      || this.toNumber(last12MonthsResult._sum.originalAmount);
+    const total12Months =
+      this.toNumber(last12MonthsResult._sum.normalizedAmount) ||
+      this.toNumber(last12MonthsResult._sum.originalAmount);
     const monthlyAverage = total12Months / 12;
 
     // Yearly average
@@ -155,11 +185,16 @@ export class AnalyticsService {
       },
       _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const yearlyAverage = this.toNumber(yearlyResult._sum.normalizedAmount) 
-      || this.toNumber(yearlyResult._sum.originalAmount);
+    const yearlyAverage =
+      this.toNumber(yearlyResult._sum.normalizedAmount) ||
+      this.toNumber(yearlyResult._sum.originalAmount);
 
-    const monthlyLimit = vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null;
-    const limitUtilization = monthlyLimit ? (currentMonthSpend / monthlyLimit) * 100 : null;
+    const monthlyLimit = vendor.monthlyLimit
+      ? Number(vendor.monthlyLimit)
+      : null;
+    const limitUtilization = monthlyLimit
+      ? (currentMonthSpend / monthlyLimit) * 100
+      : null;
 
     // Line chart data (12 months ending with reference month)
     const monthRanges = this.getMonthRanges(referenceDate);
@@ -174,13 +209,16 @@ export class AnalyticsService {
         },
         _sum: { normalizedAmount: true, originalAmount: true },
       });
-      const amount = this.toNumber(result._sum.normalizedAmount) 
-        || this.toNumber(result._sum.originalAmount);
+      const amount =
+        this.toNumber(result._sum.normalizedAmount) ||
+        this.toNumber(result._sum.originalAmount);
       monthlyData.push(amount);
     }
 
     const duration = Date.now() - startTime;
-    this.logger.log(`[AnalyticsService] Vendor analytics query took ${duration}ms`);
+    this.logger.log(
+      `[AnalyticsService] Vendor analytics query took ${duration}ms`,
+    );
 
     return {
       vendorId,
@@ -217,18 +255,18 @@ export class AnalyticsService {
 
   async getOverallAnalytics(tenantId: string): Promise<OverallAnalyticsDto> {
     const startTime = Date.now();
-    
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
     // Total spend current month
     const totalSpendResult = await this.prisma.invoice.aggregate({
       where: { tenantId, invoiceDate: { gte: startOfMonth } },
       _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const totalSpend = this.toNumber(totalSpendResult._sum.normalizedAmount) 
-      || this.toNumber(totalSpendResult._sum.originalAmount);
+    const totalSpend =
+      this.toNumber(totalSpendResult._sum.normalizedAmount) ||
+      this.toNumber(totalSpendResult._sum.originalAmount);
 
     // Total limits (v2.0: monthlyLimit is always set, no need to check for null)
     const limitsResult = await this.prisma.vendor.aggregate({
@@ -252,20 +290,27 @@ export class AnalyticsService {
       take: 5,
     });
 
-    const vendorIds = topVendors.map((v) => v.vendorId).filter((id): id is string => id !== null);
+    const vendorIds = topVendors
+      .map((v) => v.vendorId)
+      .filter((id): id is string => id !== null);
     const vendors = await this.prisma.vendor.findMany({
       where: { id: { in: vendorIds } },
     });
 
     const totalAllSpend = topVendors.reduce(
-      (sum, v) => sum + (this.toNumber(v._sum.normalizedAmount) || this.toNumber(v._sum.originalAmount)),
+      (sum, v) =>
+        sum +
+        (this.toNumber(v._sum.normalizedAmount) ||
+          this.toNumber(v._sum.originalAmount)),
       0,
     );
 
     const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
     const segments = topVendors.map((v, i) => {
       const vendor = vendors.find((vn) => vn.id === v.vendorId);
-      const value = this.toNumber(v._sum.normalizedAmount) || this.toNumber(v._sum.originalAmount);
+      const value =
+        this.toNumber(v._sum.normalizedAmount) ||
+        this.toNumber(v._sum.originalAmount);
       return {
         label: vendor?.name || 'Unknown',
         value,
@@ -286,13 +331,16 @@ export class AnalyticsService {
         },
         _sum: { normalizedAmount: true, originalAmount: true },
       });
-      const amount = this.toNumber(result._sum.normalizedAmount) 
-        || this.toNumber(result._sum.originalAmount);
+      const amount =
+        this.toNumber(result._sum.normalizedAmount) ||
+        this.toNumber(result._sum.originalAmount);
       monthlyData.push(amount);
     }
 
     const duration = Date.now() - startTime;
-    this.logger.log(`[AnalyticsService] Overall analytics query took ${duration}ms`);
+    this.logger.log(
+      `[AnalyticsService] Overall analytics query took ${duration}ms`,
+    );
 
     return {
       kpis: {
@@ -321,7 +369,11 @@ export class AnalyticsService {
     };
   }
 
-  async updateVendorLimit(tenantId: string, vendorId: string, monthlyLimit: number) {
+  async updateVendorLimit(
+    tenantId: string,
+    vendorId: string,
+    monthlyLimit: number,
+  ) {
     const vendor = await this.prisma.vendor.findFirst({
       where: { id: vendorId, tenantId },
     });
@@ -346,25 +398,25 @@ export class AnalyticsService {
    */
   async exportVendorCsv(tenantId: string, vendorId: string): Promise<string> {
     const analytics = await this.getVendorAnalytics(tenantId, vendorId);
-    
+
     // CSV header
     let csv = 'Month,Spend,Monthly Limit,Utilization %\n';
-    
+
     // CSV rows (combine labels and data)
     const labels = analytics.lineChart.labels;
     const data = analytics.lineChart.datasets[0].data;
-    
+
     for (let i = 0; i < labels.length; i++) {
       const month = labels[i];
       const spend = data[i].toFixed(2);
       const limit = analytics.kpis.monthlyLimit?.toFixed(2) || '';
-      const utilization = analytics.kpis.monthlyLimit 
+      const utilization = analytics.kpis.monthlyLimit
         ? ((data[i] / analytics.kpis.monthlyLimit) * 100).toFixed(1)
         : '';
-      
+
       csv += `${month},${spend},${limit},${utilization}\n`;
     }
-    
+
     return csv;
   }
 
@@ -372,8 +424,6 @@ export class AnalyticsService {
    * Export overall analytics as CSV
    */
   async exportOverallCsv(tenantId: string): Promise<string> {
-    const analytics = await this.getOverallAnalytics(tenantId);
-    
     // Get detailed vendor data
     const vendors = await this.prisma.vendor.findMany({
       where: { tenantId },
@@ -394,29 +444,35 @@ export class AnalyticsService {
           where: { tenantId, vendorId: vendor.id },
           _sum: { normalizedAmount: true, originalAmount: true },
         });
-        const totalSpend = this.toNumber(result._sum.normalizedAmount) 
-          || this.toNumber(result._sum.originalAmount);
+        const totalSpend =
+          this.toNumber(result._sum.normalizedAmount) ||
+          this.toNumber(result._sum.originalAmount);
         return {
           name: vendor.name,
           totalSpend,
           invoiceCount: vendor._count.invoices,
-          monthlyLimit: vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null,
+          monthlyLimit: vendor.monthlyLimit
+            ? Number(vendor.monthlyLimit)
+            : null,
           latestInvoice: vendor.invoices[0]?.invoiceDate || null,
         };
       }),
     );
 
     // CSV header
-    let csv = 'Business,Total Spend,Invoice Count,Monthly Limit,Latest Invoice\n';
-    
+    let csv =
+      'Business,Total Spend,Invoice Count,Monthly Limit,Latest Invoice\n';
+
     // CSV rows (sorted by spend descending)
     vendorSpends
       .sort((a, b) => b.totalSpend - a.totalSpend)
       .forEach((v) => {
-        const latestDate = v.latestInvoice ? v.latestInvoice.toISOString().split('T')[0] : '';
+        const latestDate = v.latestInvoice
+          ? v.latestInvoice.toISOString().split('T')[0]
+          : '';
         csv += `"${v.name}",${v.totalSpend.toFixed(2)},${v.invoiceCount},${v.monthlyLimit?.toFixed(2) || ''},${latestDate}\n`;
       });
-    
+
     return csv;
   }
 }

@@ -15,12 +15,6 @@ final navigatorKeyProvider = Provider<GlobalKey<NavigatorState>>((ref) {
   return navigatorKey;
 });
 
-// Session Manager provider with navigator key
-final sessionManagerProviderOverride = Provider<SessionManager>((ref) {
-  final navKey = ref.watch(navigatorKeyProvider);
-  return SessionManager(ref: ref, navigatorKey: navKey);
-});
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -39,7 +33,10 @@ void main() async {
         sharedPreferencesProvider.overrideWithValue(sharedPreferences),
         navigatorKeyProvider.overrideWithValue(navigatorKey),
         // Override sessionManagerProvider with the implementation that has navigator key
-        sessionManagerProvider.overrideWith((ref) => sessionManagerProviderOverride(ref)),
+        sessionManagerProvider.overrideWith((ref) {
+          final navKey = ref.watch(navigatorKeyProvider);
+          return SessionManager(ref: ref, navigatorKey: navKey);
+        }),
         // Override sessionManagerAuthProvider with the actual auth notifier
         sessionManagerAuthProvider.overrideWith((ref) => ref.read(authStateProvider.notifier)),
       ],
