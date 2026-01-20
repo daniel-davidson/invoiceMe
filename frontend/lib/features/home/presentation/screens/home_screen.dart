@@ -9,6 +9,26 @@ import 'package:frontend/features/home/presentation/providers/home_provider.dart
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  /// Map upload stage to user-friendly text
+  String _getUploadStageText(UploadStage stage) {
+    switch (stage) {
+      case UploadStage.idle:
+        return 'Ready';
+      case UploadStage.uploading:
+        return 'Uploading file...';
+      case UploadStage.ocr:
+        return 'Processing OCR...';
+      case UploadStage.extracting:
+        return 'Extracting data...';
+      case UploadStage.saving:
+        return 'Saving invoice...';
+      case UploadStage.complete:
+        return 'Complete!';
+      case UploadStage.error:
+        return 'Error';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorsState = ref.watch(vendorsProvider);
@@ -166,7 +186,7 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
         ),
-        // Upload overlay
+        // Upload overlay with stage-based progress
         if (uploadState.isUploading)
           Container(
             color: Colors.black54,
@@ -180,13 +200,24 @@ class HomeScreen extends ConsumerWidget {
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
                       Text(
-                        uploadState.progress != null
-                            ? 'Uploading... ${(uploadState.progress! * 100).toInt()}%'
-                            : 'Processing invoice...',
+                        _getUploadStageText(uploadState.uploadStage),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
-                      const Text('This may take a moment for OCR processing'),
+                      if (uploadState.progress != null &&
+                          uploadState.uploadStage == UploadStage.uploading) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${(uploadState.progress! * 100).toInt()}%',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ],
+                      if (uploadState.uploadStage != UploadStage.uploading) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'This may take a moment',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -253,31 +284,33 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   title: const Text('Delete Business?'),
                   content: const Text(
                     'This will also delete all related invoices.',
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(dialogContext, false),
                       child: const Text('Cancel'),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                       ),
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () => Navigator.pop(dialogContext, true),
                       child: const Text('Delete'),
                     ),
                   ],
                 ),
               );
-              if (confirmed == true) {
+              if (confirmed == true && context.mounted) {
+                // Close the edit dialog first
+                Navigator.pop(context);
+                // Then delete the vendor
                 await ref
                     .read(vendorsProvider.notifier)
                     .deleteVendor(vendor.id);
-                if (context.mounted) Navigator.pop(context);
               }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -320,16 +353,6 @@ class HomeScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _UploadOption(
-                    icon: Icons.camera_alt,
-                    label: 'Camera',
-                    onTap: () async {
-                      Navigator.pop(context);
-                      await ref
-                          .read(vendorsProvider.notifier)
-                          .uploadFromCamera();
-                    },
-                  ),
                   _UploadOption(
                     icon: Icons.photo_library,
                     label: 'Gallery',

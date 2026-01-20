@@ -148,11 +148,8 @@ class VendorAnalyticsNotifier
     }
   }
 
-  Future<void> exportCsv() async {
-    try {
-      await _apiClient.download('/export/analytics?vendorId=$_vendorId');
-    } catch (e) {
-      // Handle error
-    }
+  Future<String> exportCsv() async {
+    // T072-ALT: Export feature deferred to future release
+    return 'Export feature coming soon';
   }
 }

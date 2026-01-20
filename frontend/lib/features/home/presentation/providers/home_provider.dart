@@ -6,6 +6,17 @@ import 'package:image_picker/image_picker.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
+/// Upload stages for progress indication
+enum UploadStage {
+  idle,
+  uploading,
+  ocr,
+  extracting,
+  saving,
+  complete,
+  error,
+}
+
 class LatestInvoice {
   final String id;
   final String? name;
@@ -85,12 +96,14 @@ class UploadState {
   final String? error;
   final String? successMessage;
   final double? progress;
+  final UploadStage uploadStage;
 
   const UploadState({
     this.isUploading = false,
     this.error,
     this.successMessage,
     this.progress,
+    this.uploadStage = UploadStage.idle,
   });
 }
 
@@ -152,24 +165,7 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
     }
   }
 
-  Future<void> uploadFromCamera() async {
-    if (kIsWeb) {
-      _setError('Camera is not available on web. Use Gallery or PDF.');
-      return;
-    }
-    
-    try {
-      _setUploading(true);
-      final XFile? image = await _imagePicker.pickImage(source: ImageSource.camera);
-      if (image != null) {
-        await _uploadFileFromPath(image.path, image.name);
-      }
-    } catch (e) {
-      _setError('Failed to pick image: $e');
-    } finally {
-      _setUploading(false);
-    }
-  }
+  // Camera upload removed per FLOW_CONTRACT v2.0 - gallery and PDF only
 
   Future<void> uploadFromGallery() async {
     try {
@@ -235,18 +231,57 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
   }
 
   Future<void> _uploadFileFromPath(String path, String name) async {
+    final uploadStartTime = DateTime.now();
     try {
+      print('[HomeProvider] Upload started at ${uploadStartTime.toIso8601String()}');
+      
+      // Stage 1: Uploading file
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.uploading,
+      );
+      
+      final requestSentTime = DateTime.now();
+      // IMPORTANT: Do NOT pass vendorId - let backend extract and match vendor automatically
       final response = await _apiClient.uploadFile(
         '/invoices/upload',
         path,
         name,
+        data: {}, // Explicitly empty data - no vendorId override
         onSendProgress: (sent, total) {
           _ref.read(uploadStateProvider.notifier).state = UploadState(
             isUploading: true,
             progress: sent / total,
+            uploadStage: UploadStage.uploading,
           );
         },
       );
+      
+      // Simulate stage transitions for visibility (backend processes happen on server)
+      // Stage 2: OCR
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.ocr,
+      );
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Stage 3: Extracting
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.extracting,
+      );
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Stage 4: Saving
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.saving,
+      );
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      final responseReceivedTime = DateTime.now();
+      final requestDuration = responseReceivedTime.difference(requestSentTime).inMilliseconds;
+      print('[HomeProvider] Request completed in ${requestDuration}ms');
       
       // Extract vendor name from response
       final vendorName = response.data['vendor']?['name'] ?? 'Unknown vendor';
@@ -255,10 +290,15 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
       // Reload vendors to get updated invoice counts
       await loadVendors();
       
-      // Set success message
-      _ref.read(uploadStateProvider.notifier).state = UploadState(
-        error: null, // Using error field for success message
+      // Stage 5: Complete
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: false,
+        uploadStage: UploadStage.complete,
       );
+      
+      final renderCompleteTime = DateTime.now();
+      final totalDuration = renderCompleteTime.difference(uploadStartTime).inMilliseconds;
+      print('[HomeProvider] Upload took ${totalDuration}ms total (request: ${requestDuration}ms, reload: ${renderCompleteTime.difference(responseReceivedTime).inMilliseconds}ms)');
       
       // Show success message with details
       _setSuccessMessage(
@@ -267,23 +307,70 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
           : 'Invoice uploaded successfully for $vendorName!'
       );
     } catch (e) {
-      _setError('Upload failed: $e');
+      final errorTime = DateTime.now();
+      final totalDuration = errorTime.difference(uploadStartTime).inMilliseconds;
+      print('[HomeProvider] Upload failed after ${totalDuration}ms: $e');
+      
+      _ref.read(uploadStateProvider.notifier).state = UploadState(
+        isUploading: false,
+        uploadStage: UploadStage.error,
+        error: 'Upload failed: $e',
+      );
     }
   }
 
   Future<void> _uploadFileFromBytes(Uint8List bytes, String name) async {
+    final uploadStartTime = DateTime.now();
     try {
+      print('[HomeProvider] Upload started at ${uploadStartTime.toIso8601String()}');
+      
+      // Stage 1: Uploading file
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.uploading,
+      );
+      
+      final requestSentTime = DateTime.now();
+      // IMPORTANT: Do NOT pass vendorId - let backend extract and match vendor automatically
       final response = await _apiClient.uploadFileBytes(
         '/invoices/upload',
         bytes,
         name,
+        data: {}, // Explicitly empty data - no vendorId override
         onSendProgress: (sent, total) {
           _ref.read(uploadStateProvider.notifier).state = UploadState(
             isUploading: true,
             progress: sent / total,
+            uploadStage: UploadStage.uploading,
           );
         },
       );
+      
+      // Simulate stage transitions for visibility (backend processes happen on server)
+      // Stage 2: OCR
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.ocr,
+      );
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Stage 3: Extracting
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.extracting,
+      );
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Stage 4: Saving
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: true,
+        uploadStage: UploadStage.saving,
+      );
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      final responseReceivedTime = DateTime.now();
+      final requestDuration = responseReceivedTime.difference(requestSentTime).inMilliseconds;
+      print('[HomeProvider] Request completed in ${requestDuration}ms');
       
       // Extract vendor name from response
       final vendorName = response.data['vendor']?['name'] ?? 'Unknown vendor';
@@ -292,6 +379,16 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
       // Reload vendors to get updated invoice counts
       await loadVendors();
       
+      // Stage 5: Complete
+      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+        isUploading: false,
+        uploadStage: UploadStage.complete,
+      );
+      
+      final renderCompleteTime = DateTime.now();
+      final totalDuration = renderCompleteTime.difference(uploadStartTime).inMilliseconds;
+      print('[HomeProvider] Upload took ${totalDuration}ms total (request: ${requestDuration}ms, reload: ${renderCompleteTime.difference(responseReceivedTime).inMilliseconds}ms)');
+      
       // Show success message with details
       _setSuccessMessage(
         needsReview 
@@ -299,25 +396,36 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
           : 'Invoice uploaded successfully for $vendorName!'
       );
     } catch (e) {
-      _setError('Upload failed: $e');
+      final errorTime = DateTime.now();
+      final totalDuration = errorTime.difference(uploadStartTime).inMilliseconds;
+      print('[HomeProvider] Upload failed after ${totalDuration}ms: $e');
+      
+      _ref.read(uploadStateProvider.notifier).state = UploadState(
+        isUploading: false,
+        uploadStage: UploadStage.error,
+        error: 'Upload failed: $e',
+      );
     }
   }
 
   void _setUploading(bool uploading) {
     _ref.read(uploadStateProvider.notifier).state = UploadState(
       isUploading: uploading,
+      uploadStage: uploading ? UploadStage.uploading : UploadStage.idle,
     );
   }
 
   void _setError(String error) {
     _ref.read(uploadStateProvider.notifier).state = UploadState(
       error: error,
+      uploadStage: UploadStage.error,
     );
   }
 
   void _setSuccessMessage(String message) {
     _ref.read(uploadStateProvider.notifier).state = UploadState(
       successMessage: message,
+      uploadStage: UploadStage.complete,
     );
   }
 }
