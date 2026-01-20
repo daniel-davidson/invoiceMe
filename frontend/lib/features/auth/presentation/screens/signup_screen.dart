@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:currency_picker/currency_picker.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 import 'package:frontend/shared/widgets/loading_indicator.dart';
+import 'package:frontend/core/utils/responsive.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -87,142 +88,142 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Create account',
-                  style: Theme.of(context).textTheme.displayLarge,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start managing your invoices today',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 32),
-                TextFormField(
-                  controller: _fullNameController,
-                  textCapitalization: TextCapitalization.words,
-                  enabled: !isLoading,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person_outlined),
+          child: ResponsivePageContainer(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Create account',
+                    style: Theme.of(context).textTheme.displayLarge,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  enabled: !isLoading,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Start managing your invoices today',
+                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Please enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  enabled: !isLoading,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _personalIdController,
-                  enabled: !isLoading,
-                  decoration: const InputDecoration(
-                    labelText: 'Personal/Business ID (Optional)',
-                    prefixIcon: Icon(Icons.badge_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: isLoading ? null : _showCurrencyPicker,
-                  child: InputDecorator(
+                  const SizedBox(height: 32),
+                  TextFormField(
+                    controller: _fullNameController,
+                    textCapitalization: TextCapitalization.words,
+                    enabled: !isLoading,
                     decoration: const InputDecoration(
-                      labelText: 'System Currency',
-                      prefixIcon: Icon(Icons.attach_money),
+                      labelText: 'Full Name',
+                      prefixIcon: Icon(Icons.person_outlined),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_selectedCurrency),
-                        const Icon(Icons.arrow_drop_down),
-                      ],
-                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your name';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : _handleSignup,
-                    child: isLoading
-                        ? const LoadingIndicator(size: 24, color: Colors.white)
-                        : const Text('Create Account'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Already have an account? ',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    enabled: !isLoading,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email_outlined),
                     ),
-                    GestureDetector(
-                      onTap: isLoading ? null : () => context.push('/login'),
-                      child: Text(
-                        'Login',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!value.contains('@')) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    enabled: !isLoading,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: const Icon(Icons.lock_outlined),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                        },
                       ),
                     ),
-                  ],
-                ),
-              ],
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a password';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _personalIdController,
+                    enabled: !isLoading,
+                    decoration: const InputDecoration(
+                      labelText: 'Personal/Business ID (Optional)',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: isLoading ? null : _showCurrencyPicker,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'System Currency',
+                        prefixIcon: Icon(Icons.attach_money),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(_selectedCurrency),
+                          const Icon(Icons.arrow_drop_down),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  ResponsiveButton(
+                    button: ElevatedButton(
+                      onPressed: isLoading ? null : _handleSignup,
+                      child: isLoading
+                          ? const LoadingIndicator(size: 24, color: Colors.white)
+                          : const Text('Create Account'),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Already have an account? ',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      GestureDetector(
+                        onTap: isLoading ? null : () => context.push('/login'),
+                        child: Text(
+                          'Login',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

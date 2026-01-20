@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
+import 'package:frontend/core/utils/responsive.dart';
 
 class AssignBusinessModal extends ConsumerStatefulWidget {
   final String invoiceId;
@@ -164,15 +165,11 @@ class _AssignBusinessModalState extends ConsumerState<AssignBusinessModal> {
   Widget build(BuildContext context) {
     final vendorsAsync = ref.watch(vendorsProvider);
 
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 500),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return ResponsiveDialog(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
               Text(
                 'Assign Invoice to Business',
                 style: Theme.of(context).textTheme.headlineSmall,
@@ -323,11 +320,9 @@ class _AssignBusinessModalState extends ConsumerState<AssignBusinessModal> {
                           )
                         : const Text('Confirm'),
                   ),
-                ],
-              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

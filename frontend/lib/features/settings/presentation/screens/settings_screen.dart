@@ -5,6 +5,7 @@ import 'package:currency_picker/currency_picker.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 import 'package:frontend/features/settings/presentation/providers/settings_provider.dart';
+import 'package:frontend/core/utils/responsive.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -25,9 +26,9 @@ class SettingsScreen extends ConsumerWidget {
             return const Center(child: Text('Not logged in'));
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+          return ResponsivePageContainer(
+            child: ListView(
+              children: [
               // Profile Section
               Text(
                 'Profile',
@@ -103,9 +104,8 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: null,
               ),
               const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
+              ResponsiveButton(
+                button: OutlinedButton.icon(
                   onPressed: () async {
                     await ref.read(authStateProvider.notifier).signOut();
                     if (context.mounted) {
@@ -120,7 +120,8 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ],
-          );
+          ),
+        );
         },
       ),
     );
