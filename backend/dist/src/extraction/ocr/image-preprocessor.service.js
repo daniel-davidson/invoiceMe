@@ -31,10 +31,7 @@ let ImagePreprocessorService = ImagePreprocessorService_1 = class ImagePreproces
             processed = processed.normalize();
             processed = processed.sharpen({ sigma: 0.7 });
             processed = processed.linear(1.3, -(128 * 0.3));
-            const standardBuffer = await processed
-                .threshold(128)
-                .png()
-                .toBuffer();
+            const standardBuffer = await processed.threshold(128).png().toBuffer();
             const noLinesBuffer = await this.removeTableLines(processed);
             const duration = Date.now() - startTime;
             this.logger.log(`[ImagePreprocessor] Preprocessing completed in ${duration}ms ` +
@@ -93,9 +90,7 @@ let ImagePreprocessorService = ImagePreprocessorService_1 = class ImagePreproces
     }
     async removeTableLines(image) {
         try {
-            const binarized = await image
-                .threshold(128)
-                .toBuffer();
+            const binarized = await image.threshold(128).toBuffer();
             const withoutLines = await (0, sharp_1.default)(binarized)
                 .blur(0.5)
                 .threshold(140)

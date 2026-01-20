@@ -94,7 +94,8 @@ let InsightsService = class InsightsService {
                 title = 'Spending Anomalies';
                 break;
         }
-        if (!metrics || (Array.isArray(metrics.detected) && metrics.detected.length === 0) ||
+        if (!metrics ||
+            (Array.isArray(metrics.detected) && metrics.detected.length === 0) ||
             (Array.isArray(metrics.items) && metrics.items.length === 0)) {
             return null;
         }
@@ -122,7 +123,10 @@ let InsightsService = class InsightsService {
                 _sum: { normalizedAmount: true },
             }),
             this.prisma.invoice.aggregate({
-                where: { tenantId, invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } },
+                where: {
+                    tenantId,
+                    invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+                },
                 _sum: { normalizedAmount: true },
             }),
         ]);
@@ -147,7 +151,10 @@ let InsightsService = class InsightsService {
         });
         const previousByVendor = await this.prisma.invoice.groupBy({
             by: ['vendorId'],
-            where: { tenantId, invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } },
+            where: {
+                tenantId,
+                invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+            },
             _sum: { normalizedAmount: true },
         });
         let maxChange = 0;
@@ -155,7 +162,9 @@ let InsightsService = class InsightsService {
         for (const current of currentByVendor) {
             const previous = previousByVendor.find((p) => p.vendorId === current.vendorId);
             const currentAmount = this.toNumber(current._sum.normalizedAmount);
-            const previousAmount = previous ? this.toNumber(previous._sum.normalizedAmount) : 0;
+            const previousAmount = previous
+                ? this.toNumber(previous._sum.normalizedAmount)
+                : 0;
             const change = currentAmount - previousAmount;
             if (current.vendorId && Math.abs(change) > Math.abs(maxChange)) {
                 maxChange = change;
@@ -164,7 +173,9 @@ let InsightsService = class InsightsService {
         }
         if (!topVendorId)
             return null;
-        const vendor = await this.prisma.vendor.findUnique({ where: { id: topVendorId } });
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: topVendorId },
+        });
         return {
             name: vendor?.name || 'Unknown',
             change: Math.round(maxChange * 100) / 100,
@@ -197,7 +208,7 @@ let InsightsService = class InsightsService {
             vendor: p.vendor,
             amount: p.amount,
             frequency: 'monthly',
-            confidence: Math.min(0.95, 0.7 + (p.count * 0.05)),
+            confidence: Math.min(0.95, 0.7 + p.count * 0.05),
         }))
             .slice(0, 5);
         return { detected };
@@ -227,7 +238,9 @@ let InsightsService = class InsightsService {
                     category: 'duplicate',
                     invoiceIds: ids,
                     vendor: invoice?.vendor?.name || 'Unassigned',
-                    amount: invoice?.originalAmount ? this.toNumber(invoice.originalAmount) : 0,
+                    amount: invoice?.originalAmount
+                        ? this.toNumber(invoice.originalAmount)
+                        : 0,
                     action: 'Review for potential double-charge',
                 });
             }

@@ -1,8 +1,8 @@
 /**
  * Tenant Isolation E2E Test
- * 
+ *
  * Verifies that users cannot access each other's data across the API.
- * 
+ *
  * Test Scenario:
  * 1. Create 2 test users (Tenant A & Tenant B)
  * 2. Each tenant creates vendors and uploads invoices
@@ -40,10 +40,12 @@ describe('Tenant Isolation (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
+
     await app.init();
-    
+
     prisma = app.get<PrismaService>(PrismaService);
 
     // Create test users
@@ -76,11 +78,11 @@ describe('Tenant Isolation (e2e)', () => {
     await prisma.invoice.deleteMany({
       where: { tenantId: { in: [tenantA, tenantB] } },
     });
-    
+
     await prisma.vendor.deleteMany({
       where: { tenantId: { in: [tenantA, tenantB] } },
     });
-    
+
     await prisma.user.deleteMany({
       where: { id: { in: [tenantA, tenantB] } },
     });
@@ -113,14 +115,14 @@ describe('Tenant Isolation (e2e)', () => {
       expect(response.body.tenantId).toBe(tenantB);
     });
 
-    it('Tenant A cannot access Tenant B\'s vendor', async () => {
+    it("Tenant A cannot access Tenant B's vendor", async () => {
       await request(app.getHttpServer())
         .get(`/vendors/${vendorBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(404); // Not found (due to tenant scoping)
     });
 
-    it('Tenant B cannot access Tenant A\'s vendor', async () => {
+    it("Tenant B cannot access Tenant A's vendor", async () => {
       await request(app.getHttpServer())
         .get(`/vendors/${vendorAId}`)
         .set('Authorization', `Bearer ${tokenB}`)
@@ -149,7 +151,7 @@ describe('Tenant Isolation (e2e)', () => {
       expect(response.body[0].name).toBe('Vendor B');
     });
 
-    it('Tenant A cannot update Tenant B\'s vendor', async () => {
+    it("Tenant A cannot update Tenant B's vendor", async () => {
       await request(app.getHttpServer())
         .patch(`/vendors/${vendorBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
@@ -157,18 +159,22 @@ describe('Tenant Isolation (e2e)', () => {
         .expect(404);
 
       // Verify vendor B is unchanged
-      const vendor = await prisma.vendor.findUnique({ where: { id: vendorBId } });
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: vendorBId },
+      });
       expect(vendor?.name).toBe('Vendor B');
     });
 
-    it('Tenant A cannot delete Tenant B\'s vendor', async () => {
+    it("Tenant A cannot delete Tenant B's vendor", async () => {
       await request(app.getHttpServer())
         .delete(`/vendors/${vendorBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
 
       // Verify vendor B still exists
-      const vendor = await prisma.vendor.findUnique({ where: { id: vendorBId } });
+      const vendor = await prisma.vendor.findUnique({
+        where: { id: vendorBId },
+      });
       expect(vendor).not.toBeNull();
     });
   });
@@ -205,14 +211,14 @@ describe('Tenant Isolation (e2e)', () => {
       invoiceBId = invoiceB.id;
     });
 
-    it('Tenant A cannot access Tenant B\'s invoice', async () => {
+    it("Tenant A cannot access Tenant B's invoice", async () => {
       await request(app.getHttpServer())
         .get(`/invoices/${invoiceBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
     });
 
-    it('Tenant B cannot access Tenant A\'s invoice', async () => {
+    it("Tenant B cannot access Tenant A's invoice", async () => {
       await request(app.getHttpServer())
         .get(`/invoices/${invoiceAId}`)
         .set('Authorization', `Bearer ${tokenB}`)
@@ -239,7 +245,7 @@ describe('Tenant Isolation (e2e)', () => {
       expect(response.body.data[0].id).toBe(invoiceBId);
     });
 
-    it('Tenant A cannot update Tenant B\'s invoice', async () => {
+    it("Tenant A cannot update Tenant B's invoice", async () => {
       await request(app.getHttpServer())
         .patch(`/invoices/${invoiceBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
@@ -247,18 +253,22 @@ describe('Tenant Isolation (e2e)', () => {
         .expect(404);
 
       // Verify invoice B is unchanged
-      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceBId } });
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceBId },
+      });
       expect(invoice?.name).toBe('Invoice B');
     });
 
-    it('Tenant A cannot delete Tenant B\'s invoice', async () => {
+    it("Tenant A cannot delete Tenant B's invoice", async () => {
       await request(app.getHttpServer())
         .delete(`/invoices/${invoiceBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
 
       // Verify invoice B still exists
-      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceBId } });
+      const invoice = await prisma.invoice.findUnique({
+        where: { id: invoiceBId },
+      });
       expect(invoice).not.toBeNull();
     });
   });
@@ -288,14 +298,14 @@ describe('Tenant Isolation (e2e)', () => {
       expect(response.body.kpis.totalSpend).toBeCloseTo(750, 2);
     });
 
-    it('Tenant A cannot access Tenant B\'s vendor analytics', async () => {
+    it("Tenant A cannot access Tenant B's vendor analytics", async () => {
       await request(app.getHttpServer())
         .get(`/analytics/vendor/${vendorBId}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
     });
 
-    it('Tenant B cannot access Tenant A\'s vendor analytics', async () => {
+    it("Tenant B cannot access Tenant A's vendor analytics", async () => {
       await request(app.getHttpServer())
         .get(`/analytics/vendor/${vendorAId}`)
         .set('Authorization', `Bearer ${tokenB}`)
@@ -304,7 +314,7 @@ describe('Tenant Isolation (e2e)', () => {
   });
 
   describe('Search and Filter Isolation', () => {
-    it('Tenant A search cannot find Tenant B\'s data', async () => {
+    it("Tenant A search cannot find Tenant B's data", async () => {
       const response = await request(app.getHttpServer())
         .get('/invoices?search=Invoice B')
         .set('Authorization', `Bearer ${tokenA}`)
@@ -313,7 +323,7 @@ describe('Tenant Isolation (e2e)', () => {
       expect(response.body.data).toHaveLength(0);
     });
 
-    it('Tenant B search cannot find Tenant A\'s data', async () => {
+    it("Tenant B search cannot find Tenant A's data", async () => {
       const response = await request(app.getHttpServer())
         .get('/invoices?search=Invoice A')
         .set('Authorization', `Bearer ${tokenB}`)
@@ -322,7 +332,7 @@ describe('Tenant Isolation (e2e)', () => {
       expect(response.body.data).toHaveLength(0);
     });
 
-    it('Filtering by Tenant B\'s vendorId returns nothing for Tenant A', async () => {
+    it("Filtering by Tenant B's vendorId returns nothing for Tenant A", async () => {
       const response = await request(app.getHttpServer())
         .get(`/invoices?vendorId=${vendorBId}`)
         .set('Authorization', `Bearer ${tokenA}`)

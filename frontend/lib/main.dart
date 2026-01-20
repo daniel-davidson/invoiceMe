@@ -7,7 +7,7 @@ import 'package:frontend/core/config/app_config.dart';
 import 'package:frontend/core/auth/session_manager.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
-// Global navigator key for session manager  
+// Global navigator key for session manager
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // Navigator key provider
@@ -17,16 +17,16 @@ final navigatorKeyProvider = Provider<GlobalKey<NavigatorState>>((ref) {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize dependencies in parallel
   final results = await Future.wait([
     SharedPreferences.getInstance(),
     AppConfigService.fetchConfig(),
   ]);
-  
+
   final sharedPreferences = results[0] as SharedPreferences;
   // App config is now cached in AppConfigService.currentConfig
-  
+
   runApp(
     ProviderScope(
       overrides: [
@@ -38,7 +38,9 @@ void main() async {
           return SessionManager(ref: ref, navigatorKey: navKey);
         }),
         // Override sessionManagerAuthProvider with the actual auth notifier
-        sessionManagerAuthProvider.overrideWith((ref) => ref.read(authStateProvider.notifier)),
+        sessionManagerAuthProvider.overrideWith(
+          (ref) => ref.read(authStateProvider.notifier),
+        ),
       ],
       child: const InvoiceMeApp(),
     ),

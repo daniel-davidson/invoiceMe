@@ -33,7 +33,9 @@ let OcrService = OcrService_1 = class OcrService {
     constructor(configService, preprocessor) {
         this.configService = configService;
         this.preprocessor = preprocessor;
-        this.debugMode = process.env.OCR_DEBUG === 'true' || process.env.NODE_ENV === 'development';
+        this.debugMode =
+            process.env.OCR_DEBUG === 'true' ||
+                process.env.NODE_ENV === 'development';
     }
     async onModuleInit() {
         try {
@@ -76,7 +78,7 @@ let OcrService = OcrService_1 = class OcrService {
             /\breceipt\b/gi,
             /\bVAT\b/g,
         ];
-        moneyKeywords.forEach(regex => {
+        moneyKeywords.forEach((regex) => {
             const matches = text.match(regex);
             if (matches) {
                 score += matches.length * 10;
@@ -92,7 +94,7 @@ let OcrService = OcrService_1 = class OcrService {
             /\b\d{4}-\d{2}-\d{2}\b/g,
             /\b\d{1,2}\s+[א-ת]{3,10}\s+\d{4}\b/g,
         ];
-        datePatterns.forEach(regex => {
+        datePatterns.forEach((regex) => {
             const matches = text.match(regex);
             if (matches) {
                 score += matches.length * 3;
@@ -178,7 +180,7 @@ let OcrService = OcrService_1 = class OcrService {
                 this.logger.debug(`[OcrService] OCR Preview:\n${preview}`);
                 const scoreTable = results
                     .sort((a, b) => b.score - a.score)
-                    .map(r => `  psm${r.psm}_${r.variant}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`)
+                    .map((r) => `  psm${r.psm}_${r.variant}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`)
                     .join('\n');
                 this.logger.debug(`[OcrService] All pass scores:\n${scoreTable}`);
             }
@@ -187,7 +189,7 @@ let OcrService = OcrService_1 = class OcrService {
                 chosenPass,
                 chosenScore: bestResult.score,
                 chosenConfidence: bestResult.confidence,
-                allPasses: results.map(r => ({
+                allPasses: results.map((r) => ({
                     psm: r.psm,
                     variant: r.variant,
                     score: r.score,

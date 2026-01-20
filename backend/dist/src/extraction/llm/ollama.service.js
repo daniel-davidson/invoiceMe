@@ -25,8 +25,10 @@ let OllamaService = OllamaService_1 = class OllamaService {
     model;
     constructor(configService) {
         this.configService = configService;
-        const baseURL = this.configService.get('llm.ollamaUrl') || 'http://localhost:11434';
-        this.model = this.configService.get('llm.ollamaModel') || 'llama3.2:3b';
+        const baseURL = this.configService.get('llm.ollamaUrl') ||
+            'http://localhost:11434';
+        this.model =
+            this.configService.get('llm.ollamaModel') || 'llama3.2:3b';
         this.client = axios_1.default.create({
             baseURL,
             timeout: 60000,
@@ -106,7 +108,7 @@ let OllamaService = OllamaService_1 = class OllamaService {
         }
         const lines = ocrText
             .split(/\r?\n/)
-            .map(l => l.trim())
+            .map((l) => l.trim())
             .filter(Boolean);
         const keywordRegex = /(סה["״']?כ|לתשלום|יתרה לתשלום|סכום|מע["״']?מ|VAT|TOTAL|AMOUNT\s+DUE|Invoice|חשבונית|קבלה|מס['״]?|תאריך|Date|קופה)/i;
         let topText = '';
@@ -125,7 +127,7 @@ let OllamaService = OllamaService_1 = class OllamaService {
             bottomText = lines[i] + '\n' + bottomText;
             bottomChars += lines[i].length + 1;
         }
-        const keywordLines = lines.filter(l => keywordRegex.test(l));
+        const keywordLines = lines.filter((l) => keywordRegex.test(l));
         let keywordText = '';
         let keywordChars = 0;
         const remainingSpace = MAX_CHARS - topChars - bottomChars;
@@ -135,10 +137,14 @@ let OllamaService = OllamaService_1 = class OllamaService {
             keywordText += line + '\n';
             keywordChars += line.length + 1;
         }
-        return topText + '\n--- KEYWORD LINES ---\n' + keywordText + '\n--- END ---\n' + bottomText;
+        return (topText +
+            '\n--- KEYWORD LINES ---\n' +
+            keywordText +
+            '\n--- END ---\n' +
+            bottomText);
     }
     extractTotalFallback(ocrText) {
-        const lines = ocrText.split(/\r?\n/).map(l => l.trim());
+        const lines = ocrText.split(/\r?\n/).map((l) => l.trim());
         const totalKeywords = [
             /סה["״']?כ\s*לתשלום/i,
             /לתשלום/i,
@@ -148,12 +154,12 @@ let OllamaService = OllamaService_1 = class OllamaService {
         ];
         const moneyPattern = /(\d{1,10}[.,]\d{2})\b/g;
         for (const line of lines) {
-            const hasKeyword = totalKeywords.some(regex => regex.test(line));
+            const hasKeyword = totalKeywords.some((regex) => regex.test(line));
             if (!hasKeyword)
                 continue;
             const matches = Array.from(line.matchAll(moneyPattern));
             if (matches.length > 0) {
-                const amounts = matches.map(m => parseFloat(m[1].replace(',', '.')));
+                const amounts = matches.map((m) => parseFloat(m[1].replace(',', '.')));
                 const maxAmount = Math.max(...amounts);
                 if (maxAmount > 0) {
                     this.logger.log(`[OllamaService] Fallback total extraction found: ${maxAmount}`);
@@ -230,7 +236,8 @@ Return ONLY valid JSON.`;
             if (candidates.bestDate) {
                 prompt += `- Detected date: ${candidates.bestDate}\n`;
             }
-            if (candidates.vendorCandidates && candidates.vendorCandidates.length > 0) {
+            if (candidates.vendorCandidates &&
+                candidates.vendorCandidates.length > 0) {
                 prompt += `- Vendor candidates from top of document: ${candidates.vendorCandidates.slice(0, 3).join(', ')}\n`;
             }
             prompt += `\n**Important:** These hints may help, but ALWAYS verify against the OCR text below. If the OCR text contradicts a hint, trust the OCR text.\n\n`;
@@ -264,13 +271,21 @@ Return ONLY valid JSON.`;
         if (!Array.isArray(data.warnings)) {
             data.warnings = [];
         }
-        const confidenceFields = ['vendorName', 'invoiceDate', 'totalAmount', 'currency'];
+        const confidenceFields = [
+            'vendorName',
+            'invoiceDate',
+            'totalAmount',
+            'currency',
+        ];
         for (const field of confidenceFields) {
             if (!(field in data.confidence)) {
                 data.confidence[field] = 0.5;
             }
         }
-        if (data.totalAmount !== null && (typeof data.totalAmount !== 'number' || !Number.isFinite(data.totalAmount) || data.totalAmount <= 0)) {
+        if (data.totalAmount !== null &&
+            (typeof data.totalAmount !== 'number' ||
+                !Number.isFinite(data.totalAmount) ||
+                data.totalAmount <= 0)) {
             data.warnings.push('Invalid totalAmount extracted');
             data.confidence.totalAmount = Math.min(data.confidence.totalAmount ?? 0.5, 0.3);
             data.totalAmount = null;
@@ -280,7 +295,9 @@ Return ONLY valid JSON.`;
             data.confidence.totalAmount = 0;
         }
         const allowedCurrencies = new Set(['ILS', 'USD', 'EUR']);
-        if (data.currency !== null && (typeof data.currency !== 'string' || !allowedCurrencies.has(data.currency))) {
+        if (data.currency !== null &&
+            (typeof data.currency !== 'string' ||
+                !allowedCurrencies.has(data.currency))) {
             data.warnings.push('Unrecognized currency; defaulted to ILS');
             data.currency = 'ILS';
             data.confidence.currency = Math.min(data.confidence.currency ?? 0.5, 0.4);

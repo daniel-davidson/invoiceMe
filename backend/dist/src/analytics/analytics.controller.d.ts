@@ -18,7 +18,7 @@ export declare class AnalyticsController {
             month: number;
         };
     }>;
-    getOverallAnalytics(tenantId: string, year?: number): Promise<OverallAnalyticsDto>;
+    getOverallAnalytics(tenantId: string): Promise<OverallAnalyticsDto>;
     updateVendorLimit(tenantId: string, vendorId: string, body: {
         monthlyLimit: number;
     }): Promise<{

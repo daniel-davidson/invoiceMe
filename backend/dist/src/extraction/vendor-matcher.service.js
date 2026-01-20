@@ -20,11 +20,11 @@ let VendorMatcherService = VendorMatcherService_1 = class VendorMatcherService {
         this.prisma = prisma;
     }
     normalizeVendorName(name) {
-        return name
+        return (name
             .toLowerCase()
             .trim()
             .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '')
-            .replace(/\s+/g, ' ');
+            .replace(/\s+/g, ' '));
     }
     levenshteinDistance(str1, str2) {
         const matrix = [];

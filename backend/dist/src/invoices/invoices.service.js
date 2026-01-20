@@ -101,7 +101,7 @@ let InvoicesService = class InvoicesService {
         return result;
     }
     async findAll(tenantId, query) {
-        const { vendorId, search, startDate, endDate, page = 1, limit = 20 } = query;
+        const { vendorId, search, startDate, endDate, page = 1, limit = 20, } = query;
         const skip = (page - 1) * limit;
         const where = { tenantId };
         if (vendorId) {
@@ -112,9 +112,9 @@ let InvoicesService = class InvoicesService {
                 { name: { contains: search, mode: 'insensitive' } },
                 { vendor: { name: { contains: search, mode: 'insensitive' } } },
                 { invoiceNumber: { contains: search, mode: 'insensitive' } },
-                ...(isNaN(Number(search)) ? [] : [
-                    { originalAmount: { equals: Number(search) } },
-                ]),
+                ...(isNaN(Number(search))
+                    ? []
+                    : [{ originalAmount: { equals: Number(search) } }]),
             ];
         }
         if (startDate || endDate) {
@@ -195,9 +195,11 @@ let InvoicesService = class InvoicesService {
                 },
             });
             if (dto.items !== undefined) {
-                const existingItemIds = invoice.items.map(item => item.id);
-                const providedItemIds = dto.items.filter(item => item.id).map(item => item.id);
-                const itemsToDelete = existingItemIds.filter(id => !providedItemIds.includes(id));
+                const existingItemIds = invoice.items.map((item) => item.id);
+                const providedItemIds = dto.items
+                    .filter((item) => item.id)
+                    .map((item) => item.id);
+                const itemsToDelete = existingItemIds.filter((id) => !providedItemIds.includes(id));
                 if (itemsToDelete.length > 0) {
                     await tx.invoiceItem.deleteMany({
                         where: { id: { in: itemsToDelete } },

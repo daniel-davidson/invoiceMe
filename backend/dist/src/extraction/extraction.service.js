@@ -55,7 +55,8 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
                 const hasText = await this.pdfProcessor.hasSelectableText(file);
                 if (hasText) {
                     this.logger.log('PDF has selectable text, extracting directly');
-                    extractedText = (await this.pdfProcessor.extractTextFromPdf(file)) || '';
+                    extractedText =
+                        (await this.pdfProcessor.extractTextFromPdf(file)) || '';
                     ocrMetadata = { method: 'pdf_text', passes: [] };
                 }
                 else {
@@ -164,7 +165,9 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
         let normalizedAmount = null;
         let fxRate = null;
         let fxDate = null;
-        if (extractedData.totalAmount && extractedData.totalAmount > 0 && extractedData.currency) {
+        if (extractedData.totalAmount &&
+            extractedData.totalAmount > 0 &&
+            extractedData.currency) {
             try {
                 this.logger.log(`Converting ${extractedData.totalAmount} ${extractedData.currency} to ${userSystemCurrency}`);
                 const conversionResult = await this.currency.convert(extractedData.totalAmount, extractedData.currency, userSystemCurrency);
@@ -188,19 +191,22 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
             else {
                 this.logger.warn(`Invalid date format: ${extractedData.invoiceDate}, using today's date`);
                 invoiceDate = new Date();
-                validationResult.warnings.push('Invalid date format, using today\'s date');
+                validationResult.warnings.push("Invalid date format, using today's date");
                 validationResult.needsReview = true;
             }
         }
         else {
-            this.logger.warn('No invoice date found, using today\'s date');
+            this.logger.warn("No invoice date found, using today's date");
             invoiceDate = new Date();
             validationResult.warnings.push('No invoice date found');
             validationResult.needsReview = true;
         }
         const processingTimeMs = Date.now() - startTime;
         const dbStartTime = Date.now();
-        const shouldReview = validationResult.needsReview || ocrError !== null || llmError !== null || !extractedData.totalAmount;
+        const shouldReview = validationResult.needsReview ||
+            ocrError !== null ||
+            llmError !== null ||
+            !extractedData.totalAmount;
         const hasItems = extractedData.lineItems && extractedData.lineItems.length > 0;
         const useItemsTotal = hasItems;
         const invoice = await this.prisma.invoice.create({
@@ -239,7 +245,11 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
             data: {
                 tenantId,
                 invoiceId: invoice.id,
-                status: llmError ? 'ERROR' : validationResult.needsReview ? 'VALIDATION_FAILED' : 'SUCCESS',
+                status: llmError
+                    ? 'ERROR'
+                    : validationResult.needsReview
+                        ? 'VALIDATION_FAILED'
+                        : 'SUCCESS',
                 ocrText: extractedText || null,
                 llmResponse: extractedData,
                 errorMessage: ocrError || llmError || null,

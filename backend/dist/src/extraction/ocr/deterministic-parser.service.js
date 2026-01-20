@@ -38,8 +38,18 @@ let DeterministicParserService = DeterministicParserService_1 = class Determinis
             dates.add(match[0]);
         }
         const hebrewMonths = [
-            'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-            'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+            'ינואר',
+            'פברואר',
+            'מרץ',
+            'אפריל',
+            'מאי',
+            'יוני',
+            'יולי',
+            'אוגוסט',
+            'ספטמבר',
+            'אוקטובר',
+            'נובמבר',
+            'דצמבר',
         ];
         const monthPattern = new RegExp(`\\b(\\d{1,2})\\s+(${hebrewMonths.join('|')})\\s+(\\d{4})\\b`, 'g');
         while ((match = monthPattern.exec(text)) !== null) {
@@ -74,18 +84,48 @@ let DeterministicParserService = DeterministicParserService_1 = class Determinis
     extractAmounts(text) {
         const amounts = [];
         const hebrewKeywords = [
-            { pattern: /סה["״']?כ\s*לתשלום\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'total_to_pay_he' },
-            { pattern: /לתשלום\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'to_pay_he' },
-            { pattern: /יתרה\s*לתשלום\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'balance_due_he' },
-            { pattern: /סה["״']?כ\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'total_he' },
-            { pattern: /סכום\s*כולל\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'total_amount_he' },
+            {
+                pattern: /סה["״']?כ\s*לתשלום\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'total_to_pay_he',
+            },
+            {
+                pattern: /לתשלום\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'to_pay_he',
+            },
+            {
+                pattern: /יתרה\s*לתשלום\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'balance_due_he',
+            },
+            {
+                pattern: /סה["״']?כ\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'total_he',
+            },
+            {
+                pattern: /סכום\s*כולל\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'total_amount_he',
+            },
         ];
         const englishKeywords = [
-            { pattern: /total\s*amount\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'total_amount_en' },
-            { pattern: /amount\s*due\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'amount_due_en' },
-            { pattern: /grand\s*total\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'grand_total_en' },
-            { pattern: /total\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'total_en' },
-            { pattern: /balance\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi, keyword: 'balance_en' },
+            {
+                pattern: /total\s*amount\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'total_amount_en',
+            },
+            {
+                pattern: /amount\s*due\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'amount_due_en',
+            },
+            {
+                pattern: /grand\s*total\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'grand_total_en',
+            },
+            {
+                pattern: /total\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'total_en',
+            },
+            {
+                pattern: /balance\s*[:\s]*([₪$€£]?\s*[\d,]+\.?\d*)/gi,
+                keyword: 'balance_en',
+            },
         ];
         const allKeywords = [...hebrewKeywords, ...englishKeywords];
         for (const { pattern, keyword } of allKeywords) {
@@ -98,20 +138,22 @@ let DeterministicParserService = DeterministicParserService_1 = class Determinis
                     const matchStart = match.index;
                     const contextStart = Math.max(0, matchStart - 50);
                     const contextEnd = Math.min(text.length, matchStart + match[0].length + 50);
-                    const context = text.substring(contextStart, contextEnd).replace(/\s+/g, ' ');
+                    const context = text
+                        .substring(contextStart, contextEnd)
+                        .replace(/\s+/g, ' ');
                     amounts.push({ value: amount, keyword, context });
                 }
             }
         }
         amounts.sort((a, b) => {
             const priority = {
-                'total_to_pay_he': 1,
-                'amount_due_en': 1,
-                'to_pay_he': 2,
-                'grand_total_en': 2,
-                'balance_due_he': 3,
-                'total_he': 4,
-                'total_en': 4,
+                total_to_pay_he: 1,
+                amount_due_en: 1,
+                to_pay_he: 2,
+                grand_total_en: 2,
+                balance_due_he: 3,
+                total_he: 4,
+                total_en: 4,
             };
             return (priority[a.keyword] || 10) - (priority[b.keyword] || 10);
         });
@@ -129,7 +171,7 @@ let DeterministicParserService = DeterministicParserService_1 = class Determinis
             currencies.add('GBP');
         const codes = text.match(/\b(ILS|NIS|USD|EUR|GBP)\b/gi);
         if (codes) {
-            codes.forEach(code => {
+            codes.forEach((code) => {
                 const normalized = code.toUpperCase();
                 if (normalized === 'NIS') {
                     currencies.add('ILS');
@@ -144,7 +186,7 @@ let DeterministicParserService = DeterministicParserService_1 = class Determinis
     extractVendorCandidates(text) {
         const vendors = new Set();
         const topText = text.substring(0, 500);
-        const lines = topText.split('\n').filter(line => line.trim().length > 0);
+        const lines = topText.split('\n').filter((line) => line.trim().length > 0);
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             const line = lines[i].trim();
             if (line.length < 3 || line.length > 80)
@@ -152,8 +194,16 @@ let DeterministicParserService = DeterministicParserService_1 = class Determinis
             const alphaRatio = (line.match(/[a-zA-Z\u0590-\u05FF]/g) || []).length / line.length;
             if (alphaRatio < 0.5)
                 continue;
-            const skipKeywords = ['חשבונית', 'קבלה', 'invoice', 'receipt', 'tel:', 'phone:', 'email:'];
-            if (skipKeywords.some(kw => line.toLowerCase().includes(kw)))
+            const skipKeywords = [
+                'חשבונית',
+                'קבלה',
+                'invoice',
+                'receipt',
+                'tel:',
+                'phone:',
+                'email:',
+            ];
+            if (skipKeywords.some((kw) => line.toLowerCase().includes(kw)))
                 continue;
             vendors.add(line);
         }

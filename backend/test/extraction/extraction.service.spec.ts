@@ -70,7 +70,7 @@ describe('ExtractionService', () => {
     const mockExtractedData = {
       vendorName: 'Test Vendor',
       invoiceDate: '2024-01-15',
-      totalAmount: 100.50,
+      totalAmount: 100.5,
       currency: 'USD',
       invoiceNumber: 'INV-001',
       confidence: {
@@ -85,9 +85,13 @@ describe('ExtractionService', () => {
     it('should process PDF with selectable text without OCR', async () => {
       const pdfBuffer = Buffer.from('fake-pdf');
 
-      mockStorageService.saveFileBuffer.mockResolvedValue('tenant-123/file.pdf');
+      mockStorageService.saveFileBuffer.mockResolvedValue(
+        'tenant-123/file.pdf',
+      );
       mockPdfProcessor.hasSelectableText.mockResolvedValue(true);
-      mockPdfProcessor.extractTextFromPdf.mockResolvedValue('Invoice text content');
+      mockPdfProcessor.extractTextFromPdf.mockResolvedValue(
+        'Invoice text content',
+      );
       mockOllamaService.extractFromText.mockResolvedValue(mockExtractedData);
       mockVendorMatcher.matchVendor.mockResolvedValue({
         id: 'v1',
@@ -95,7 +99,7 @@ describe('ExtractionService', () => {
         isNew: false,
       });
       mockCurrencyService.convert.mockResolvedValue({
-        normalizedAmount: 100.50,
+        normalizedAmount: 100.5,
         fxRate: 1,
         fxDate: '2024-01-15',
       });
@@ -103,7 +107,7 @@ describe('ExtractionService', () => {
         id: 'inv-1',
         tenantId,
         vendorId: 'v1',
-        originalAmount: 100.50,
+        originalAmount: 100.5,
         originalCurrency: 'USD',
         invoiceDate: new Date('2024-01-15'),
         needsReview: false,
@@ -127,7 +131,9 @@ describe('ExtractionService', () => {
     it('should use OCR for PDF without selectable text', async () => {
       const pdfBuffer = Buffer.from('fake-scanned-pdf');
 
-      mockStorageService.saveFileBuffer.mockResolvedValue('tenant-123/file.pdf');
+      mockStorageService.saveFileBuffer.mockResolvedValue(
+        'tenant-123/file.pdf',
+      );
       mockPdfProcessor.hasSelectableText.mockResolvedValue(false);
       mockOcrService.recognizeText.mockResolvedValue('OCR extracted text');
       mockOllamaService.extractFromText.mockResolvedValue(mockExtractedData);
@@ -137,7 +143,7 @@ describe('ExtractionService', () => {
         isNew: true,
       });
       mockCurrencyService.convert.mockResolvedValue({
-        normalizedAmount: 100.50,
+        normalizedAmount: 100.5,
         fxRate: 1,
         fxDate: '2024-01-15',
       });
@@ -163,7 +169,9 @@ describe('ExtractionService', () => {
     it('should always use OCR for images', async () => {
       const imageBuffer = Buffer.from('fake-image');
 
-      mockStorageService.saveFileBuffer.mockResolvedValue('tenant-123/file.jpg');
+      mockStorageService.saveFileBuffer.mockResolvedValue(
+        'tenant-123/file.jpg',
+      );
       mockOcrService.recognizeText.mockResolvedValue('OCR text from image');
       mockOllamaService.extractFromText.mockResolvedValue(mockExtractedData);
       mockVendorMatcher.matchVendor.mockResolvedValue({
@@ -172,7 +180,7 @@ describe('ExtractionService', () => {
         isNew: false,
       });
       mockCurrencyService.convert.mockResolvedValue({
-        normalizedAmount: 100.50,
+        normalizedAmount: 100.5,
         fxRate: 1,
         fxDate: '2024-01-15',
       });
@@ -202,7 +210,9 @@ describe('ExtractionService', () => {
         },
       };
 
-      mockStorageService.saveFileBuffer.mockResolvedValue('tenant-123/file.pdf');
+      mockStorageService.saveFileBuffer.mockResolvedValue(
+        'tenant-123/file.pdf',
+      );
       mockPdfProcessor.hasSelectableText.mockResolvedValue(true);
       mockPdfProcessor.extractTextFromPdf.mockResolvedValue('Text');
       mockOllamaService.extractFromText.mockResolvedValue(lowConfidenceData);
@@ -212,7 +222,7 @@ describe('ExtractionService', () => {
         isNew: true,
       });
       mockCurrencyService.convert.mockResolvedValue({
-        normalizedAmount: 100.50,
+        normalizedAmount: 100.5,
         fxRate: 1,
         fxDate: '2024-01-15',
       });
@@ -254,7 +264,10 @@ describe('ExtractionService', () => {
         isNew: true,
       });
 
-      const result = await mockVendorMatcher.matchVendor('New Company', tenantId);
+      const result = await mockVendorMatcher.matchVendor(
+        'New Company',
+        tenantId,
+      );
 
       expect(result.isNew).toBe(true);
     });
@@ -263,14 +276,14 @@ describe('ExtractionService', () => {
   describe('currency conversion', () => {
     it('should convert foreign currency to system currency', async () => {
       mockCurrencyService.convert.mockResolvedValue({
-        normalizedAmount: 108.50,
+        normalizedAmount: 108.5,
         fxRate: 1.085,
         fxDate: '2024-01-15',
       });
 
       const result = await mockCurrencyService.convert(100, 'EUR', 'USD');
 
-      expect(result.normalizedAmount).toBe(108.50);
+      expect(result.normalizedAmount).toBe(108.5);
       expect(result.fxRate).toBe(1.085);
     });
 
@@ -318,7 +331,7 @@ describe('ExtractionService', () => {
 const mockExtractedData = {
   vendorName: 'Test Vendor',
   invoiceDate: '2024-01-15',
-  totalAmount: 100.50,
+  totalAmount: 100.5,
   currency: 'USD',
   invoiceNumber: 'INV-001',
   confidence: {

@@ -29,10 +29,15 @@ class VendorAnalyticsScreen extends ConsumerWidget {
                   data: (analytics) {
                     if (analytics == null) return const SizedBox.shrink();
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.3),
                         ),
                         borderRadius: BorderRadius.circular(8),
                       ),

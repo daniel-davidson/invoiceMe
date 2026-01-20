@@ -69,8 +69,12 @@ describe('AnalyticsService', () => {
       // 12 months total: 1200 → average = 100
       mockPrismaService.invoice.aggregate
         .mockResolvedValueOnce({ _sum: { normalizedAmount: new Decimal(100) } }) // current month
-        .mockResolvedValueOnce({ _sum: { normalizedAmount: new Decimal(1200) } }) // last 12 months
-        .mockResolvedValueOnce({ _sum: { normalizedAmount: new Decimal(800) } }); // yearly
+        .mockResolvedValueOnce({
+          _sum: { normalizedAmount: new Decimal(1200) },
+        }) // last 12 months
+        .mockResolvedValueOnce({
+          _sum: { normalizedAmount: new Decimal(800) },
+        }); // yearly
 
       const result = await service.getVendorAnalytics(tenantId, vendorId);
 

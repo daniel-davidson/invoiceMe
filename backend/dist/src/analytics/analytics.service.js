@@ -113,8 +113,8 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
             },
             _sum: { normalizedAmount: true, originalAmount: true },
         });
-        const currentMonthSpend = this.toNumber(currentMonthResult._sum.normalizedAmount)
-            || this.toNumber(currentMonthResult._sum.originalAmount);
+        const currentMonthSpend = this.toNumber(currentMonthResult._sum.normalizedAmount) ||
+            this.toNumber(currentMonthResult._sum.originalAmount);
         const last12MonthsResult = await this.prisma.invoice.aggregate({
             where: {
                 tenantId,
@@ -123,8 +123,8 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
             },
             _sum: { normalizedAmount: true, originalAmount: true },
         });
-        const total12Months = this.toNumber(last12MonthsResult._sum.normalizedAmount)
-            || this.toNumber(last12MonthsResult._sum.originalAmount);
+        const total12Months = this.toNumber(last12MonthsResult._sum.normalizedAmount) ||
+            this.toNumber(last12MonthsResult._sum.originalAmount);
         const monthlyAverage = total12Months / 12;
         const yearlyResult = await this.prisma.invoice.aggregate({
             where: {
@@ -134,10 +134,14 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
             },
             _sum: { normalizedAmount: true, originalAmount: true },
         });
-        const yearlyAverage = this.toNumber(yearlyResult._sum.normalizedAmount)
-            || this.toNumber(yearlyResult._sum.originalAmount);
-        const monthlyLimit = vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null;
-        const limitUtilization = monthlyLimit ? (currentMonthSpend / monthlyLimit) * 100 : null;
+        const yearlyAverage = this.toNumber(yearlyResult._sum.normalizedAmount) ||
+            this.toNumber(yearlyResult._sum.originalAmount);
+        const monthlyLimit = vendor.monthlyLimit
+            ? Number(vendor.monthlyLimit)
+            : null;
+        const limitUtilization = monthlyLimit
+            ? (currentMonthSpend / monthlyLimit) * 100
+            : null;
         const monthRanges = this.getMonthRanges(referenceDate);
         const monthlyData = [];
         for (const range of monthRanges) {
@@ -149,8 +153,8 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
                 },
                 _sum: { normalizedAmount: true, originalAmount: true },
             });
-            const amount = this.toNumber(result._sum.normalizedAmount)
-                || this.toNumber(result._sum.originalAmount);
+            const amount = this.toNumber(result._sum.normalizedAmount) ||
+                this.toNumber(result._sum.originalAmount);
             monthlyData.push(amount);
         }
         const duration = Date.now() - startTime;
@@ -191,13 +195,12 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
         const startTime = Date.now();
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
         const totalSpendResult = await this.prisma.invoice.aggregate({
             where: { tenantId, invoiceDate: { gte: startOfMonth } },
             _sum: { normalizedAmount: true, originalAmount: true },
         });
-        const totalSpend = this.toNumber(totalSpendResult._sum.normalizedAmount)
-            || this.toNumber(totalSpendResult._sum.originalAmount);
+        const totalSpend = this.toNumber(totalSpendResult._sum.normalizedAmount) ||
+            this.toNumber(totalSpendResult._sum.originalAmount);
         const limitsResult = await this.prisma.vendor.aggregate({
             where: { tenantId },
             _sum: { monthlyLimit: true },
@@ -214,15 +217,20 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
             orderBy: { _sum: { normalizedAmount: 'desc' } },
             take: 5,
         });
-        const vendorIds = topVendors.map((v) => v.vendorId).filter((id) => id !== null);
+        const vendorIds = topVendors
+            .map((v) => v.vendorId)
+            .filter((id) => id !== null);
         const vendors = await this.prisma.vendor.findMany({
             where: { id: { in: vendorIds } },
         });
-        const totalAllSpend = topVendors.reduce((sum, v) => sum + (this.toNumber(v._sum.normalizedAmount) || this.toNumber(v._sum.originalAmount)), 0);
+        const totalAllSpend = topVendors.reduce((sum, v) => sum +
+            (this.toNumber(v._sum.normalizedAmount) ||
+                this.toNumber(v._sum.originalAmount)), 0);
         const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
         const segments = topVendors.map((v, i) => {
             const vendor = vendors.find((vn) => vn.id === v.vendorId);
-            const value = this.toNumber(v._sum.normalizedAmount) || this.toNumber(v._sum.originalAmount);
+            const value = this.toNumber(v._sum.normalizedAmount) ||
+                this.toNumber(v._sum.originalAmount);
             return {
                 label: vendor?.name || 'Unknown',
                 value,
@@ -240,8 +248,8 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
                 },
                 _sum: { normalizedAmount: true, originalAmount: true },
             });
-            const amount = this.toNumber(result._sum.normalizedAmount)
-                || this.toNumber(result._sum.originalAmount);
+            const amount = this.toNumber(result._sum.normalizedAmount) ||
+                this.toNumber(result._sum.originalAmount);
             monthlyData.push(amount);
         }
         const duration = Date.now() - startTime;
@@ -304,7 +312,6 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
         return csv;
     }
     async exportOverallCsv(tenantId) {
-        const analytics = await this.getOverallAnalytics(tenantId);
         const vendors = await this.prisma.vendor.findMany({
             where: { tenantId },
             include: {
@@ -321,13 +328,15 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
                 where: { tenantId, vendorId: vendor.id },
                 _sum: { normalizedAmount: true, originalAmount: true },
             });
-            const totalSpend = this.toNumber(result._sum.normalizedAmount)
-                || this.toNumber(result._sum.originalAmount);
+            const totalSpend = this.toNumber(result._sum.normalizedAmount) ||
+                this.toNumber(result._sum.originalAmount);
             return {
                 name: vendor.name,
                 totalSpend,
                 invoiceCount: vendor._count.invoices,
-                monthlyLimit: vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null,
+                monthlyLimit: vendor.monthlyLimit
+                    ? Number(vendor.monthlyLimit)
+                    : null,
                 latestInvoice: vendor.invoices[0]?.invoiceDate || null,
             };
         }));
@@ -335,7 +344,9 @@ let AnalyticsService = AnalyticsService_1 = class AnalyticsService {
         vendorSpends
             .sort((a, b) => b.totalSpend - a.totalSpend)
             .forEach((v) => {
-            const latestDate = v.latestInvoice ? v.latestInvoice.toISOString().split('T')[0] : '';
+            const latestDate = v.latestInvoice
+                ? v.latestInvoice.toISOString().split('T')[0]
+                : '';
             csv += `"${v.name}",${v.totalSpend.toFixed(2)},${v.invoiceCount},${v.monthlyLimit?.toFixed(2) || ''},${latestDate}\n`;
         });
         return csv;

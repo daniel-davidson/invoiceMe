@@ -15,7 +15,7 @@ exports.default = () => ({
         serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
         jwtSecret: process.env.JWT_SECRET,
         get clientKey() {
-            return process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+            return (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY);
         },
     },
     llm: {

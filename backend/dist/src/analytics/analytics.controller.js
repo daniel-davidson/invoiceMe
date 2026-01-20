@@ -29,7 +29,7 @@ let AnalyticsController = class AnalyticsController {
     async getAvailablePeriods(tenantId, vendorId) {
         return this.analyticsService.getAvailablePeriods(tenantId, vendorId);
     }
-    async getOverallAnalytics(tenantId, year) {
+    async getOverallAnalytics(tenantId) {
         return this.analyticsService.getOverallAnalytics(tenantId);
     }
     async updateVendorLimit(tenantId, vendorId, body) {
@@ -76,9 +76,8 @@ __decorate([
 __decorate([
     (0, common_1.Get)('overall'),
     __param(0, (0, tenant_decorator_1.Tenant)()),
-    __param(1, (0, common_1.Query)('year')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getOverallAnalytics", null);
 __decorate([

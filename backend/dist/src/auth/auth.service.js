@@ -26,7 +26,8 @@ let AuthService = AuthService_1 = class AuthService {
         this.prisma = prisma;
         const supabaseUrl = this.configService.get('supabase.url') || '';
         const clientKey = this.configService.get('supabase.publishableKey') ||
-            this.configService.get('supabase.anonKey') || '';
+            this.configService.get('supabase.anonKey') ||
+            '';
         const adminKey = this.configService.get('supabase.secretKey') ||
             this.configService.get('supabase.serviceRoleKey');
         this.supabase = (0, supabase_js_1.createClient)(supabaseUrl, clientKey, {
@@ -60,7 +61,8 @@ let AuthService = AuthService_1 = class AuthService {
         });
         if (error) {
             this.logger.warn(`Signup failed for ${email}: ${error.message}`);
-            if (error.message.includes('already registered') || error.message.includes('already exists')) {
+            if (error.message.includes('already registered') ||
+                error.message.includes('already exists')) {
                 throw new common_1.ConflictException('Email already exists');
             }
             throw new common_1.UnauthorizedException(error.message);

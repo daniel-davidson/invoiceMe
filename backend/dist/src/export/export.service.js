@@ -52,10 +52,13 @@ let ExportService = class ExportService {
             name: invoice.name || '',
             originalAmount: Number(invoice.originalAmount).toFixed(2),
             originalCurrency: invoice.originalCurrency,
-            normalizedAmount: invoice.normalizedAmount ? Number(invoice.normalizedAmount).toFixed(2) : '',
+            normalizedAmount: invoice.normalizedAmount
+                ? Number(invoice.normalizedAmount).toFixed(2)
+                : '',
             invoiceNumber: invoice.invoiceNumber || '',
         }));
-        return csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
+        return (csvStringifier.getHeaderString() +
+            csvStringifier.stringifyRecords(records));
     }
     async exportAnalytics(tenantId, vendorId, year) {
         const targetYear = year || new Date().getFullYear();
@@ -74,7 +77,10 @@ let ExportService = class ExportService {
         });
         const monthlyData = new Map();
         for (const invoice of invoices) {
-            const month = invoice.invoiceDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            const month = invoice.invoiceDate.toLocaleDateString('en-US', {
+                month: 'short',
+                year: 'numeric',
+            });
             const vendorName = invoice.vendor?.name || 'Unassigned';
             const key = `${month}-${vendorName}`;
             const amount = Number(invoice.normalizedAmount || invoice.originalAmount);
@@ -97,7 +103,8 @@ let ExportService = class ExportService {
             vendor: data.vendor,
             total: data.total.toFixed(2),
         }));
-        return csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
+        return (csvStringifier.getHeaderString() +
+            csvStringifier.stringifyRecords(records));
     }
 };
 exports.ExportService = ExportService;

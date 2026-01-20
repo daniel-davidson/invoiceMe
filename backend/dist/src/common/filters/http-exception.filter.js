@@ -19,7 +19,8 @@ let HttpExceptionFilter = class HttpExceptionFilter {
             message: typeof exceptionResponse === 'string'
                 ? exceptionResponse
                 : exceptionResponse.message || 'An error occurred',
-            error: typeof exceptionResponse === 'object' && exceptionResponse.error
+            error: typeof exceptionResponse === 'object' &&
+                exceptionResponse.error
                 ? exceptionResponse.error
                 : common_1.HttpStatus[status],
             timestamp: new Date().toISOString(),

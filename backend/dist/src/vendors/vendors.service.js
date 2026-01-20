@@ -63,7 +63,9 @@ let VendorsService = class VendorsService {
                 result.latestInvoices = vendor.invoices.map((inv) => ({
                     ...inv,
                     originalAmount: Number(inv.originalAmount),
-                    normalizedAmount: inv.normalizedAmount ? Number(inv.normalizedAmount) : null,
+                    normalizedAmount: inv.normalizedAmount
+                        ? Number(inv.normalizedAmount)
+                        : null,
                 }));
             }
             return result;
