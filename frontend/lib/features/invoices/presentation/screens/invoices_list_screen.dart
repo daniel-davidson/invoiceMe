@@ -5,11 +5,40 @@ import 'package:frontend/core/utils/currency_formatter.dart';
 import 'package:frontend/core/utils/date_formatter.dart';
 import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
 
-class InvoicesListScreen extends ConsumerWidget {
+class InvoicesListScreen extends ConsumerStatefulWidget {
   const InvoicesListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<InvoicesListScreen> createState() => _InvoicesListScreenState();
+}
+
+class _InvoicesListScreenState extends ConsumerState<InvoicesListScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  DateTime? _lastSearchTime;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    
+    // Debounce search (300ms delay)
+    _lastSearchTime = DateTime.now();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      // Only execute search if this is still the latest search
+      if (_lastSearchTime != null &&
+          DateTime.now().difference(_lastSearchTime!).inMilliseconds >= 300) {
+        ref.read(invoicesProvider.notifier).search(value);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final invoicesState = ref.watch(invoicesProvider);
 
     return Scaffold(
@@ -23,17 +52,85 @@ class InvoicesListScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: invoicesState.when(
+      body: Column(
+        children: [
+          // Search input at top
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search by business, amount, number...',
+                prefixIcon: invoicesState.isLoading && _searchQuery.isNotEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          _onSearchChanged('');
+                        },
+                      )
+                    : null,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: _onSearchChanged,
+            ),
+          ),
+          // Invoices list
+          Expanded(
+            child: invoicesState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Error: $error')),
-        data: (invoices) {
-          if (invoices.isEmpty) {
-            return const Center(
-              child: Text('No invoices yet'),
-            );
-          }
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('Error: $error'),
+                  ],
+                ),
+              ),
+              data: (invoices) {
+                if (invoices.isEmpty) {
+                  // Show different empty state for search vs no invoices
+                  if (_searchQuery.isNotEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          const Text('No invoices found', style: TextStyle(fontSize: 18)),
+                          const SizedBox(height: 8),
+                          const Text('Try a different search term or clear the filter'),
+                        ],
+                      ),
+                    );
+                  } else {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.receipt_long, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('No invoices yet', style: TextStyle(fontSize: 18)),
+                        ],
+                      ),
+                    );
+                  }
+                }
 
-          return ListView.builder(
+                return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: invoices.length,
             itemBuilder: (context, index) {
@@ -89,9 +186,12 @@ class InvoicesListScreen extends ConsumerWidget {
                   ),
                 ),
               );
-            },
-          );
-        },
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -213,15 +213,23 @@ final invoicesProvider =
 
 class InvoicesNotifier extends StateNotifier<AsyncValue<List<Invoice>>> {
   final ApiClient _apiClient;
+  String _currentSearch = '';
 
   InvoicesNotifier(this._apiClient) : super(const AsyncValue.loading()) {
     loadInvoices();
   }
 
-  Future<void> loadInvoices() async {
+  Future<void> loadInvoices({String? search}) async {
+    // Store current search for client-side fallback
+    if (search != null) {
+      _currentSearch = search;
+    }
+
     state = const AsyncValue.loading();
     try {
-      final response = await _apiClient.get('/invoices');
+      // Build query string with search parameter
+      final queryParams = search != null && search.isNotEmpty ? '?search=$search' : '';
+      final response = await _apiClient.get('/invoices$queryParams');
       final data = response.data['data'] as List<dynamic>;
       final invoices = data
           .map((json) => Invoice.fromJson(json as Map<String, dynamic>))
@@ -230,6 +238,10 @@ class InvoicesNotifier extends StateNotifier<AsyncValue<List<Invoice>>> {
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
+  }
+
+  Future<void> search(String query) async {
+    await loadInvoices(search: query);
   }
 
   Future<void> exportCsv() async {
