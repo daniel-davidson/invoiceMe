@@ -274,8 +274,8 @@ export class AnalyticsService {
       };
     });
 
-    // Line chart data
-    const monthRanges = this.getMonthRanges();
+    // Line chart data (12 months ending with current month)
+    const monthRanges = this.getMonthRanges(now);
     const monthlyData: number[] = [];
 
     for (const range of monthRanges) {
@@ -309,7 +309,7 @@ export class AnalyticsService {
       },
       lineChart: {
         title: 'Monthly Spending',
-        labels: this.getMonthLabels(),
+        labels: this.getMonthLabels(now),
         datasets: [
           {
             label: 'Total Spend',
