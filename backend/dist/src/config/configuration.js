@@ -23,7 +23,7 @@ exports.default = () => ({
         apiKey: process.env.LLM_API_KEY || process.env.GROQ_API_KEY,
         model: process.env.LLM_MODEL ||
             process.env.GROQ_MODEL ||
-            'llama-3.1-70b-versatile',
+            'llama-3.1-8b-instant',
         ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
         ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2:3b',
     },

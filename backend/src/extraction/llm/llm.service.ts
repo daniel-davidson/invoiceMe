@@ -32,7 +32,7 @@ export class LlmService {
 
     // Default models per provider
     const defaultModels = {
-      groq: 'llama-3.1-70b-versatile', // Best for structured JSON extraction
+      groq: 'llama-3.1-8b-instant', // Fast, active model with JSON support
       ollama: 'llama3.2:3b',
       together: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
       openrouter: 'meta-llama/llama-3.2-3b-instruct:free',
