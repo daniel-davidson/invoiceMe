@@ -10,7 +10,7 @@
 FROM node:18-alpine AS builder
 
 # Install build dependencies
-RUN apk add --no-cache python3 make g++ git
+RUN apk add --no-cache python3 make g++ git openssl
 
 WORKDIR /app
 
@@ -33,19 +33,19 @@ RUN npm run build
 # ==========================================
 # Stage 2: Production Runtime
 # ==========================================
-FROM node:18-alpine
+FROM node:18-slim
 
 # Install runtime dependencies
-# - openssl1.1-compat: Required for Prisma on Alpine
+# - openssl: Required for Prisma
 # - tesseract-ocr: For OCR processing
-# - tesseract-ocr-data-heb: Hebrew language pack
-# - tesseract-ocr-data-eng: English language pack
-RUN apk add --no-cache \
-    openssl1.1-compat \
+# - tesseract-ocr-heb: Hebrew language pack
+# - tesseract-ocr-eng: English language pack
+RUN apt-get update && apt-get install -y \
+    openssl \
     tesseract-ocr \
-    tesseract-ocr-data-heb \
-    tesseract-ocr-data-eng \
-    && rm -rf /var/cache/apk/*
+    tesseract-ocr-heb \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
@@ -55,7 +55,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 RUN npm ci --only=production && npm cache clean --force
 
-# Generate Prisma client for production
+# Generate Prisma client for Debian platform
+ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x
 RUN npx prisma generate
 
 # Copy built application from builder
