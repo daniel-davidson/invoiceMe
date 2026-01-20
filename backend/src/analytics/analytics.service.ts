@@ -68,6 +68,12 @@ export class AnalyticsService {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    
+    // DEBUG: Log date ranges being queried
+    this.logger.log(`[DEBUG] Date ranges for analytics:`);
+    this.logger.log(`  Current month: ${startOfMonth.toISOString().split('T')[0]} to now`);
+    this.logger.log(`  Last 12 months: ${twelveMonthsAgo.toISOString().split('T')[0]} to now`);
+    this.logger.log(`  Year to date: ${startOfYear.toISOString().split('T')[0]} to now`);
 
     // Current month spend
     const currentMonthResult = await this.prisma.invoice.aggregate({
