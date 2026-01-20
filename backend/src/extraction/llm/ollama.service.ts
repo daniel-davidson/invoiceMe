@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
-import {
-  ExtractedInvoiceData,
-  EXTRACTION_SCHEMA,
-} from './extraction-schema';
+import { ExtractedInvoiceData, EXTRACTION_SCHEMA } from './extraction-schema';
 
 @Injectable()
 export class OllamaService {
@@ -14,14 +11,17 @@ export class OllamaService {
   private readonly model: string;
 
   constructor(private configService: ConfigService) {
-    const baseURL = this.configService.get<string>('llm.ollamaUrl') || 'http://localhost:11434';
-    this.model = this.configService.get<string>('llm.ollamaModel') || 'llama3.2:3b';
-    
+    const baseURL =
+      this.configService.get<string>('llm.ollamaUrl') ||
+      'http://localhost:11434';
+    this.model =
+      this.configService.get<string>('llm.ollamaModel') || 'llama3.2:3b';
+
     this.client = axios.create({
       baseURL,
       timeout: 60000, // 60 seconds for LLM processing
     });
-    
+
     this.logger.log(`Ollama configured: ${baseURL}, model: ${this.model}`);
   }
 
@@ -30,8 +30,35 @@ export class OllamaService {
    * @param ocrText - Raw text extracted from invoice
    * @returns Structured invoice data
    */
-  async extractFromText(ocrText: string): Promise<ExtractedInvoiceData> {
-    const prompt = this.buildExtractionPrompt(ocrText);
+  async extractFromText(
+    ocrText: string,
+    candidates?: any,
+  ): Promise<ExtractedInvoiceData> {
+    const totalStartTime = Date.now();
+
+    // Debug logging: Show what text is being sent to LLM
+    this.logger.debug(
+      `[OllamaService] ========== OCR TEXT FOR LLM (${ocrText.length} chars) ==========`,
+    );
+    this.logger.debug(
+      `[OllamaService] First 600 chars:\n${ocrText.substring(0, 600)}`,
+    );
+    if (ocrText.length > 600) {
+      this.logger.debug(
+        `[OllamaService] Last 400 chars:\n${ocrText.substring(Math.max(0, ocrText.length - 400))}`,
+      );
+    }
+    if (candidates) {
+      this.logger.debug(
+        `[OllamaService] Deterministic candidates: ${JSON.stringify(candidates)}`,
+      );
+    }
+    this.logger.debug(
+      `[OllamaService] ========================================`,
+    );
+
+    const systemPrompt = this.buildSystemPrompt();
+    const userPrompt = this.buildExtractionPrompt(ocrText, candidates);
 
     let lastError: Error | null = null;
 
@@ -42,15 +69,44 @@ export class OllamaService {
           this.logger.log(`Retry attempt ${attempt}/${this.maxRetries}`);
         }
 
-        const response = await this.client.post('/api/generate', {
+        const llmStartTime = Date.now();
+        // Use /api/chat instead of /api/generate (per OCR Quality Rules)
+        const response = await this.client.post('/api/chat', {
           model: this.model,
-          prompt,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: userPrompt,
+            },
+          ],
           stream: false,
           format: 'json',
+          options: {
+            temperature: 0, // Zero temperature for deterministic extraction
+            num_predict: 2048,
+          },
         });
+        const llmDuration = Date.now() - llmStartTime;
 
-        const extractedData = this.parseResponse(response.data.response);
+        // Parse response from chat API (response.data.message.content)
+        const responseText =
+          response.data.message?.content || response.data.response || '';
+        const extractedData = this.parseResponse(responseText);
         this.validateExtractedData(extractedData);
+
+        const totalDuration = Date.now() - totalStartTime;
+        this.logger.log(
+          `[OllamaService] LLM extraction took ${totalDuration}ms (LLM: ${llmDuration}ms, parsing/validation: ${totalDuration - llmDuration}ms)`,
+        );
+
+        // Debug logging: Show extracted vendor name
+        this.logger.debug(
+          `[OllamaService] Extracted vendor: "${extractedData.vendorName}"`,
+        );
 
         return extractedData;
       } catch (error) {
@@ -76,95 +132,206 @@ export class OllamaService {
     }
 
     // All retries failed
-    this.logger.error(`Ollama extraction failed after ${this.maxRetries + 1} attempts`);
+    const totalDuration = Date.now() - totalStartTime;
+    this.logger.error(
+      `[OllamaService] Ollama extraction failed after ${this.maxRetries + 1} attempts (${totalDuration}ms)`,
+    );
     throw new Error(
       `Failed to extract invoice data: ${lastError?.message || 'Unknown error'}`,
     );
   }
 
+  /**
+   * T064: Select relevant OCR text chunks to prevent LLM context overflow
+   * Limits to 4000 chars max (top 1500 + bottom 1500 + keyword lines)
+   */
   private selectRelevantText(ocrText: string): string {
+    const MAX_CHARS = 4000;
+
+    // If text is short enough, return as is
+    if (ocrText.length <= MAX_CHARS) {
+      return ocrText;
+    }
+
     const lines = ocrText
       .split(/\r?\n/)
-      .map(l => l.trim())
+      .map((l) => l.trim())
       .filter(Boolean);
-  
+
     const keywordRegex =
       /(סה["״']?כ|לתשלום|יתרה לתשלום|סכום|מע["״']?מ|VAT|TOTAL|AMOUNT\s+DUE|Invoice|חשבונית|קבלה|מס['״]?|תאריך|Date|קופה)/i;
-  
-    const head = lines.slice(0, 40);
-    const tail = lines.slice(Math.max(0, lines.length - 40));
-    const keywordLines = lines.filter(l => keywordRegex.test(l)).slice(0, 80);
-  
-    const seen = new Set<string>();
-    return [...head, ...keywordLines, ...tail]
-      .filter(l => {
-        const k = l.toLowerCase();
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
-      })
-      .join('\n');
+
+    // Take top 1500 chars
+    let topText = '';
+    let topChars = 0;
+    for (const line of lines) {
+      if (topChars + line.length > 1500) break;
+      topText += line + '\n';
+      topChars += line.length + 1;
+    }
+
+    // Take bottom 1500 chars
+    let bottomText = '';
+    let bottomChars = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (bottomChars + lines[i].length > 1500) break;
+      bottomText = lines[i] + '\n' + bottomText;
+      bottomChars += lines[i].length + 1;
+    }
+
+    // Take keyword lines (max remaining space)
+    const keywordLines = lines.filter((l) => keywordRegex.test(l));
+    let keywordText = '';
+    let keywordChars = 0;
+    const remainingSpace = MAX_CHARS - topChars - bottomChars;
+
+    for (const line of keywordLines) {
+      if (keywordChars + line.length > remainingSpace) break;
+      keywordText += line + '\n';
+      keywordChars += line.length + 1;
+    }
+
+    return (
+      topText +
+      '\n--- KEYWORD LINES ---\n' +
+      keywordText +
+      '\n--- END ---\n' +
+      bottomText
+    );
   }
-  
 
   /**
-   * Build the extraction prompt for Ollama
+   * T065: Extract total fallback using regex patterns
+   * Searches for money patterns near keywords like "total", "סה\"כ"
    */
-  private buildExtractionPrompt(ocrText: string): string {
+  private extractTotalFallback(ocrText: string): number | null {
+    const lines = ocrText.split(/\r?\n/).map((l) => l.trim());
+
+    // Look for lines containing total keywords
+    const totalKeywords = [
+      /סה["״']?כ\s*לתשלום/i,
+      /לתשלום/i,
+      /יתרה\s*לתשלום/i,
+      /\btotal\b/i,
+      /amount\s+due/i,
+    ];
+
+    const moneyPattern = /(\d{1,10}[.,]\d{2})\b/g;
+
+    for (const line of lines) {
+      // Check if line contains a total keyword
+      const hasKeyword = totalKeywords.some((regex) => regex.test(line));
+      if (!hasKeyword) continue;
+
+      // Extract all money-like numbers from this line
+      const matches = Array.from(line.matchAll(moneyPattern));
+      if (matches.length > 0) {
+        // Return the largest number (likely the total)
+        const amounts = matches.map((m) => parseFloat(m[1].replace(',', '.')));
+        const maxAmount = Math.max(...amounts);
+        if (maxAmount > 0) {
+          this.logger.log(
+            `[OllamaService] Fallback total extraction found: ${maxAmount}`,
+          );
+          return maxAmount;
+        }
+      }
+    }
+
+    this.logger.warn('[OllamaService] Fallback total extraction failed');
+    return null;
+  }
+
+  /**
+   * Build system prompt for chat API
+   */
+  private buildSystemPrompt(): string {
+    return `You are a strict invoice/receipt extraction engine.
+You extract structured data from Hebrew (עברית) or English documents.
+
+**CRITICAL: Extract data ONLY from the current document. Never use information from previous conversations.**
+
+Return ONLY a valid JSON object (no markdown, no explanations, no extra text).
+
+JSON Schema:
+{
+  "vendorName": string | null,
+  "invoiceDate": string | null,   // YYYY-MM-DD
+  "totalAmount": number | null,
+  "currency": "ILS" | "USD" | "EUR" | null,
+  "invoiceNumber": string | null,
+  "vatAmount": number | null,
+  "subtotalAmount": number | null,
+  "lineItems": [
+    {
+      "description": string,
+      "quantity": number | null,
+      "unitPrice": number | null,
+      "amount": number | null
+    }
+  ],
+  "confidence": { "vendorName": number, "invoiceDate": number, "totalAmount": number, "currency": number },
+  "warnings": string[]
+}
+
+- **vendorName**: Extract the EXACT business/company name from THIS document ONLY.
+  * Located at the TOP (first 1-3 lines)
+  * Hebrew: "בן בוטנרו ייעוץ תזונה", "קריאטיב סופטוור בע״מ"
+  * English: "Apple Inc.", "Google LLC"
+  * Include suffix if present (בע״מ, Ltd., Inc.)
+  
+- **totalAmount**: MOST CRITICAL. Extract the final amount paid/due.
+  * Hebrew keywords: "סה״כ לתשלום", "לתשלום", "יתרה לתשלום", "סה״כ"
+  * English keywords: "Total", "Amount Due", "Grand Total", "Balance"
+  * Usually at bottom, largest number, near VAT
+  
+- **invoiceDate**: Extract from "תאריך"/"Date". Convert to YYYY-MM-DD.
+
+- **currency**: ₪→ILS, $→USD, €→EUR. If unclear and Hebrew doc, assume ILS with warning.
+
+- **invoiceNumber**: Extract from "מס׳"/"חשבונית"/"Invoice #".
+
+- **lineItems**: Extract items if present, else [].
+
+- **confidence**: 0-1 for each field. If unclear, set null + low confidence + warning.
+
+Return ONLY valid JSON.`;
+  }
+
+  /**
+   * Build extraction prompt with OCR text and optional deterministic candidates
+   */
+  private buildExtractionPrompt(ocrText: string, candidates?: any): string {
     const relevantText = this.selectRelevantText(ocrText);
 
+    let prompt = `Extract invoice data from the following OCR text:\n\n`;
 
-    return `You are a strict invoice/receipt extraction engine.
-    You receive OCR text from Hebrew (עברית) or English documents.
-    
-    Return ONLY a valid JSON object (no markdown, no explanations, no extra text).
-    
-    The JSON MUST match this schema exactly:
-    {
-      "vendorName": string | null,
-      "invoiceDate": string | null,   // YYYY-MM-DD
-      "totalAmount": number | null,
-      "currency": "ILS" | "USD" | "EUR" | null,
-      "invoiceNumber": string | null,
-      "vatAmount": number | null,      // VAT/tax amount
-      "subtotalAmount": number | null, // Subtotal before tax
-      "lineItems": [                   // Items purchased (if available)
-        {
-          "description": string,
-          "quantity": number | null,
-          "unitPrice": number | null,
-          "amount": number | null
-        }
-      ],
-      "confidence": { "vendorName": number, "invoiceDate": number, "totalAmount": number, "currency": number },
-      "warnings": string[]
+    // Include deterministic candidates if provided
+    if (candidates) {
+      prompt += `**HINTS from deterministic parsing (use if confident):**\n`;
+
+      if (candidates.bestTotal !== null && candidates.bestTotal !== undefined) {
+        prompt += `- Detected total amount: ${candidates.bestTotal}\n`;
+      }
+      if (candidates.bestCurrency) {
+        prompt += `- Detected currency: ${candidates.bestCurrency}\n`;
+      }
+      if (candidates.bestDate) {
+        prompt += `- Detected date: ${candidates.bestDate}\n`;
+      }
+      if (
+        candidates.vendorCandidates &&
+        candidates.vendorCandidates.length > 0
+      ) {
+        prompt += `- Vendor candidates from top of document: ${candidates.vendorCandidates.slice(0, 3).join(', ')}\n`;
+      }
+
+      prompt += `\n**Important:** These hints may help, but ALWAYS verify against the OCR text below. If the OCR text contradicts a hint, trust the OCR text.\n\n`;
     }
-    
-    Rules:
-    - vendorName: the supplier/store name. Often appears at the very top header, sometimes with phone/address.
-    - invoiceDate: extract from "תאריך" or "Date". Convert to YYYY-MM-DD.
-    - totalAmount: final amount paid/due. Prefer lines near:
-      Hebrew: "סה\"כ לתשלום", "לתשלום", "יתרה לתשלום", "סכום"
-      English: "Total", "Amount Due"
-    - currency: ₪ => ILS, $ => USD, € => EUR.
-      If currency is not explicit but the invoice is Hebrew/Israel, set "ILS" and add warning "Currency assumed ILS".
-    - invoiceNumber: extract if present ("מס'", "חשבונית", "קבלה", "Invoice #"). If missing, null.
-    - vatAmount: extract VAT/tax if shown ("מע\"מ", "VAT", "Tax")
-    - subtotalAmount: extract subtotal before tax if shown
-    - lineItems: extract individual items if present in the invoice. Each item should have:
-      * description: item/product name
-      * quantity: how many units
-      * unitPrice: price per unit (if shown)
-      * amount: total for this line item
-      If no itemized list is found, return empty array [].
-    - If the OCR text contains MULTIPLE receipts/invoices (multiple totals / multiple 'קופה' blocks):
-      Extract the LAST receipt/invoice and add warning "Multiple documents detected; extracted last one".
-    - confidence values are 0..1.
-    - If any field is unclear, set it to null, reduce confidence, and add a warning.
-    
-    OCR TEXT:
-    ${relevantText}`;
-    ;
+
+    prompt += `OCR TEXT:\n${relevantText}`;
+
+    return prompt;
   }
 
   /**
@@ -174,11 +341,11 @@ export class OllamaService {
     try {
       const start = responseText.indexOf('{');
       const end = responseText.lastIndexOf('}');
-  
+
       if (start === -1 || end === -1 || end <= start) {
         throw new Error('No JSON found in response');
       }
-  
+
       const jsonText = responseText.slice(start, end + 1);
       const parsed = JSON.parse(jsonText);
       return parsed as ExtractedInvoiceData;
@@ -186,47 +353,76 @@ export class OllamaService {
       this.logger.error(`Failed to parse LLM response: ${error.message}`);
       throw new Error('Invalid JSON response from LLM');
     }
-  }  
+  }
 
   /**
    * Validate extracted data has required fields
    */
   private validateExtractedData(data: ExtractedInvoiceData): void {
-    const required = ['vendorName', 'invoiceDate', 'totalAmount', 'currency', 'confidence', 'warnings'];
-  
+    // Only confidence and warnings are truly required now
+    const required = ['confidence', 'warnings'];
+
     for (const field of required) {
       if (!(field in data)) {
         throw new Error(`Missing required field: ${field}`);
       }
     }
-  
+
     // Ensure warnings is an array
     if (!Array.isArray(data.warnings)) {
       data.warnings = [];
     }
-  
+
     // Validate confidence object has required fields
-    const confidenceFields = ['vendorName', 'invoiceDate', 'totalAmount', 'currency'];
+    const confidenceFields = [
+      'vendorName',
+      'invoiceDate',
+      'totalAmount',
+      'currency',
+    ];
     for (const field of confidenceFields) {
       if (!(field in data.confidence)) {
         data.confidence[field] = 0.5;
       }
     }
-  
-    // ✅ Change 4: Sanity checks
-    if (typeof data.totalAmount !== 'number' || !Number.isFinite(data.totalAmount) || data.totalAmount <= 0) {
+
+    // Sanity checks (allow null values but validate when present)
+    if (
+      data.totalAmount !== null &&
+      (typeof data.totalAmount !== 'number' ||
+        !Number.isFinite(data.totalAmount) ||
+        data.totalAmount <= 0)
+    ) {
       data.warnings.push('Invalid totalAmount extracted');
-      data.confidence.totalAmount = Math.min(data.confidence.totalAmount ?? 0.5, 0.3);
+      data.confidence.totalAmount = Math.min(
+        data.confidence.totalAmount ?? 0.5,
+        0.3,
+      );
+      data.totalAmount = null; // Set to null if invalid
     }
-  
+
+    if (data.totalAmount === null) {
+      data.warnings.push('Total amount not found');
+      data.confidence.totalAmount = 0;
+    }
+
     const allowedCurrencies = new Set(['ILS', 'USD', 'EUR']);
-    if (typeof data.currency !== 'string' || !allowedCurrencies.has(data.currency)) {
+    if (
+      data.currency !== null &&
+      (typeof data.currency !== 'string' ||
+        !allowedCurrencies.has(data.currency))
+    ) {
       data.warnings.push('Unrecognized currency; defaulted to ILS');
       data.currency = 'ILS';
       data.confidence.currency = Math.min(data.confidence.currency ?? 0.5, 0.4);
     }
+
+    if (data.currency === null) {
+      data.warnings.push('Currency not found, defaulted to ILS');
+      data.currency = 'ILS';
+      data.confidence.currency = 0;
+    }
   }
-  
 
   /**
    * Sleep helper for retry backoff
@@ -246,7 +442,9 @@ export class OllamaService {
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
         if (attempt > 0) {
-          this.logger.log(`Generate retry attempt ${attempt}/${this.maxRetries}`);
+          this.logger.log(
+            `Generate retry attempt ${attempt}/${this.maxRetries}`,
+          );
         }
 
         const response = await this.client.post('/api/generate', {
@@ -276,7 +474,9 @@ export class OllamaService {
       }
     }
 
-    this.logger.error(`Ollama generate failed after ${this.maxRetries + 1} attempts`);
+    this.logger.error(
+      `Ollama generate failed after ${this.maxRetries + 1} attempts`,
+    );
     throw new Error(
       `Failed to generate response: ${lastError?.message || 'Unknown error'}`,
     );

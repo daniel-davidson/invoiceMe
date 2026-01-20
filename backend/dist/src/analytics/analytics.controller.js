@@ -23,14 +23,35 @@ let AnalyticsController = class AnalyticsController {
     constructor(analyticsService) {
         this.analyticsService = analyticsService;
     }
-    async getVendorAnalytics(tenantId, vendorId, year) {
-        return this.analyticsService.getVendorAnalytics(tenantId, vendorId);
+    async getVendorAnalytics(tenantId, vendorId, year, month) {
+        return this.analyticsService.getVendorAnalytics(tenantId, vendorId, year, month);
     }
-    async getOverallAnalytics(tenantId, year) {
+    async getAvailablePeriods(tenantId, vendorId) {
+        return this.analyticsService.getAvailablePeriods(tenantId, vendorId);
+    }
+    async getOverallAnalytics(tenantId) {
         return this.analyticsService.getOverallAnalytics(tenantId);
     }
     async updateVendorLimit(tenantId, vendorId, body) {
         return this.analyticsService.updateVendorLimit(tenantId, vendorId, body.monthlyLimit);
+    }
+    async exportVendorCsv(tenantId, vendorId, res) {
+        const csv = await this.analyticsService.exportVendorCsv(tenantId, vendorId);
+        const date = new Date().toISOString().split('T')[0];
+        res.set({
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="vendor-analytics-${date}.csv"`,
+        });
+        return csv;
+    }
+    async exportOverallCsv(tenantId, res) {
+        const csv = await this.analyticsService.exportOverallCsv(tenantId);
+        const date = new Date().toISOString().split('T')[0];
+        res.set({
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="overall-analytics-${date}.csv"`,
+        });
+        return csv;
     }
 };
 exports.AnalyticsController = AnalyticsController;
@@ -39,16 +60,24 @@ __decorate([
     __param(0, (0, tenant_decorator_1.Tenant)()),
     __param(1, (0, common_1.Param)('vendorId', common_1.ParseUUIDPipe)),
     __param(2, (0, common_1.Query)('year')),
+    __param(3, (0, common_1.Query)('month')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Number]),
+    __metadata("design:paramtypes", [String, String, Number, Number]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getVendorAnalytics", null);
 __decorate([
+    (0, common_1.Get)('vendor/:vendorId/available-periods'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Param)('vendorId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "getAvailablePeriods", null);
+__decorate([
     (0, common_1.Get)('overall'),
     __param(0, (0, tenant_decorator_1.Tenant)()),
-    __param(1, (0, common_1.Query)('year')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Number]),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "getOverallAnalytics", null);
 __decorate([
@@ -60,6 +89,23 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "updateVendorLimit", null);
+__decorate([
+    (0, common_1.Get)('vendor/:vendorId/export'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Param)('vendorId', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "exportVendorCsv", null);
+__decorate([
+    (0, common_1.Get)('overall/export'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "exportOverallCsv", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),

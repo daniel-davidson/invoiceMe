@@ -4,20 +4,20 @@ export declare const EXTRACTION_SCHEMA: {
     required: string[];
     properties: {
         vendorName: {
-            type: string;
+            type: string[];
             description: string;
         };
         invoiceDate: {
-            type: string;
+            type: string[];
             format: string;
             description: string;
         };
         totalAmount: {
-            type: string;
+            type: string[];
             description: string;
         };
         currency: {
-            type: string;
+            type: string[];
             pattern: string;
             description: string;
         };
@@ -90,18 +90,18 @@ export declare const EXTRACTION_SCHEMA: {
     };
 };
 export interface ExtractedInvoiceData {
-    vendorName?: string;
-    invoiceDate?: string;
-    totalAmount?: number;
-    currency?: string;
-    invoiceNumber?: string;
-    vatAmount?: number;
-    subtotalAmount?: number;
+    vendorName: string | null;
+    invoiceDate: string | null;
+    totalAmount: number | null;
+    currency: string | null;
+    invoiceNumber?: string | null;
+    vatAmount?: number | null;
+    subtotalAmount?: number | null;
     lineItems?: Array<{
         description: string;
-        quantity?: number;
-        unitPrice?: number;
-        amount?: number;
+        quantity?: number | null;
+        unitPrice?: number | null;
+        amount?: number | null;
     }>;
     confidence: {
         vendorName: number;

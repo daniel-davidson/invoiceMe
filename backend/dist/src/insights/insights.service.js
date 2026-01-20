@@ -12,14 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InsightsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const ollama_service_1 = require("../extraction/llm/ollama.service");
+const llm_service_1 = require("../extraction/llm/llm.service");
 const insight_dto_1 = require("./dto/insight.dto");
 let InsightsService = class InsightsService {
     prisma;
-    ollamaService;
-    constructor(prisma, ollamaService) {
+    llmService;
+    constructor(prisma, llmService) {
         this.prisma = prisma;
-        this.ollamaService = ollamaService;
+        this.llmService = llmService;
     }
     toNumber(value) {
         return value ? Number(value) : 0;
@@ -94,7 +94,8 @@ let InsightsService = class InsightsService {
                 title = 'Spending Anomalies';
                 break;
         }
-        if (!metrics || (Array.isArray(metrics.detected) && metrics.detected.length === 0) ||
+        if (!metrics ||
+            (Array.isArray(metrics.detected) && metrics.detected.length === 0) ||
             (Array.isArray(metrics.items) && metrics.items.length === 0)) {
             return null;
         }
@@ -122,7 +123,10 @@ let InsightsService = class InsightsService {
                 _sum: { normalizedAmount: true },
             }),
             this.prisma.invoice.aggregate({
-                where: { tenantId, invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } },
+                where: {
+                    tenantId,
+                    invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+                },
                 _sum: { normalizedAmount: true },
             }),
         ]);
@@ -147,7 +151,10 @@ let InsightsService = class InsightsService {
         });
         const previousByVendor = await this.prisma.invoice.groupBy({
             by: ['vendorId'],
-            where: { tenantId, invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } },
+            where: {
+                tenantId,
+                invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+            },
             _sum: { normalizedAmount: true },
         });
         let maxChange = 0;
@@ -155,16 +162,20 @@ let InsightsService = class InsightsService {
         for (const current of currentByVendor) {
             const previous = previousByVendor.find((p) => p.vendorId === current.vendorId);
             const currentAmount = this.toNumber(current._sum.normalizedAmount);
-            const previousAmount = previous ? this.toNumber(previous._sum.normalizedAmount) : 0;
+            const previousAmount = previous
+                ? this.toNumber(previous._sum.normalizedAmount)
+                : 0;
             const change = currentAmount - previousAmount;
-            if (Math.abs(change) > Math.abs(maxChange)) {
+            if (current.vendorId && Math.abs(change) > Math.abs(maxChange)) {
                 maxChange = change;
                 topVendorId = current.vendorId;
             }
         }
         if (!topVendorId)
             return null;
-        const vendor = await this.prisma.vendor.findUnique({ where: { id: topVendorId } });
+        const vendor = await this.prisma.vendor.findUnique({
+            where: { id: topVendorId },
+        });
         return {
             name: vendor?.name || 'Unknown',
             change: Math.round(maxChange * 100) / 100,
@@ -185,7 +196,7 @@ let InsightsService = class InsightsService {
             }
             else {
                 patterns.set(key, {
-                    vendor: invoice.vendor.name,
+                    vendor: invoice.vendor?.name || 'Unassigned',
                     amount,
                     count: 1,
                 });
@@ -197,7 +208,7 @@ let InsightsService = class InsightsService {
             vendor: p.vendor,
             amount: p.amount,
             frequency: 'monthly',
-            confidence: Math.min(0.95, 0.7 + (p.count * 0.05)),
+            confidence: Math.min(0.95, 0.7 + p.count * 0.05),
         }))
             .slice(0, 5);
         return { detected };
@@ -226,8 +237,10 @@ let InsightsService = class InsightsService {
                 items.push({
                     category: 'duplicate',
                     invoiceIds: ids,
-                    vendor: invoice?.vendor.name,
-                    amount: invoice?.originalAmount ? this.toNumber(invoice.originalAmount) : 0,
+                    vendor: invoice?.vendor?.name || 'Unassigned',
+                    amount: invoice?.originalAmount
+                        ? this.toNumber(invoice.originalAmount)
+                        : 0,
                     action: 'Review for potential double-charge',
                 });
             }
@@ -245,7 +258,7 @@ let InsightsService = class InsightsService {
                 items.push({
                     category: 'spike',
                     invoiceIds: [invoice.id],
-                    vendor: invoice.vendor.name,
+                    vendor: invoice.vendor?.name || 'Unassigned',
                     amount: invoiceAmount,
                     expectedAmount: Math.round(avgAmount * 100) / 100,
                     action: 'Unusually high - verify this purchase',
@@ -264,7 +277,7 @@ Metrics: ${JSON.stringify(metrics, null, 2)}
 Generate a 2-3 sentence insight explaining these patterns and suggesting one actionable recommendation.
 Return ONLY the narrative text, no JSON or formatting.`;
         try {
-            const response = await this.ollamaService.generate(prompt);
+            const response = await this.llmService.generate(prompt);
             return response.trim();
         }
         catch (error) {
@@ -289,6 +302,6 @@ exports.InsightsService = InsightsService;
 exports.InsightsService = InsightsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        ollama_service_1.OllamaService])
+        llm_service_1.LlmService])
 ], InsightsService);
 //# sourceMappingURL=insights.service.js.map

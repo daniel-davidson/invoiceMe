@@ -28,11 +28,13 @@ export class VendorsController {
     @Tenant() tenantId: string,
     @Query('includeInvoiceCount') includeInvoiceCount?: string,
     @Query('includeLatestInvoices') includeLatestInvoices?: string,
+    @Query('search') search?: string,
   ) {
     return this.vendorsService.findAll(
       tenantId,
       includeInvoiceCount === 'true',
       includeLatestInvoices === 'true',
+      search,
     );
   }
 
@@ -45,10 +47,7 @@ export class VendorsController {
   }
 
   @Post()
-  async create(
-    @Tenant() tenantId: string,
-    @Body() dto: CreateVendorDto,
-  ) {
+  async create(@Tenant() tenantId: string, @Body() dto: CreateVendorDto) {
     return this.vendorsService.create(tenantId, dto);
   }
 
@@ -70,10 +69,7 @@ export class VendorsController {
   }
 
   @Post('reorder')
-  async reorder(
-    @Tenant() tenantId: string,
-    @Body() dto: ReorderVendorsDto,
-  ) {
+  async reorder(@Tenant() tenantId: string, @Body() dto: ReorderVendorsDto) {
     return this.vendorsService.reorder(tenantId, dto.vendorIds);
   }
 }

@@ -129,11 +129,8 @@ class OverallAnalyticsNotifier
     }
   }
 
-  Future<void> exportCsv() async {
-    try {
-      await _apiClient.download('/export/analytics');
-    } catch (e) {
-      // Handle error
-    }
+  Future<String> exportCsv() async {
+    // T073-ALT: Export feature deferred to future release
+    return 'Export feature coming soon';
   }
 }

@@ -1,4 +1,11 @@
-import { IsString, IsNumber, IsOptional, MinLength, MaxLength, IsPositive } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  MinLength,
+  MaxLength,
+  IsPositive,
+} from 'class-validator';
 
 export class CreateVendorDto {
   @IsString()
@@ -6,8 +13,7 @@ export class CreateVendorDto {
   @MaxLength(200)
   name: string;
 
-  @IsOptional()
   @IsNumber()
   @IsPositive()
-  monthlyLimit?: number;
+  monthlyLimit: number; // ❗ v2.0: REQUIRED, must be > 0
 }

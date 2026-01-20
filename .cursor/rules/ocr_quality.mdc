@@ -1,0 +1,113 @@
+---
+alwaysApply: true
+---
+
+# OCR + Extraction Quality Rules (MANDATORY)
+
+## Goal
+Maximize extraction accuracy for Hebrew+English invoices/receipts using:
+- PDF -> (text extraction OR rasterize -> OCR)
+- Image preprocessing BEFORE OCR
+- Multi-pass Tesseract with scoring
+- Deterministic parsing (regex) BEFORE LLM
+- LLM only finalizes structure into strict JSON
+
+## A. PDF Handling (MANDATORY)
+1) First try extracting selectable text from PDF (no OCR):
+   - Use `pdftotext -layout` (or equivalent).
+   - If extracted text length >= 200 chars OR contains invoice keywords -> use it.
+2) Otherwise rasterize PDF pages to images:
+   - 300 DPI minimum, prefer 350–400 DPI for small fonts/receipts.
+   - Process first 2 pages max (POC).
+3) Run the same preprocessing+OCR pipeline on each rasterized page.
+
+(Reason: Tesseract quality heavily depends on DPI and clean rasterization.) 
+
+## B. Image Preprocessing BEFORE OCR (MANDATORY)
+For every image (including rasterized PDF pages):
+1) Auto-rotate using OSD / orientation detection when possible.
+2) Deskew (detect baseline angle, rotate to correct).
+3) Crop to document:
+   - Find largest bright rectangle/contour; perspective-warp if photographed at angle.
+   - If 2 receipts detected: split into 2 crops and process separately.
+4) Normalize:
+   - Convert to grayscale
+   - Increase contrast
+   - Denoise (light)
+5) Binarize:
+   - Prefer adaptive threshold for uneven lighting.
+6) Remove table lines (CRITICAL for invoices with grids):
+   - Detect horizontal/vertical lines via morphology and remove them before OCR.
+
+Store both:
+- `preprocessed.png`
+- `preprocessed_no_lines.png` (for table-heavy docs)
+
+## C. Tesseract Settings (MANDATORY)
+Always run with:
+- OEM = 1 (LSTM) or OEM = 3 (default) and compare
+- languages: `heb+eng`
+- preserve spaces: `preserve_interword_spaces=1`
+
+Run OCR as MULTI-PASS with these PSM modes:
+- PSM 6 (block of text)
+- PSM 4 (columns)
+- PSM 11 (sparse text)
+- PSM 12 (sparser / receipts)
+
+Score each OCR result and pick the best.
+Scoring heuristic must prefer:
+- more digits
+- presence of invoice keywords (Heb/Eng): ["חשבונית", "מס", "תאריך", "סה\"כ", "לתשלום", "Total", "Invoice", "VAT"]
+- presence of currency: ["₪", "ILS", "$", "USD", "€", "EUR"]
+
+Keep ALL OCR outputs in DB for debugging:
+- ocrTextByPass: { "psm6": "...", "psm4": "...", ... }
+- chosenPass: "psm6"
+- chosenScore: number
+
+## D. Deterministic Parsing BEFORE LLM (MANDATORY)
+Before calling LLM, extract candidates with regex:
+- invoiceDate candidates (DD/MM/YYYY, YYYY-MM-DD, etc.)
+- invoiceNumber candidates (חשבונית/מס׳/Invoice #)
+- totalAmount candidates:
+  - look near keywords: "סה\"כ לתשלום", "לתשלום", "Total", "Grand Total"
+- currency from symbols (₪/$/€)
+
+These candidates must be passed to LLM as "hints".
+If deterministic parsing finds a strong candidate, LLM must NOT override it unless it states a warning.
+
+## E. LLM (Ollama Mistral) Usage Rules (MANDATORY)
+LLM is ONLY for structuring into strict JSON, not OCR.
+
+Use Ollama `/api/chat` with:
+- temperature = 0
+- format = JSON schema (not just "json") when available
+- return ONLY JSON
+
+Prompt must include:
+1) OCR text (chosen best pass)
+2) Candidate values (date/total/vendor/etc.)
+3) Rules for Hebrew + English fields
+4) Output schema enforcement
+
+If LLM fails:
+- save invoice with needsReview=true
+- vendorName="Unknown Vendor"
+- totalAmount=null
+- add warnings describing which step failed
+
+## F. Testing & Evaluation (MANDATORY)
+Create a local "golden set" folder with:
+- 10 Hebrew invoices (tables)
+- 10 receipts (photos)
+- 5 English invoices
+- 5 PDFs (text-based)
+- 5 PDFs (scanned)
+
+Add a script that prints:
+- OCR chosen pass + score
+- extracted candidates
+- final JSON
+
+Any change to OCR must be measured against the golden set.

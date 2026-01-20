@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:frontend/main.dart' show navigatorKeyProvider;
 import 'package:frontend/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:frontend/features/auth/presentation/screens/login_screen.dart';
 import 'package:frontend/features/auth/presentation/screens/signup_screen.dart';
 import 'package:frontend/features/home/presentation/screens/home_screen.dart';
 import 'package:frontend/features/invoices/presentation/screens/invoices_list_screen.dart';
 import 'package:frontend/features/invoices/presentation/screens/invoice_detail_screen.dart';
+import 'package:frontend/features/invoices/presentation/screens/edit_invoice_screen.dart';
 import 'package:frontend/features/vendors/presentation/screens/vendor_analytics_screen.dart';
 import 'package:frontend/features/analytics/presentation/screens/overall_analytics_screen.dart';
 import 'package:frontend/features/settings/presentation/screens/settings_screen.dart';
@@ -48,7 +50,11 @@ final authChangeNotifierProvider = Provider<AuthChangeNotifier>((ref) {
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authChangeNotifier = ref.watch(authChangeNotifierProvider);
 
+  // Get the navigator key from main.dart for session manager
+  final navKey = ref.read(navigatorKeyProvider);
+
   return GoRouter(
+    navigatorKey: navKey,
     initialLocation: '/',
     debugLogDiagnostics: true,
     refreshListenable: authChangeNotifier,
@@ -115,6 +121,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return InvoiceDetailScreen(invoiceId: id);
+        },
+      ),
+      GoRoute(
+        path: '/invoice/:id/edit',
+        name: 'invoice-edit',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return EditInvoiceScreen(invoiceId: id);
         },
       ),
       GoRoute(

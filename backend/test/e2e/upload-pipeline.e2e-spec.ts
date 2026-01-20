@@ -16,7 +16,9 @@ describe('Upload Pipeline (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     // Create a test user and get token
@@ -44,7 +46,7 @@ describe('Upload Pipeline (e2e)', () => {
 
     it('should process PDF invoice upload', async () => {
       const pdfPath = path.join(fixturesPath, 'sample-invoice.pdf');
-      
+
       // Skip if fixture doesn't exist
       if (!fs.existsSync(pdfPath)) {
         console.log('Skipping: sample-invoice.pdf fixture not found');
@@ -64,7 +66,7 @@ describe('Upload Pipeline (e2e)', () => {
 
     it('should process image invoice upload', async () => {
       const imagePath = path.join(fixturesPath, 'sample-invoice.jpg');
-      
+
       if (!fs.existsSync(imagePath)) {
         console.log('Skipping: sample-invoice.jpg fixture not found');
         return;
@@ -93,7 +95,7 @@ describe('Upload Pipeline (e2e)', () => {
 
     it('should create vendor if not exists', async () => {
       const pdfPath = path.join(fixturesPath, 'new-vendor-invoice.pdf');
-      
+
       if (!fs.existsSync(pdfPath)) {
         console.log('Skipping: new-vendor-invoice.pdf fixture not found');
         return;
@@ -118,7 +120,7 @@ describe('Upload Pipeline (e2e)', () => {
 
       // Then upload an invoice from "Google"
       const pdfPath = path.join(fixturesPath, 'google-invoice.pdf');
-      
+
       if (!fs.existsSync(pdfPath)) {
         console.log('Skipping: google-invoice.pdf fixture not found');
         return;
@@ -136,7 +138,7 @@ describe('Upload Pipeline (e2e)', () => {
 
     it('should flag low-confidence extractions for review', async () => {
       const blurryPath = path.join(fixturesPath, 'blurry-invoice.jpg');
-      
+
       if (!fs.existsSync(blurryPath)) {
         console.log('Skipping: blurry-invoice.jpg fixture not found');
         return;
@@ -155,7 +157,7 @@ describe('Upload Pipeline (e2e)', () => {
 
     it('should convert foreign currency to system currency', async () => {
       const eurPath = path.join(fixturesPath, 'euro-invoice.pdf');
-      
+
       if (!fs.existsSync(eurPath)) {
         console.log('Skipping: euro-invoice.pdf fixture not found');
         return;
@@ -166,7 +168,10 @@ describe('Upload Pipeline (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .attach('file', eurPath);
 
-      if (response.status === 201 && response.body.invoice.originalCurrency !== 'USD') {
+      if (
+        response.status === 201 &&
+        response.body.invoice.originalCurrency !== 'USD'
+      ) {
         expect(response.body.invoice.normalizedAmount).toBeDefined();
         expect(response.body.invoice.fxRate).toBeDefined();
       }
@@ -192,7 +197,7 @@ describe('Upload Pipeline (e2e)', () => {
       // This tests the fallback behavior when Ollama is unavailable
       // The extraction should still work with default values
       const pdfPath = path.join(__dirname, '../fixtures/sample-invoice.pdf');
-      
+
       if (!fs.existsSync(pdfPath)) {
         console.log('Skipping: sample-invoice.pdf fixture not found');
         return;
@@ -206,7 +211,7 @@ describe('Upload Pipeline (e2e)', () => {
 
       // Should handle gracefully even if LLM fails
       expect([201, 500]).toContain(response.status);
-      
+
       if (response.status === 201) {
         expect(response.body.invoice).toBeDefined();
       }

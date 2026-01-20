@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build outputs
+dist
+build
+*.tsbuildinfo
+
+# Tests
+coverage
+test
+*.spec.ts
+*.e2e-spec.ts
+
+# Development files
+.env
+.env.*
+!.env.example
+.vscode
+.idea
+*.log
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Uploads (will be created at runtime)
+uploads
+
+# OS files
+.DS_Store
+Thumbs.db

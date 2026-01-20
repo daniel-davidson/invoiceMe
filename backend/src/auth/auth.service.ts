@@ -6,7 +6,12 @@
  * - Verified on: 2026-01-19
  * - SDK: @supabase/supabase-js ^2.49.0
  */
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SignupDto } from './dto/signup.dto';
@@ -24,16 +29,17 @@ export class AuthService {
     private prisma: PrismaService,
   ) {
     const supabaseUrl = this.configService.get<string>('supabase.url') || '';
-    
+
     // Client key for public auth operations (signUp, signIn)
     // Support both new (publishableKey) and legacy (anonKey) key systems
-    const clientKey = 
+    const clientKey =
       this.configService.get<string>('supabase.publishableKey') ||
-      this.configService.get<string>('supabase.anonKey') || '';
+      this.configService.get<string>('supabase.anonKey') ||
+      '';
 
     // Admin key for privileged operations (token verification, user management)
     // Support both new (secretKey) and legacy (serviceRoleKey)
-    const adminKey = 
+    const adminKey =
       this.configService.get<string>('supabase.secretKey') ||
       this.configService.get<string>('supabase.serviceRoleKey');
 
@@ -60,7 +66,8 @@ export class AuthService {
   }
 
   async signUp(signupDto: SignupDto) {
-    const { email, password, fullName, personalBusinessId, systemCurrency } = signupDto;
+    const { email, password, fullName, personalBusinessId, systemCurrency } =
+      signupDto;
 
     // Sign up with Supabase Auth
     const { data, error } = await this.supabase.auth.signUp({
@@ -75,7 +82,10 @@ export class AuthService {
 
     if (error) {
       this.logger.warn(`Signup failed for ${email}: ${error.message}`);
-      if (error.message.includes('already registered') || error.message.includes('already exists')) {
+      if (
+        error.message.includes('already registered') ||
+        error.message.includes('already exists')
+      ) {
         throw new ConflictException('Email already exists');
       }
       throw new UnauthorizedException(error.message);
@@ -172,8 +182,9 @@ export class AuthService {
     // The regular client doesn't have the user's session
     if (this.supabaseAdmin) {
       // Get user from token to invalidate their session
-      const { data: userData, error: userError } = await this.supabaseAdmin.auth.getUser(accessToken);
-      
+      const { data: userData, error: userError } =
+        await this.supabaseAdmin.auth.getUser(accessToken);
+
       if (userError || !userData.user) {
         this.logger.warn(`Signout failed - invalid token`);
         throw new UnauthorizedException('Invalid token');
@@ -244,7 +255,8 @@ export class AuthService {
       return this.prisma.user.findUnique({ where: { id: userId } });
     }
 
-    const { data, error } = await this.supabaseAdmin.auth.admin.getUserById(userId);
+    const { data, error } =
+      await this.supabaseAdmin.auth.admin.getUserById(userId);
 
     if (error) {
       this.logger.warn(`Failed to get user ${userId}: ${error.message}`);

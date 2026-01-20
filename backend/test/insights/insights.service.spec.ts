@@ -181,8 +181,12 @@ describe('InsightsService', () => {
 
     it('should use SQL metrics, not recalculate in LLM', async () => {
       mockPrismaService.invoice.aggregate
-        .mockResolvedValueOnce({ _sum: { normalizedAmount: new Decimal(1500) } }) // current
-        .mockResolvedValueOnce({ _sum: { normalizedAmount: new Decimal(1000) } }); // previous
+        .mockResolvedValueOnce({
+          _sum: { normalizedAmount: new Decimal(1500) },
+        }) // current
+        .mockResolvedValueOnce({
+          _sum: { normalizedAmount: new Decimal(1000) },
+        }); // previous
 
       await service.generate(tenantId, [InsightType.MONTHLY_NARRATIVE]);
 
@@ -197,9 +201,24 @@ describe('InsightsService', () => {
 
     it('should detect recurring charges pattern', async () => {
       mockPrismaService.invoice.findMany.mockResolvedValue([
-        { id: '1', vendorId: 'v1', originalAmount: new Decimal(99.99), vendor: { name: 'Netflix' } },
-        { id: '2', vendorId: 'v1', originalAmount: new Decimal(99.99), vendor: { name: 'Netflix' } },
-        { id: '3', vendorId: 'v1', originalAmount: new Decimal(99.99), vendor: { name: 'Netflix' } },
+        {
+          id: '1',
+          vendorId: 'v1',
+          originalAmount: new Decimal(99.99),
+          vendor: { name: 'Netflix' },
+        },
+        {
+          id: '2',
+          vendorId: 'v1',
+          originalAmount: new Decimal(99.99),
+          vendor: { name: 'Netflix' },
+        },
+        {
+          id: '3',
+          vendorId: 'v1',
+          originalAmount: new Decimal(99.99),
+          vendor: { name: 'Netflix' },
+        },
       ]);
 
       await service.generate(tenantId, [InsightType.RECURRING_CHARGES]);
@@ -210,8 +229,20 @@ describe('InsightsService', () => {
     it('should detect duplicate invoices as anomalies', async () => {
       const sameDate = new Date('2024-01-15');
       mockPrismaService.invoice.findMany.mockResolvedValue([
-        { id: '1', vendorId: 'v1', originalAmount: new Decimal(100), invoiceDate: sameDate, vendor: { name: 'Test' } },
-        { id: '2', vendorId: 'v1', originalAmount: new Decimal(100), invoiceDate: sameDate, vendor: { name: 'Test' } },
+        {
+          id: '1',
+          vendorId: 'v1',
+          originalAmount: new Decimal(100),
+          invoiceDate: sameDate,
+          vendor: { name: 'Test' },
+        },
+        {
+          id: '2',
+          vendorId: 'v1',
+          originalAmount: new Decimal(100),
+          invoiceDate: sameDate,
+          vendor: { name: 'Test' },
+        },
       ]);
       mockPrismaService.invoice.groupBy.mockResolvedValue([
         { vendorId: 'v1', _avg: { normalizedAmount: new Decimal(100) } },
@@ -224,8 +255,22 @@ describe('InsightsService', () => {
 
     it('should detect spend spikes as anomalies', async () => {
       mockPrismaService.invoice.findMany.mockResolvedValue([
-        { id: '1', vendorId: 'v1', originalAmount: new Decimal(100), normalizedAmount: new Decimal(100), invoiceDate: new Date(), vendor: { name: 'Test' } },
-        { id: '2', vendorId: 'v1', originalAmount: new Decimal(500), normalizedAmount: new Decimal(500), invoiceDate: new Date(), vendor: { name: 'Test' } }, // 5x average = spike
+        {
+          id: '1',
+          vendorId: 'v1',
+          originalAmount: new Decimal(100),
+          normalizedAmount: new Decimal(100),
+          invoiceDate: new Date(),
+          vendor: { name: 'Test' },
+        },
+        {
+          id: '2',
+          vendorId: 'v1',
+          originalAmount: new Decimal(500),
+          normalizedAmount: new Decimal(500),
+          invoiceDate: new Date(),
+          vendor: { name: 'Test' },
+        }, // 5x average = spike
       ]);
       mockPrismaService.invoice.groupBy.mockResolvedValue([
         { vendorId: 'v1', _avg: { normalizedAmount: new Decimal(100) } },
@@ -258,11 +303,15 @@ describe('InsightsService', () => {
       mockPrismaService.invoice.aggregate.mockResolvedValue({
         _sum: { normalizedAmount: new Decimal(1000) },
       });
-      mockOllamaService.generate.mockRejectedValue(new Error('LLM unavailable'));
+      mockOllamaService.generate.mockRejectedValue(
+        new Error('LLM unavailable'),
+      );
       mockPrismaService.insight.create.mockResolvedValue({ id: 'i1' });
 
       // Should not throw, should use fallback narrative
-      const result = await service.generate(tenantId, [InsightType.MONTHLY_NARRATIVE]);
+      const result = await service.generate(tenantId, [
+        InsightType.MONTHLY_NARRATIVE,
+      ]);
 
       expect(result).toBeDefined();
     });

@@ -14,7 +14,9 @@ describe('Auth (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prismaService = app.get(PrismaService);
@@ -133,9 +135,7 @@ describe('Auth (e2e)', () => {
 
   describe('Protected routes', () => {
     it('should reject requests without token', async () => {
-      await request(app.getHttpServer())
-        .get('/users/me')
-        .expect(401);
+      await request(app.getHttpServer()).get('/users/me').expect(401);
     });
 
     it('should reject requests with invalid token', async () => {

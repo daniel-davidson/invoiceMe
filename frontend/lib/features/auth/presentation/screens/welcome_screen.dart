@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend/core/theme/app_theme.dart';
+import 'package:frontend/core/utils/responsive.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -20,8 +21,7 @@ class WelcomeScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
+          child: ResponsivePageContainer(
             child: Column(
               children: [
                 const Spacer(flex: 2),
@@ -65,18 +65,16 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                 ),
                 const Spacer(flex: 3),
-                // Buttons
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
+                // Buttons - responsive width
+                ResponsiveButton(
+                  button: ElevatedButton(
                     onPressed: () => context.push('/login'),
                     child: const Text('Login'),
                   ),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
+                ResponsiveButton(
+                  button: OutlinedButton(
                     onPressed: () => context.push('/signup'),
                     child: const Text('Create Account'),
                   ),

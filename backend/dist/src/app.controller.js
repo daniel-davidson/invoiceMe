@@ -44,7 +44,12 @@ let AppController = class AppController {
             },
             upload: {
                 maxFileSizeMb: this.configService.get('storage.maxFileSize') / (1024 * 1024),
-                allowedTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'],
+                allowedTypes: [
+                    'application/pdf',
+                    'image/jpeg',
+                    'image/png',
+                    'image/jpg',
+                ],
                 allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
             },
         };

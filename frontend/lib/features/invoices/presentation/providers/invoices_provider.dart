@@ -3,24 +3,59 @@ import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class LineItem {
+  final String? id; // UUID for existing items, null for new items
   final String description;
   final double? quantity;
   final double? unitPrice;
-  final double? amount;
+  final double total; // Always required
+  final String? currency; // Optional, defaults to invoice currency
 
   LineItem({
+    this.id,
     required this.description,
     this.quantity,
     this.unitPrice,
-    this.amount,
+    required this.total,
+    this.currency,
   });
 
   factory LineItem.fromJson(Map<String, dynamic> json) {
     return LineItem(
+      id: json['id'] as String?,
       description: json['description'] as String? ?? '',
       quantity: json['quantity'] != null ? _parseDouble(json['quantity']) : null,
       unitPrice: json['unitPrice'] != null ? _parseDouble(json['unitPrice']) : null,
-      amount: json['amount'] != null ? _parseDouble(json['amount']) : null,
+      total: _parseDouble(json['total'] ?? json['amount'] ?? 0.0), // Support both 'total' and legacy 'amount'
+      currency: json['currency'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (id != null) 'id': id,
+      'description': description,
+      if (quantity != null) 'quantity': quantity,
+      if (unitPrice != null) 'unitPrice': unitPrice,
+      'total': total,
+      if (currency != null) 'currency': currency,
+    };
+  }
+
+  LineItem copyWith({
+    String? id,
+    String? description,
+    double? quantity,
+    double? unitPrice,
+    double? total,
+    String? currency,
+  }) {
+    return LineItem(
+      id: id ?? this.id,
+      description: description ?? this.description,
+      quantity: quantity ?? this.quantity,
+      unitPrice: unitPrice ?? this.unitPrice,
+      total: total ?? this.total,
+      currency: currency ?? this.currency,
     );
   }
 
@@ -43,9 +78,10 @@ class Invoice {
   final String? invoiceNumber;
   final double? fxRate;
   final bool needsReview;
+  final bool useItemsTotal; // NEW: Auto-calculate total from items
   final double? vatAmount;
   final double? subtotalAmount;
-  final List<LineItem>? lineItems;
+  final List<LineItem> items; // NEW: Normalized items array (always present, may be empty)
 
   Invoice({
     required this.id,
@@ -59,25 +95,32 @@ class Invoice {
     this.invoiceNumber,
     this.fxRate,
     required this.needsReview,
+    this.useItemsTotal = true,
     this.vatAmount,
     this.subtotalAmount,
-    this.lineItems,
+    this.items = const [],
   });
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
-    // Extract line items from extraction run if available
-    List<LineItem>? lineItems;
+    // Parse normalized items array from backend (invoice_items table)
+    List<LineItem> items = [];
+    if (json['items'] != null && json['items'] is List) {
+      items = (json['items'] as List)
+          .map((item) => LineItem.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+
+    // Fallback: Extract legacy line items from extraction run if items array is empty
     double? vatAmount;
     double? subtotalAmount;
-
-    if (json['extractionRuns'] != null && (json['extractionRuns'] as List).isNotEmpty) {
+    if (items.isEmpty && json['extractionRuns'] != null && (json['extractionRuns'] as List).isNotEmpty) {
       final extractionRun = (json['extractionRuns'] as List).first;
       if (extractionRun['llmResponse'] != null) {
         final llmResponse = extractionRun['llmResponse'] as Map<String, dynamic>;
         
-        // Extract line items
+        // Extract legacy line items (no IDs)
         if (llmResponse['lineItems'] != null && llmResponse['lineItems'] is List) {
-          lineItems = (llmResponse['lineItems'] as List)
+          items = (llmResponse['lineItems'] as List)
               .map((item) => LineItem.fromJson(item as Map<String, dynamic>))
               .toList();
         }
@@ -107,10 +150,52 @@ class Invoice {
       fxRate:
           json['fxRate'] != null ? _parseDoubleStatic(json['fxRate']) : null,
       needsReview: json['needsReview'] as bool? ?? false,
+      useItemsTotal: json['useItemsTotal'] as bool? ?? true,
       vatAmount: vatAmount,
       subtotalAmount: subtotalAmount,
-      lineItems: lineItems,
+      items: items,
     );
+  }
+
+  Invoice copyWith({
+    String? id,
+    String? vendorId,
+    String? vendorName,
+    String? name,
+    double? originalAmount,
+    String? originalCurrency,
+    double? normalizedAmount,
+    DateTime? invoiceDate,
+    String? invoiceNumber,
+    double? fxRate,
+    bool? needsReview,
+    bool? useItemsTotal,
+    double? vatAmount,
+    double? subtotalAmount,
+    List<LineItem>? items,
+  }) {
+    return Invoice(
+      id: id ?? this.id,
+      vendorId: vendorId ?? this.vendorId,
+      vendorName: vendorName ?? this.vendorName,
+      name: name ?? this.name,
+      originalAmount: originalAmount ?? this.originalAmount,
+      originalCurrency: originalCurrency ?? this.originalCurrency,
+      normalizedAmount: normalizedAmount ?? this.normalizedAmount,
+      invoiceDate: invoiceDate ?? this.invoiceDate,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
+      fxRate: fxRate ?? this.fxRate,
+      needsReview: needsReview ?? this.needsReview,
+      useItemsTotal: useItemsTotal ?? this.useItemsTotal,
+      vatAmount: vatAmount ?? this.vatAmount,
+      subtotalAmount: subtotalAmount ?? this.subtotalAmount,
+      items: items ?? this.items,
+    );
+  }
+
+  double get calculatedItemsTotal {
+    if (items.isEmpty) return 0.0;
+    return items.fold(0.0, (sum, item) => sum + item.total);
   }
 
   static double _parseDoubleStatic(dynamic value) {
@@ -133,10 +218,12 @@ class InvoicesNotifier extends StateNotifier<AsyncValue<List<Invoice>>> {
     loadInvoices();
   }
 
-  Future<void> loadInvoices() async {
+  Future<void> loadInvoices({String? search}) async {
     state = const AsyncValue.loading();
     try {
-      final response = await _apiClient.get('/invoices');
+      // Build query string with search parameter
+      final queryParams = search != null && search.isNotEmpty ? '?search=$search' : '';
+      final response = await _apiClient.get('/invoices$queryParams');
       final data = response.data['data'] as List<dynamic>;
       final invoices = data
           .map((json) => Invoice.fromJson(json as Map<String, dynamic>))
@@ -145,6 +232,10 @@ class InvoicesNotifier extends StateNotifier<AsyncValue<List<Invoice>>> {
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
+  }
+
+  Future<void> search(String query) async {
+    await loadInvoices(search: query);
   }
 
   Future<void> exportCsv() async {

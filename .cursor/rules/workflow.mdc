@@ -3,10 +3,21 @@ alwaysApply: true
 ---
 # InvoiceMe — Workflow Rules (Spec-Driven)
 
-## Authority
-- The /specs folder is the single source of truth.
-- Do NOT invent requirements, screens, endpoints, tables, or flows not explicitly defined in /specs.
-- If specs conflict, do not guess: add a note in specs/DECISIONS.md proposing a safe default aligned with existing decisions.
+## Authority (Active Spec Version)
+
+This repository uses Spec-Kit specs.
+
+### Active Spec Pointer
+- The active spec version is defined in: specs/ACTIVE_SPEC.txt
+- You MUST read specs/ACTIVE_SPEC.txt at the start of every task.
+- ALL implementation must align ONLY with the spec folder referenced by specs/ACTIVE_SPEC.txt.
+- Do NOT implement from older spec folders unless explicitly instructed.
+
+### If Unclear / Conflicts
+- If the active spec conflicts internally or something is unclear: do NOT guess.
+- Add an Open Question to: <ACTIVE_SPEC>/DECISIONS.md
+  - Include: context, options, recommendation, reasoning.
+
 
 ## Multi-tenancy (MANDATORY)
 - tenantId MUST be derived from Supabase Auth JWT claim `sub`.
@@ -80,5 +91,54 @@ For every external service integration, include a short "Docs Verified" section 
 - Official docs URL(s)
 - Verified on: YYYY-MM-DD
 - SDK/version used
+
+## Task Completion Definition (MANDATORY VALIDATION)
+
+A task is NOT considered complete unless it is VALIDATED.
+
+### Validation Requirements (must run)
+For EVERY implemented task, you MUST do all of the following before claiming completion:
+
+#### Frontend (Flutter)
+1) `flutter analyze`
+2) `flutter test` (if tests exist)
+3) Build must succeed for at least one target:
+   - `flutter run -d chrome` OR
+   - `flutter build web` OR
+   - `flutter build apk` (optional)
+
+#### Backend (NestJS)
+1) `npm run lint` (or equivalent)
+2) `npm run build`
+3) Unit tests if configured:
+   - `npm test` / `pnpm test` / `yarn test`
+
+#### Database/Prisma
+1) `npx prisma validate`
+2) If schema changed:
+   - migration must run locally successfully
+   - app must start and query DB without Prisma errors
+
+### Error Policy (STRICT)
+- If ANY of the above fails, you MUST fix it immediately.
+- You MUST NOT leave TypeScript errors, Dart errors, analyzer warnings treated as errors, or runtime crashes.
+- You MUST NOT mark the task complete until the validation passes.
+
+### Reporting Format (MANDATORY)
+After finishing each task, output:
+
+1) ✅ Task ID + brief summary
+2) Files changed (list)
+3) Validation results:
+   - Frontend: `flutter analyze` ✅/❌
+   - Backend: `npm run build` ✅/❌
+   - Prisma: `prisma validate` ✅/❌
+4) Manual test steps performed and result
+
+### No-Drift Rule
+- Only implement what the active spec/tasks require.
+- If requirements are unclear or conflicting, STOP and update <ACTIVE_SPEC>/DECISIONS.md.
+
+
 
 If missing, the implementation is considered incomplete.

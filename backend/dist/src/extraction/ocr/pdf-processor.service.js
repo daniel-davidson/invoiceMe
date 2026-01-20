@@ -16,24 +16,36 @@ const common_1 = require("@nestjs/common");
 let PdfProcessorService = PdfProcessorService_1 = class PdfProcessorService {
     logger = new common_1.Logger(PdfProcessorService_1.name);
     async extractTextFromPdf(buffer) {
+        const startTime = Date.now();
         try {
             const data = await (0, pdf_parse_1.default)(buffer);
             const text = data.text?.trim() || '';
+            const duration = Date.now() - startTime;
             if (text.length > 50) {
-                this.logger.log(`Extracted ${text.length} characters of text from PDF`);
+                this.logger.log(`[PdfProcessorService] Extracted ${text.length} characters of text from PDF in ${duration}ms`);
                 return text;
             }
-            this.logger.log('PDF has insufficient selectable text, will need OCR');
+            this.logger.log(`[PdfProcessorService] PDF has insufficient selectable text (checked in ${duration}ms), will need OCR`);
             return null;
         }
         catch (error) {
-            this.logger.error(`Failed to extract text from PDF: ${error.message}`);
+            const duration = Date.now() - startTime;
+            this.logger.error(`[PdfProcessorService] Failed to extract text from PDF after ${duration}ms: ${error.message}`);
             return null;
         }
     }
     async convertPdfToImages(buffer) {
-        this.logger.log('PDF will be processed directly by Tesseract.js');
-        return [buffer];
+        const startTime = Date.now();
+        try {
+            const duration = Date.now() - startTime;
+            this.logger.log(`[PdfProcessorService] PDF conversion took ${duration}ms`);
+            return [buffer];
+        }
+        catch (error) {
+            const duration = Date.now() - startTime;
+            this.logger.error(`[PdfProcessorService] PDF conversion failed after ${duration}ms: ${error.message}`);
+            return null;
+        }
     }
     async hasSelectableText(buffer) {
         const text = await this.extractTextFromPdf(buffer);

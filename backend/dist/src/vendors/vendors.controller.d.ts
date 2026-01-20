@@ -5,7 +5,7 @@ import { ReorderVendorsDto } from './dto/reorder-vendors.dto';
 export declare class VendorsController {
     private readonly vendorsService;
     constructor(vendorsService: VendorsService);
-    findAll(tenantId: string, includeInvoiceCount?: string, includeLatestInvoices?: string): Promise<any[]>;
+    findAll(tenantId: string, includeInvoiceCount?: string, includeLatestInvoices?: string, search?: string): Promise<any[]>;
     findOne(tenantId: string, id: string): Promise<{
         recentInvoices: {
             id: string;
@@ -21,7 +21,7 @@ export declare class VendorsController {
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: import("@prisma/client/runtime/library").Decimal | null;
+        monthlyLimit: import("@prisma/client/runtime/library").Decimal;
     }>;
     create(tenantId: string, dto: CreateVendorDto): Promise<{
         id: string;
@@ -30,7 +30,7 @@ export declare class VendorsController {
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: import("@prisma/client/runtime/library").Decimal | null;
+        monthlyLimit: import("@prisma/client/runtime/library").Decimal;
     }>;
     update(tenantId: string, id: string, dto: UpdateVendorDto): Promise<{
         id: string;
@@ -39,7 +39,7 @@ export declare class VendorsController {
         name: string;
         tenantId: string;
         displayOrder: number;
-        monthlyLimit: import("@prisma/client/runtime/library").Decimal | null;
+        monthlyLimit: import("@prisma/client/runtime/library").Decimal;
     }>;
     remove(tenantId: string, id: string): Promise<{
         deletedVendorId: string;

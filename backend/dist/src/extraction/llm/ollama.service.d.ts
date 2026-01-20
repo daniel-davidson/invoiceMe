@@ -7,8 +7,10 @@ export declare class OllamaService {
     private readonly maxRetries;
     private readonly model;
     constructor(configService: ConfigService);
-    extractFromText(ocrText: string): Promise<ExtractedInvoiceData>;
+    extractFromText(ocrText: string, candidates?: any): Promise<ExtractedInvoiceData>;
     private selectRelevantText;
+    private extractTotalFallback;
+    private buildSystemPrompt;
     private buildExtractionPrompt;
     private parseResponse;
     private validateExtractedData;

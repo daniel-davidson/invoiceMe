@@ -5,18 +5,77 @@ import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/home/presentation/widgets/vendor_card.dart';
 import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
+import 'package:frontend/features/invoices/presentation/widgets/assign_business_modal.dart';
+import 'package:frontend/features/invoices/presentation/widgets/duplicate_invoice_dialog.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Map upload stage to user-friendly text
+  String _getUploadStageText(UploadStage stage) {
+    switch (stage) {
+      case UploadStage.idle:
+        return 'Ready';
+      case UploadStage.uploading:
+        return 'Uploading file...';
+      case UploadStage.ocr:
+        return 'Processing OCR...';
+      case UploadStage.extracting:
+        return 'Extracting data...';
+      case UploadStage.saving:
+        return 'Saving invoice...';
+      case UploadStage.complete:
+        return 'Complete!';
+      case UploadStage.error:
+        return 'Error';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final vendorsState = ref.watch(vendorsProvider);
     final uploadState = ref.watch(uploadStateProvider);
 
-    // Listen for upload errors and success messages
+    // Listen for upload errors and completion (triggers post-upload assignment modal)
     ref.listen(uploadStateProvider, (previous, next) {
+      // Handle duplicate invoice detection (per FLOW_CONTRACT §6a)
+      if (next.error == 'DUPLICATE_INVOICE' && next.uploadResult != null) {
+        final existing = next.uploadResult!;
+        showDialog(
+          context: context,
+          builder: (context) => DuplicateInvoiceDialog(
+            existingInvoiceId: existing.invoiceId,
+            vendorName: existing.extractedVendorName,
+            amount: existing.amount ?? 0.0,
+            currency: existing.currency ?? 'ILS',
+            invoiceDate: existing.invoiceDate ?? DateTime.now(),
+            uploadedAt: existing.uploadedAt ?? DateTime.now(),
+            invoiceNumber: existing.invoiceNumber,
+          ),
+        ).then((_) {
+          // Reset upload state after dialog closes
+          ref.read(uploadStateProvider.notifier).state = const UploadState();
+        });
+        return;
+      }
+      
+      // Show error snackbar for other errors
       if (next.error != null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error!),
@@ -24,19 +83,47 @@ class HomeScreen extends ConsumerWidget {
             duration: const Duration(seconds: 4),
           ),
         );
-      } else if (next.successMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.successMessage!),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'VIEW',
-              textColor: Colors.white,
-              onPressed: () => context.push('/invoices'),
-            ),
+      }
+      
+      // CRITICAL: Show post-upload assignment modal when upload completes (ALWAYS per FLOW_CONTRACT §4a)
+      if (next.uploadStage == UploadStage.complete && next.uploadResult != null) {
+        final result = next.uploadResult!;
+        
+        // Show assignment modal (MANDATORY UX - always shown)
+        showDialog(
+          context: context,
+          barrierDismissible: false, // User must make a choice
+          builder: (context) => AssignBusinessModal(
+            invoiceId: result.invoiceId,
+            extractedVendorId: result.extractedVendorId,
+            extractedVendorName: result.extractedVendorName,
+            confidence: result.confidence,
           ),
-        );
+        ).then((assigned) {
+          // After modal closes, show success snackbar
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  result.needsReview
+                      ? 'Invoice uploaded for ${result.extractedVendorName}. Please review the extracted data.'
+                      : 'Invoice uploaded successfully for ${result.extractedVendorName}!',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'VIEW',
+                  textColor: Colors.white,
+                  onPressed: () => context.push('/invoice/${result.invoiceId}'),
+                ),
+              ),
+            );
+          }
+          
+          // Reset upload state
+          ref.read(uploadStateProvider.notifier).state = const UploadState();
+        });
       }
     });
 
@@ -94,18 +181,71 @@ class HomeScreen extends ConsumerWidget {
                   );
                 }
 
+                // Filter vendors by search query (client-side)
+                final filteredVendors = _searchQuery.isEmpty
+                    ? vendors
+                    : vendors.where((v) => v.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: vendors.length + 1, // +1 for header
+                  itemCount: filteredVendors.length + 2, // +1 for header, +1 for search
                   itemBuilder: (context, index) {
+                    // Search bar
                     if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  hintText: 'Search businesses...',
+                                  prefixIcon: const Icon(Icons.search),
+                                  suffixIcon: _searchQuery.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _searchController.clear();
+                                              _searchQuery = '';
+                                            });
+                                          },
+                                        )
+                                      : null,
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                onChanged: (value) {
+                                  setState(() => _searchQuery = value);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
+                              onPressed: () => _showAddVendorDialog(context, ref),
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Add Business',
+                            ),
+                            IconButton.filledTonal(
+                              onPressed: () => context.push('/analytics'),
+                              icon: const Icon(Icons.analytics_outlined),
+                              tooltip: 'Analytics',
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Header
+                    if (index == 1) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Your Businesses',
+                              filteredVendors.isEmpty ? 'No businesses found' : 'Your Businesses',
                               style: Theme.of(context).textTheme.headlineMedium,
                             ),
                             TextButton.icon(
@@ -118,7 +258,29 @@ class HomeScreen extends ConsumerWidget {
                       );
                     }
 
-                    final vendor = vendors[index - 1];
+                    // Show empty search result
+                    if (filteredVendors.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          children: [
+                            Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No businesses found',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Try a different search term',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final vendor = filteredVendors[index - 2];
                     return VendorCard(
                       vendor: vendor,
                       onTap: () =>
@@ -166,7 +328,7 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
         ),
-        // Upload overlay
+        // Upload overlay with stage-based progress
         if (uploadState.isUploading)
           Container(
             color: Colors.black54,
@@ -180,13 +342,24 @@ class HomeScreen extends ConsumerWidget {
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
                       Text(
-                        uploadState.progress != null
-                            ? 'Uploading... ${(uploadState.progress! * 100).toInt()}%'
-                            : 'Processing invoice...',
+                        _getUploadStageText(uploadState.uploadStage),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
-                      const Text('This may take a moment for OCR processing'),
+                      if (uploadState.progress != null &&
+                          uploadState.uploadStage == UploadStage.uploading) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${(uploadState.progress! * 100).toInt()}%',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ],
+                      if (uploadState.uploadStage != UploadStage.uploading) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'This may take a moment',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -253,31 +426,33 @@ class HomeScreen extends ConsumerWidget {
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
-                builder: (context) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   title: const Text('Delete Business?'),
                   content: const Text(
                     'This will also delete all related invoices.',
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.pop(context, false),
+                      onPressed: () => Navigator.pop(dialogContext, false),
                       child: const Text('Cancel'),
                     ),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                       ),
-                      onPressed: () => Navigator.pop(context, true),
+                      onPressed: () => Navigator.pop(dialogContext, true),
                       child: const Text('Delete'),
                     ),
                   ],
                 ),
               );
-              if (confirmed == true) {
+              if (confirmed == true && context.mounted) {
+                // Close the edit dialog first
+                Navigator.pop(context);
+                // Then delete the vendor
                 await ref
                     .read(vendorsProvider.notifier)
                     .deleteVendor(vendor.id);
-                if (context.mounted) Navigator.pop(context);
               }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
@@ -320,16 +495,6 @@ class HomeScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _UploadOption(
-                    icon: Icons.camera_alt,
-                    label: 'Camera',
-                    onTap: () async {
-                      Navigator.pop(context);
-                      await ref
-                          .read(vendorsProvider.notifier)
-                          .uploadFromCamera();
-                    },
-                  ),
                   _UploadOption(
                     icon: Icons.photo_library,
                     label: 'Gallery',

@@ -1,6 +1,6 @@
 /**
  * Enhanced OCR Service with preprocessing and multi-pass recognition
- * 
+ *
  * Docs Verified: Tesseract.js OCR
  * - Official docs: https://tesseract.projectnaptha.com/
  * - API Reference: https://github.com/naptha/tesseract.js/blob/master/docs/api.md
@@ -11,13 +11,31 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Tesseract from 'tesseract.js';
-import sharp from 'sharp';
+import {
+  ImagePreprocessorService,
+  PreprocessingResult,
+} from './image-preprocessor.service';
 
 interface OcrResult {
   text: string;
   psm: number;
   score: number;
   confidence: number;
+  variant: 'standard' | 'no_lines';
+}
+
+export interface MultiPassOcrResult {
+  bestText: string;
+  chosenPass: string; // e.g., "psm6_standard" or "psm11_no_lines"
+  chosenScore: number;
+  chosenConfidence: number;
+  allPasses: Array<{
+    psm: number;
+    variant: string;
+    score: number;
+    confidence: number;
+    textLength: number;
+  }>;
 }
 
 @Injectable()
@@ -26,17 +44,21 @@ export class OcrService {
   private worker: Tesseract.Worker | null = null;
   private readonly debugMode: boolean;
 
-  // PSM modes to try in multi-pass OCR
+  // PSM modes to try in multi-pass OCR (per OCR Quality Rules)
   private readonly PSM_MODES = [
-    { psm: 6, name: 'block_of_text' },     // Assume uniform block of text
-    { psm: 4, name: 'single_column' },     // Single column of text
-    { psm: 11, name: 'sparse_text' },      // Sparse text, find as much as possible
-    { psm: 3, name: 'auto_page' },         // Fully automatic page segmentation
-    { psm: 12, name: 'sparse_osd' },       // Sparse text with OSD
+    { psm: 6, name: 'block_of_text' }, // Block of text
+    { psm: 4, name: 'columns' }, // Columns
+    { psm: 11, name: 'sparse_text' }, // Sparse text
+    { psm: 12, name: 'sparse_receipt' }, // Sparse (receipts)
   ];
 
-  constructor(private configService: ConfigService) {
-    this.debugMode = process.env.OCR_DEBUG === 'true' || process.env.NODE_ENV === 'development';
+  constructor(
+    private configService: ConfigService,
+    private preprocessor: ImagePreprocessorService,
+  ) {
+    this.debugMode =
+      process.env.OCR_DEBUG === 'true' ||
+      process.env.NODE_ENV === 'development';
   }
 
   /**
@@ -61,7 +83,9 @@ export class OcrService {
 
       this.logger.log('Tesseract worker initialized successfully');
     } catch (error) {
-      this.logger.error(`Failed to initialize Tesseract worker: ${error.message}`);
+      this.logger.error(
+        `Failed to initialize Tesseract worker: ${error.message}`,
+      );
       // Don't throw - allow service to start, but OCR will fail gracefully
     }
   }
@@ -76,63 +100,7 @@ export class OcrService {
     }
   }
 
-  /**
-   * Preprocess image for better OCR accuracy
-   * @param buffer - Input image buffer
-   * @returns Preprocessed image buffer
-   */
-  private async preprocessImage(buffer: Buffer): Promise<Buffer> {
-    try {
-      const image = sharp(buffer);
-      const metadata = await image.metadata();
-
-      this.logger.debug(`Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
-
-      // Calculate target dimensions (aim for ~300 DPI equivalent)
-      const minDimension = 1500; // Target minimum dimension
-      let resizeWidth: number | undefined;
-      let resizeHeight: number | undefined;
-
-      if (metadata.width && metadata.height) {
-        const maxDim = Math.max(metadata.width, metadata.height);
-        if (maxDim < minDimension) {
-          // Scale up small images
-          const scale = minDimension / maxDim;
-          resizeWidth = Math.round(metadata.width * scale);
-          resizeHeight = Math.round(metadata.height * scale);
-        }
-      }
-
-      // Preprocessing pipeline
-      let processed = image
-        .rotate() // Auto-rotate based on EXIF
-        .grayscale() // Convert to grayscale
-        .normalize(); // Normalize contrast
-
-      // Resize if needed
-      if (resizeWidth && resizeHeight) {
-        this.logger.debug(`Scaling up to ${resizeWidth}x${resizeHeight}`);
-        processed = processed.resize(resizeWidth, resizeHeight, {
-          kernel: sharp.kernel.lanczos3,
-          fit: 'fill',
-        });
-      }
-
-      // Apply contrast enhancement and thresholding
-      const preprocessed = await processed
-        .linear(1.2, -(128 * 0.2)) // Increase contrast
-        .sharpen({ sigma: 0.5 }) // Slight sharpen
-        .threshold(128) // Binarization
-        .png() // Convert to PNG for Tesseract
-        .toBuffer();
-
-      this.logger.debug('Image preprocessing completed');
-      return preprocessed;
-    } catch (error) {
-      this.logger.warn(`Image preprocessing failed: ${error.message}, using original`);
-      return buffer;
-    }
-  }
+  // Removed old preprocessImage method - now using ImagePreprocessorService
 
   /**
    * Score OCR text based on invoice-relevant content
@@ -144,20 +112,20 @@ export class OcrService {
 
     // Money keywords (Hebrew and English)
     const moneyKeywords = [
-      /סה["״']?כ/gi,              // Total (Hebrew)
-      /לתשלום/gi,                  // To pay (Hebrew)
-      /יתרה\s*לתשלום/gi,          // Balance due (Hebrew)
-      /מע["״']?מ/gi,              // VAT (Hebrew)
-      /חשבונית/gi,                 // Invoice (Hebrew)
-      /קבלה/gi,                    // Receipt (Hebrew)
-      /\btotal\b/gi,               // Total (English)
-      /\bamount\s+due\b/gi,        // Amount due (English)
-      /\binvoice\b/gi,             // Invoice (English)
-      /\breceipt\b/gi,             // Receipt (English)
-      /\bVAT\b/g,                  // VAT (English)
+      /סה["״']?כ/gi, // Total (Hebrew)
+      /לתשלום/gi, // To pay (Hebrew)
+      /יתרה\s*לתשלום/gi, // Balance due (Hebrew)
+      /מע["״']?מ/gi, // VAT (Hebrew)
+      /חשבונית/gi, // Invoice (Hebrew)
+      /קבלה/gi, // Receipt (Hebrew)
+      /\btotal\b/gi, // Total (English)
+      /\bamount\s+due\b/gi, // Amount due (English)
+      /\binvoice\b/gi, // Invoice (English)
+      /\breceipt\b/gi, // Receipt (English)
+      /\bVAT\b/g, // VAT (English)
     ];
 
-    moneyKeywords.forEach(regex => {
+    moneyKeywords.forEach((regex) => {
       const matches = text.match(regex);
       if (matches) {
         score += matches.length * 10; // 10 points per keyword match
@@ -173,12 +141,12 @@ export class OcrService {
 
     // Date-like patterns
     const datePatterns = [
-      /\b\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\b/g,  // dd/mm/yyyy, dd.mm.yy
-      /\b\d{4}-\d{2}-\d{2}\b/g,                     // yyyy-mm-dd
-      /\b\d{1,2}\s+[א-ת]{3,10}\s+\d{4}\b/g,       // Hebrew dates
+      /\b\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\b/g, // dd/mm/yyyy, dd.mm.yy
+      /\b\d{4}-\d{2}-\d{2}\b/g, // yyyy-mm-dd
+      /\b\d{1,2}\s+[א-ת]{3,10}\s+\d{4}\b/g, // Hebrew dates
     ];
 
-    datePatterns.forEach(regex => {
+    datePatterns.forEach((regex) => {
       const matches = text.match(regex);
       if (matches) {
         score += matches.length * 3; // 3 points per date
@@ -198,16 +166,18 @@ export class OcrService {
   }
 
   /**
-   * Run OCR with a specific PSM mode
+   * Run OCR with a specific PSM mode and variant
    * @param buffer - Preprocessed image buffer
    * @param psm - Page segmentation mode
    * @param modeName - Human-readable PSM name
+   * @param variant - Preprocessing variant (standard or no_lines)
    * @returns OCR result with text, score, and confidence
    */
   private async runOcrWithPSM(
     buffer: Buffer,
     psm: number,
     modeName: string,
+    variant: 'standard' | 'no_lines',
   ): Promise<OcrResult> {
     if (!this.worker) {
       throw new Error('Tesseract worker not initialized');
@@ -229,45 +199,90 @@ export class OcrService {
 
     if (this.debugMode) {
       this.logger.debug(
-        `PSM ${psm} (${modeName}): ${duration}ms, ${text.length} chars, score=${score.toFixed(1)}, conf=${confidence.toFixed(1)}%`,
+        `PSM ${psm} (${modeName}, ${variant}): ${duration}ms, ${text.length} chars, score=${score.toFixed(1)}, conf=${confidence.toFixed(1)}%`,
       );
     }
 
-    return { text, psm, score, confidence };
+    return { text, psm, score, confidence, variant };
   }
 
   /**
-   * Perform multi-pass OCR with different PSM modes and select the best result
+   * Perform multi-pass OCR with different PSM modes and preprocessing variants
+   * Returns detailed result including all passes for debugging
    * @param buffer - Image or PDF buffer
    * @param mimeType - MIME type of the file
-   * @returns Best extracted text
+   * @returns Multi-pass OCR result with best text and all pass details
    */
-  async recognizeText(buffer: Buffer, mimeType: string): Promise<string> {
+  async recognizeTextMultiPass(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<MultiPassOcrResult> {
     if (!this.worker) {
-      throw new Error('Tesseract worker not initialized');
+      this.logger.error('Tesseract worker not initialized');
+      return {
+        bestText: '',
+        chosenPass: 'none',
+        chosenScore: 0,
+        chosenConfidence: 0,
+        allPasses: [],
+      };
     }
 
     try {
-      this.logger.log(`Starting enhanced multi-pass OCR for ${mimeType}`);
+      this.logger.log(
+        `[OcrService] Starting enhanced multi-pass OCR for ${mimeType}`,
+      );
       const totalStartTime = Date.now();
 
-      // Step 1: Preprocess image
-      const preprocessed = await this.preprocessImage(buffer);
+      // Step 1: Preprocess image with both variants
+      const preprocessing = await this.preprocessor.preprocess(buffer);
 
-      // Step 2: Run OCR with multiple PSM modes
+      // Step 2: Run OCR with multiple PSM modes on BOTH variants
       const results: OcrResult[] = [];
 
+      // Run on standard preprocessing
       for (const { psm, name } of this.PSM_MODES) {
         try {
-          const result = await this.runOcrWithPSM(preprocessed, psm, name);
+          const result = await this.runOcrWithPSM(
+            preprocessing.standard,
+            psm,
+            name,
+            'standard',
+          );
           results.push(result);
         } catch (error) {
-          this.logger.warn(`PSM ${psm} (${name}) failed: ${error.message}`);
+          this.logger.warn(
+            `PSM ${psm} (${name}, standard) failed: ${error.message}`,
+          );
+        }
+      }
+
+      // Run on no-lines variant
+      for (const { psm, name } of this.PSM_MODES) {
+        try {
+          const result = await this.runOcrWithPSM(
+            preprocessing.noLines,
+            psm,
+            name,
+            'no_lines',
+          );
+          results.push(result);
+        } catch (error) {
+          this.logger.warn(
+            `PSM ${psm} (${name}, no_lines) failed: ${error.message}`,
+          );
         }
       }
 
       if (results.length === 0) {
-        throw new Error('All PSM modes failed');
+        this.logger.error('All PSM modes and variants failed');
+        return {
+          bestText: '',
+          chosenPass: 'none',
+          chosenScore: 0,
+          chosenConfidence: 0,
+          allPasses: [],
+        };
       }
 
       // Step 3: Select best result based on score
@@ -276,32 +291,65 @@ export class OcrService {
       );
 
       const totalDuration = Date.now() - totalStartTime;
+      const chosenPass = `psm${bestResult.psm}_${bestResult.variant}`;
 
       // Step 4: Log results
       this.logger.log(
-        `Multi-pass OCR completed in ${totalDuration}ms: ` +
-        `Best PSM=${bestResult.psm}, score=${bestResult.score.toFixed(1)}, ` +
-        `conf=${bestResult.confidence.toFixed(1)}%, ${bestResult.text.length} chars`,
+        `[OcrService] Multi-pass OCR completed in ${totalDuration}ms: ` +
+          `Best=${chosenPass}, score=${bestResult.score.toFixed(1)}, ` +
+          `conf=${bestResult.confidence.toFixed(1)}%, ${bestResult.text.length} chars`,
       );
 
       if (this.debugMode) {
         // Log preview of chosen text
         const preview = this.getTextPreview(bestResult.text);
-        this.logger.debug(`OCR Preview:\n${preview}`);
+        this.logger.debug(`[OcrService] OCR Preview:\n${preview}`);
 
         // Log all scores for comparison
         const scoreTable = results
           .sort((a, b) => b.score - a.score)
-          .map(r => `  PSM ${r.psm}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`)
+          .map(
+            (r) =>
+              `  psm${r.psm}_${r.variant}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`,
+          )
           .join('\n');
-        this.logger.debug(`All PSM scores:\n${scoreTable}`);
+        this.logger.debug(`[OcrService] All pass scores:\n${scoreTable}`);
       }
 
-      return bestResult.text;
+      return {
+        bestText: bestResult.text,
+        chosenPass,
+        chosenScore: bestResult.score,
+        chosenConfidence: bestResult.confidence,
+        allPasses: results.map((r) => ({
+          psm: r.psm,
+          variant: r.variant,
+          score: r.score,
+          confidence: r.confidence,
+          textLength: r.text.length,
+        })),
+      };
     } catch (error) {
-      this.logger.error(`Enhanced OCR failed: ${error.message}`);
-      throw new Error(`OCR processing failed: ${error.message}`);
+      this.logger.error(`[OcrService] Enhanced OCR failed: ${error.message}`);
+      return {
+        bestText: '',
+        chosenPass: 'error',
+        chosenScore: 0,
+        chosenConfidence: 0,
+        allPasses: [],
+      };
     }
+  }
+
+  /**
+   * Perform multi-pass OCR and return only the best text (backward compatibility)
+   * @param buffer - Image or PDF buffer
+   * @param mimeType - MIME type of the file
+   * @returns Best extracted text (empty string on failure)
+   */
+  async recognizeText(buffer: Buffer, mimeType: string): Promise<string> {
+    const result = await this.recognizeTextMultiPass(buffer, mimeType);
+    return result.bestText;
   }
 
   /**

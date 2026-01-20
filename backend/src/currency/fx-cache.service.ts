@@ -26,12 +26,16 @@ export class FxCacheService {
     // Check if expired
     const age = Date.now() - entry.timestamp;
     if (age > this.TTL_MS) {
-      this.logger.log(`Cache expired for ${baseCurrency} (age: ${Math.round(age / 1000 / 60)} minutes)`);
+      this.logger.log(
+        `Cache expired for ${baseCurrency} (age: ${Math.round(age / 1000 / 60)} minutes)`,
+      );
       this.cache.delete(baseCurrency);
       return null;
     }
 
-    this.logger.log(`Cache hit for ${baseCurrency} (age: ${Math.round(age / 1000 / 60)} minutes)`);
+    this.logger.log(
+      `Cache hit for ${baseCurrency} (age: ${Math.round(age / 1000 / 60)} minutes)`,
+    );
     return entry.rates;
   }
 
@@ -59,11 +63,16 @@ export class FxCacheService {
   /**
    * Get cache statistics
    */
-  getStats(): { size: number; entries: Array<{ currency: string; age: number }> } {
-    const entries = Array.from(this.cache.entries()).map(([currency, entry]) => ({
-      currency,
-      age: Date.now() - entry.timestamp,
-    }));
+  getStats(): {
+    size: number;
+    entries: Array<{ currency: string; age: number }>;
+  } {
+    const entries = Array.from(this.cache.entries()).map(
+      ([currency, entry]) => ({
+        currency,
+        age: Date.now() - entry.timestamp,
+      }),
+    );
 
     return {
       size: this.cache.size,

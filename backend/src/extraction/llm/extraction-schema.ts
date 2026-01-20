@@ -5,25 +5,25 @@
 export const EXTRACTION_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   type: 'object',
-  required: ['vendorName', 'totalAmount', 'currency', 'confidence', 'warnings'],
+  required: ['confidence', 'warnings'],
   properties: {
     vendorName: {
-      type: 'string',
-      description: 'Extracted vendor/supplier name from invoice',
+      type: ['string', 'null'],
+      description: 'Extracted vendor/supplier name from invoice (nullable)',
     },
     invoiceDate: {
-      type: 'string',
+      type: ['string', 'null'],
       format: 'date',
-      description: 'Invoice date in ISO 8601 format (YYYY-MM-DD)',
+      description: 'Invoice date in ISO 8601 format (YYYY-MM-DD) (nullable)',
     },
     totalAmount: {
-      type: 'number',
-      description: 'Total amount due on invoice',
+      type: ['number', 'null'],
+      description: 'Total amount due on invoice (nullable)',
     },
     currency: {
-      type: 'string',
+      type: ['string', 'null'],
       pattern: '^[A-Z]{3}$',
-      description: 'ISO 4217 currency code (e.g., USD, EUR, ILS)',
+      description: 'ISO 4217 currency code (e.g., USD, EUR, ILS) (nullable)',
     },
     invoiceNumber: {
       type: 'string',
@@ -73,18 +73,18 @@ export const EXTRACTION_SCHEMA = {
  * Fields marked with ? may be undefined when extraction fails
  */
 export interface ExtractedInvoiceData {
-  vendorName?: string;
-  invoiceDate?: string;
-  totalAmount?: number;
-  currency?: string;
-  invoiceNumber?: string;
-  vatAmount?: number;
-  subtotalAmount?: number;
+  vendorName: string | null;
+  invoiceDate: string | null;
+  totalAmount: number | null;
+  currency: string | null;
+  invoiceNumber?: string | null;
+  vatAmount?: number | null;
+  subtotalAmount?: number | null;
   lineItems?: Array<{
     description: string;
-    quantity?: number;
-    unitPrice?: number;
-    amount?: number;
+    quantity?: number | null;
+    unitPrice?: number | null;
+    amount?: number | null;
   }>;
   confidence: {
     vendorName: number;

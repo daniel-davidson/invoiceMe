@@ -35,7 +35,7 @@ async function main() {
         {
             name: 'Coffee Shop',
             displayOrder: 3,
-            monthlyLimit: null,
+            monthlyLimit: 50.0,
         },
         {
             name: 'Internet Provider',

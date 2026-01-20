@@ -8,7 +8,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 @Controller('users')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
   async getMe(@Tenant() tenantId: string) {
@@ -27,7 +27,7 @@ export class UsersController {
 @Controller('settings')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class SettingsController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('profile')
   async getProfile(@Tenant() tenantId: string) {

@@ -1,0 +1,302 @@
+# Vendors API Contract
+# InvoiceMe MVP - Vendor/Business Management
+
+openapi: 3.0.3
+info:
+  title: InvoiceMe Vendors API
+  version: 1.0.0
+  description: Vendor (Business) management endpoints
+
+paths:
+  /vendors:
+    get:
+      summary: List all vendors for current tenant
+      operationId: listVendors
+      tags: [Vendors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: includeInvoiceCount
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include count of invoices per vendor
+      responses:
+        "200":
+          description: List of vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      summary: Create a new vendor
+      operationId: createVendor
+      tags: [Vendors]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVendorRequest"
+      responses:
+        "201":
+          description: Vendor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Vendor with this name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vendors/{id}:
+    get:
+      summary: Get vendor by ID
+      operationId: getVendor
+      tags: [Vendors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorWithInvoices"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update vendor
+      operationId: updateVendor
+      tags: [Vendors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVendorRequest"
+      responses:
+        "200":
+          description: Vendor updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      summary: Delete vendor and all related invoices
+      operationId: deleteVendor
+      tags: [Vendors]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/VendorId"
+      responses:
+        "200":
+          description: Vendor deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedVendorId:
+                    type: string
+                    format: uuid
+                  deletedInvoicesCount:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /vendors/reorder:
+    post:
+      summary: Reorder vendors (drag-drop)
+      operationId: reorderVendors
+      tags: [Vendors]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderVendorsRequest"
+      responses:
+        "200":
+          description: Vendors reordered
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    VendorId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Vendor ID
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        displayOrder:
+          type: integer
+        monthlyLimit:
+          type: number
+          nullable: true
+        invoiceCount:
+          type: integer
+          description: Only included if requested
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    VendorWithInvoices:
+      allOf:
+        - $ref: "#/components/schemas/Vendor"
+        - type: object
+          properties:
+            recentInvoices:
+              type: array
+              maxItems: 5
+              items:
+                $ref: "#/components/schemas/InvoiceSummary"
+
+    InvoiceSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        originalAmount:
+          type: number
+        originalCurrency:
+          type: string
+        invoiceDate:
+          type: string
+          format: date
+
+    CreateVendorRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Acme Corp"
+        monthlyLimit:
+          type: number
+          minimum: 0
+          example: 5000.00
+
+    UpdateVendorRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        monthlyLimit:
+          type: number
+          minimum: 0
+          nullable: true
+
+    ReorderVendorsRequest:
+      type: object
+      required: [vendorIds]
+      properties:
+        vendorIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Array of vendor IDs in new order
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string

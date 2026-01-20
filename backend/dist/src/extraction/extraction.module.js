@@ -12,6 +12,8 @@ const config_1 = require("@nestjs/config");
 const extraction_service_1 = require("./extraction.service");
 const pdf_processor_service_1 = require("./ocr/pdf-processor.service");
 const ocr_service_1 = require("./ocr/ocr.service");
+const image_preprocessor_service_1 = require("./ocr/image-preprocessor.service");
+const deterministic_parser_service_1 = require("./ocr/deterministic-parser.service");
 const ollama_service_1 = require("./llm/ollama.service");
 const llm_service_1 = require("./llm/llm.service");
 const vendor_matcher_service_1 = require("./vendor-matcher.service");
@@ -28,6 +30,8 @@ exports.ExtractionModule = ExtractionModule = __decorate([
             extraction_service_1.ExtractionService,
             pdf_processor_service_1.PdfProcessorService,
             ocr_service_1.OcrService,
+            image_preprocessor_service_1.ImagePreprocessorService,
+            deterministic_parser_service_1.DeterministicParserService,
             ollama_service_1.OllamaService,
             llm_service_1.LlmService,
             vendor_matcher_service_1.VendorMatcherService,

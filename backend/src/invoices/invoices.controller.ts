@@ -23,6 +23,7 @@ import { Tenant } from '../common/decorators/tenant.decorator';
 import { UploadInvoiceDto } from './dto/upload-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { InvoiceQueryDto } from './dto/invoice-query.dto';
+import { CheckDuplicateDto } from './dto/check-duplicate.dto';
 
 @Controller('invoices')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -43,7 +44,10 @@ export class InvoicesController {
         if (allowedMimes.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new Error('Invalid file type. Only PDF, JPEG, PNG allowed.'), false);
+          cb(
+            new Error('Invalid file type. Only PDF, JPEG, PNG allowed.'),
+            false,
+          );
         }
       },
     }),
@@ -53,14 +57,27 @@ export class InvoicesController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadInvoiceDto,
   ) {
+    // Log to debug vendorId issue
+    console.log('[InvoicesController] Upload request:', {
+      tenantId,
+      fileName: file.originalname,
+      vendorIdFromDto: dto.vendorId,
+      dtoKeys: Object.keys(dto),
+    });
+
     return this.invoicesService.upload(tenantId, file, dto.vendorId);
   }
 
-  @Get()
-  async findAll(
+  @Post('check-duplicate')
+  async checkDuplicate(
     @Tenant() tenantId: string,
-    @Query() query: InvoiceQueryDto,
+    @Body() dto: CheckDuplicateDto,
   ) {
+    return this.invoicesService.checkDuplicate(tenantId, dto);
+  }
+
+  @Get()
+  async findAll(@Tenant() tenantId: string, @Query() query: InvoiceQueryDto) {
     return this.invoicesService.findAll(tenantId, query);
   }
 

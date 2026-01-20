@@ -17,22 +17,25 @@ exports.OcrService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const tesseract_js_1 = __importDefault(require("tesseract.js"));
-const sharp_1 = __importDefault(require("sharp"));
+const image_preprocessor_service_1 = require("./image-preprocessor.service");
 let OcrService = OcrService_1 = class OcrService {
     configService;
+    preprocessor;
     logger = new common_1.Logger(OcrService_1.name);
     worker = null;
     debugMode;
     PSM_MODES = [
         { psm: 6, name: 'block_of_text' },
-        { psm: 4, name: 'single_column' },
+        { psm: 4, name: 'columns' },
         { psm: 11, name: 'sparse_text' },
-        { psm: 3, name: 'auto_page' },
-        { psm: 12, name: 'sparse_osd' },
+        { psm: 12, name: 'sparse_receipt' },
     ];
-    constructor(configService) {
+    constructor(configService, preprocessor) {
         this.configService = configService;
-        this.debugMode = process.env.OCR_DEBUG === 'true' || process.env.NODE_ENV === 'development';
+        this.preprocessor = preprocessor;
+        this.debugMode =
+            process.env.OCR_DEBUG === 'true' ||
+                process.env.NODE_ENV === 'development';
     }
     async onModuleInit() {
         try {
@@ -60,47 +63,6 @@ let OcrService = OcrService_1 = class OcrService {
             this.logger.log('Tesseract worker terminated');
         }
     }
-    async preprocessImage(buffer) {
-        try {
-            const image = (0, sharp_1.default)(buffer);
-            const metadata = await image.metadata();
-            this.logger.debug(`Original image: ${metadata.width}x${metadata.height}, format: ${metadata.format}`);
-            const minDimension = 1500;
-            let resizeWidth;
-            let resizeHeight;
-            if (metadata.width && metadata.height) {
-                const maxDim = Math.max(metadata.width, metadata.height);
-                if (maxDim < minDimension) {
-                    const scale = minDimension / maxDim;
-                    resizeWidth = Math.round(metadata.width * scale);
-                    resizeHeight = Math.round(metadata.height * scale);
-                }
-            }
-            let processed = image
-                .rotate()
-                .grayscale()
-                .normalize();
-            if (resizeWidth && resizeHeight) {
-                this.logger.debug(`Scaling up to ${resizeWidth}x${resizeHeight}`);
-                processed = processed.resize(resizeWidth, resizeHeight, {
-                    kernel: sharp_1.default.kernel.lanczos3,
-                    fit: 'fill',
-                });
-            }
-            const preprocessed = await processed
-                .linear(1.2, -(128 * 0.2))
-                .sharpen({ sigma: 0.5 })
-                .threshold(128)
-                .png()
-                .toBuffer();
-            this.logger.debug('Image preprocessing completed');
-            return preprocessed;
-        }
-        catch (error) {
-            this.logger.warn(`Image preprocessing failed: ${error.message}, using original`);
-            return buffer;
-        }
-    }
     scoreOcrText(text) {
         let score = 0;
         const moneyKeywords = [
@@ -116,7 +78,7 @@ let OcrService = OcrService_1 = class OcrService {
             /\breceipt\b/gi,
             /\bVAT\b/g,
         ];
-        moneyKeywords.forEach(regex => {
+        moneyKeywords.forEach((regex) => {
             const matches = text.match(regex);
             if (matches) {
                 score += matches.length * 10;
@@ -132,7 +94,7 @@ let OcrService = OcrService_1 = class OcrService {
             /\b\d{4}-\d{2}-\d{2}\b/g,
             /\b\d{1,2}\s+[א-ת]{3,10}\s+\d{4}\b/g,
         ];
-        datePatterns.forEach(regex => {
+        datePatterns.forEach((regex) => {
             const matches = text.match(regex);
             if (matches) {
                 score += matches.length * 3;
@@ -145,7 +107,7 @@ let OcrService = OcrService_1 = class OcrService {
         }
         return Math.max(0, score);
     }
-    async runOcrWithPSM(buffer, psm, modeName) {
+    async runOcrWithPSM(buffer, psm, modeName, variant) {
         if (!this.worker) {
             throw new Error('Tesseract worker not initialized');
         }
@@ -159,51 +121,97 @@ let OcrService = OcrService_1 = class OcrService {
         const score = this.scoreOcrText(text);
         const duration = Date.now() - startTime;
         if (this.debugMode) {
-            this.logger.debug(`PSM ${psm} (${modeName}): ${duration}ms, ${text.length} chars, score=${score.toFixed(1)}, conf=${confidence.toFixed(1)}%`);
+            this.logger.debug(`PSM ${psm} (${modeName}, ${variant}): ${duration}ms, ${text.length} chars, score=${score.toFixed(1)}, conf=${confidence.toFixed(1)}%`);
         }
-        return { text, psm, score, confidence };
+        return { text, psm, score, confidence, variant };
     }
-    async recognizeText(buffer, mimeType) {
+    async recognizeTextMultiPass(buffer, mimeType) {
         if (!this.worker) {
-            throw new Error('Tesseract worker not initialized');
+            this.logger.error('Tesseract worker not initialized');
+            return {
+                bestText: '',
+                chosenPass: 'none',
+                chosenScore: 0,
+                chosenConfidence: 0,
+                allPasses: [],
+            };
         }
         try {
-            this.logger.log(`Starting enhanced multi-pass OCR for ${mimeType}`);
+            this.logger.log(`[OcrService] Starting enhanced multi-pass OCR for ${mimeType}`);
             const totalStartTime = Date.now();
-            const preprocessed = await this.preprocessImage(buffer);
+            const preprocessing = await this.preprocessor.preprocess(buffer);
             const results = [];
             for (const { psm, name } of this.PSM_MODES) {
                 try {
-                    const result = await this.runOcrWithPSM(preprocessed, psm, name);
+                    const result = await this.runOcrWithPSM(preprocessing.standard, psm, name, 'standard');
                     results.push(result);
                 }
                 catch (error) {
-                    this.logger.warn(`PSM ${psm} (${name}) failed: ${error.message}`);
+                    this.logger.warn(`PSM ${psm} (${name}, standard) failed: ${error.message}`);
+                }
+            }
+            for (const { psm, name } of this.PSM_MODES) {
+                try {
+                    const result = await this.runOcrWithPSM(preprocessing.noLines, psm, name, 'no_lines');
+                    results.push(result);
+                }
+                catch (error) {
+                    this.logger.warn(`PSM ${psm} (${name}, no_lines) failed: ${error.message}`);
                 }
             }
             if (results.length === 0) {
-                throw new Error('All PSM modes failed');
+                this.logger.error('All PSM modes and variants failed');
+                return {
+                    bestText: '',
+                    chosenPass: 'none',
+                    chosenScore: 0,
+                    chosenConfidence: 0,
+                    allPasses: [],
+                };
             }
             const bestResult = results.reduce((best, current) => current.score > best.score ? current : best);
             const totalDuration = Date.now() - totalStartTime;
-            this.logger.log(`Multi-pass OCR completed in ${totalDuration}ms: ` +
-                `Best PSM=${bestResult.psm}, score=${bestResult.score.toFixed(1)}, ` +
+            const chosenPass = `psm${bestResult.psm}_${bestResult.variant}`;
+            this.logger.log(`[OcrService] Multi-pass OCR completed in ${totalDuration}ms: ` +
+                `Best=${chosenPass}, score=${bestResult.score.toFixed(1)}, ` +
                 `conf=${bestResult.confidence.toFixed(1)}%, ${bestResult.text.length} chars`);
             if (this.debugMode) {
                 const preview = this.getTextPreview(bestResult.text);
-                this.logger.debug(`OCR Preview:\n${preview}`);
+                this.logger.debug(`[OcrService] OCR Preview:\n${preview}`);
                 const scoreTable = results
                     .sort((a, b) => b.score - a.score)
-                    .map(r => `  PSM ${r.psm}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`)
+                    .map((r) => `  psm${r.psm}_${r.variant}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`)
                     .join('\n');
-                this.logger.debug(`All PSM scores:\n${scoreTable}`);
+                this.logger.debug(`[OcrService] All pass scores:\n${scoreTable}`);
             }
-            return bestResult.text;
+            return {
+                bestText: bestResult.text,
+                chosenPass,
+                chosenScore: bestResult.score,
+                chosenConfidence: bestResult.confidence,
+                allPasses: results.map((r) => ({
+                    psm: r.psm,
+                    variant: r.variant,
+                    score: r.score,
+                    confidence: r.confidence,
+                    textLength: r.text.length,
+                })),
+            };
         }
         catch (error) {
-            this.logger.error(`Enhanced OCR failed: ${error.message}`);
-            throw new Error(`OCR processing failed: ${error.message}`);
+            this.logger.error(`[OcrService] Enhanced OCR failed: ${error.message}`);
+            return {
+                bestText: '',
+                chosenPass: 'error',
+                chosenScore: 0,
+                chosenConfidence: 0,
+                allPasses: [],
+            };
         }
+    }
+    async recognizeText(buffer, mimeType) {
+        const result = await this.recognizeTextMultiPass(buffer, mimeType);
+        return result.bestText;
     }
     getTextPreview(text) {
         if (text.length <= 800) {
@@ -226,6 +234,7 @@ let OcrService = OcrService_1 = class OcrService {
 exports.OcrService = OcrService;
 exports.OcrService = OcrService = OcrService_1 = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [config_1.ConfigService])
+    __metadata("design:paramtypes", [config_1.ConfigService,
+        image_preprocessor_service_1.ImagePreprocessorService])
 ], OcrService);
 //# sourceMappingURL=ocr.service.js.map

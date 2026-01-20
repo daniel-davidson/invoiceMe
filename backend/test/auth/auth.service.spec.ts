@@ -86,7 +86,7 @@ describe('AuthService', () => {
 
     it('should validate email format', () => {
       const invalidEmails = ['invalid', 'test@', '@test.com', ''];
-      
+
       invalidEmails.forEach((email) => {
         const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         expect(isValid).toBe(false);

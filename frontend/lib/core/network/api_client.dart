@@ -3,13 +3,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/core/error/exceptions.dart';
 
+// Callback type for session expiry handler
+typedef SessionExpiredCallback = Future<void> Function();
+
 class ApiClient {
   late final Dio _dio;
   SharedPreferences? _prefs;
+  SessionExpiredCallback? _onSessionExpired;
 
-  ApiClient({Dio? dio, SharedPreferences? prefs}) {
+  ApiClient({Dio? dio, SharedPreferences? prefs, SessionExpiredCallback? onSessionExpired}) {
     _dio = dio ?? Dio();
     _prefs = prefs;
+    _onSessionExpired = onSessionExpired;
     _configureDio();
   }
 
@@ -18,6 +23,11 @@ class ApiClient {
   /// Set SharedPreferences instance (call after initialization)
   void setPrefs(SharedPreferences prefs) {
     _prefs = prefs;
+  }
+
+  /// Set session expired callback
+  void setSessionExpiredCallback(SessionExpiredCallback callback) {
+    _onSessionExpired = callback;
   }
 
   void _configureDio() {
@@ -47,10 +57,13 @@ class ApiClient {
           }
           handler.next(options);
         },
-        onError: (error, handler) {
-          // Handle 401 errors (token expired)
-          if (error.response?.statusCode == 401) {
-            // Could trigger token refresh or logout here
+        onError: (error, handler) async {
+          // Handle 401/403 errors (session expired/unauthorized)
+          if (error.response?.statusCode == 401 || error.response?.statusCode == 403) {
+            // Trigger session expired callback if set
+            if (_onSessionExpired != null) {
+              await _onSessionExpired!();
+            }
           }
           handler.next(error);
         },
@@ -84,7 +97,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -104,7 +117,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -124,7 +137,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -144,7 +157,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -164,7 +177,7 @@ class ApiClient {
         queryParameters: queryParameters,
         options: options,
       );
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -190,11 +203,13 @@ class ApiClient {
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
+          sendTimeout: Duration(milliseconds: ApiConstants.uploadTimeout),
+          receiveTimeout: Duration(milliseconds: ApiConstants.uploadReceiveTimeout),
         ),
         onSendProgress: onSendProgress,
       );
 
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -220,11 +235,13 @@ class ApiClient {
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
+          sendTimeout: Duration(milliseconds: ApiConstants.uploadTimeout),
+          receiveTimeout: Duration(milliseconds: ApiConstants.uploadReceiveTimeout),
         ),
         onSendProgress: onSendProgress,
       );
 
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -240,14 +257,14 @@ class ApiClient {
         ),
       );
       // For now, just return - actual file saving would be platform-specific
-      _handleResponse(response);
+      await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
   }
 
   /// Handle response and check for errors
-  Response _handleResponse(Response response) {
+  Future<Response> _handleResponse(Response response) async {
     final statusCode = response.statusCode ?? 0;
 
     if (statusCode >= 200 && statusCode < 300) {
@@ -260,6 +277,22 @@ class ApiClient {
       errorMessage = response.data['message'] ??
                      response.data['error'] ??
                      errorMessage;
+    }
+
+    // Handle 401/403 - trigger session expired callback BEFORE throwing
+    if (statusCode == 401 || statusCode == 403) {
+      // ignore: avoid_print
+      print('[ApiClient] Detected ${statusCode}, triggering session expired callback');
+      if (_onSessionExpired != null) {
+        // ignore: avoid_print
+        print('[ApiClient] Calling _onSessionExpired callback');
+        await _onSessionExpired!();
+        // ignore: avoid_print
+        print('[ApiClient] Session expired callback completed');
+      } else {
+        // ignore: avoid_print
+        print('[ApiClient] WARNING: _onSessionExpired is null!');
+      }
     }
 
     // Handle specific status codes
@@ -300,8 +333,10 @@ class ApiClient {
 
         switch (statusCode) {
           case 401:
+            // Session expired callback already triggered by interceptor
             return UnauthorizedException(message: errorMessage);
           case 403:
+            // Session expired callback already triggered by interceptor
             return ForbiddenException(message: errorMessage);
           case 404:
             return NotFoundException(message: errorMessage);

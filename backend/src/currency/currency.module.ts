@@ -6,4 +6,4 @@ import { FxCacheService } from './fx-cache.service';
   providers: [CurrencyService, FxCacheService],
   exports: [CurrencyService],
 })
-export class CurrencyModule { }
+export class CurrencyModule {}

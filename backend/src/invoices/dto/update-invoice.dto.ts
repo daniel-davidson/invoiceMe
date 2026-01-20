@@ -5,15 +5,25 @@ import {
   IsUUID,
   IsOptional,
   IsPositive,
+  IsBoolean,
+  IsArray,
   MaxLength,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { InvoiceItemDto } from './invoice-item.dto';
 
 export class UpdateInvoiceDto {
   @IsOptional()
   @IsString()
   @MaxLength(200)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  invoiceNumber?: string;
 
   @IsOptional()
   @IsNumber()
@@ -32,4 +42,18 @@ export class UpdateInvoiceDto {
   @IsOptional()
   @IsUUID()
   vendorId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  useItemsTotal?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  needsReview?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InvoiceItemDto)
+  items?: InvoiceItemDto[];
 }

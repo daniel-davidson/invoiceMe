@@ -14,10 +14,7 @@ export class StorageService {
    * @param file - Multer file object
    * @returns The relative file path
    */
-  async saveFile(
-    tenantId: string,
-    file: Express.Multer.File,
-  ): Promise<string> {
+  async saveFile(tenantId: string, file: Express.Multer.File): Promise<string> {
     // Create tenant directory if it doesn't exist
     const tenantDir = path.join(this.uploadDir, tenantId);
     await fs.mkdir(tenantDir, { recursive: true });
@@ -67,7 +64,9 @@ export class StorageService {
    * @param relativePath - The relative path to the file
    * @returns Object with buffer, mimeType, and fileName
    */
-  async getFile(relativePath: string): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+  async getFile(
+    relativePath: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
     const filePath = path.join(this.uploadDir, relativePath);
     const fileName = path.basename(relativePath);
 

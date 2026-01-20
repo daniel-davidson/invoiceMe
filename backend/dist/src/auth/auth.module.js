@@ -29,7 +29,7 @@ exports.AuthModule = AuthModule = __decorate([
                     const jwtSecret = configService.get('supabase.jwtSecret');
                     const jwksUrl = configService.get('supabase.jwksUrl');
                     return {
-                        secret: jwksUrl ? undefined : (jwtSecret || ''),
+                        secret: jwksUrl ? undefined : jwtSecret || '',
                     };
                 },
                 inject: [config_1.ConfigService],

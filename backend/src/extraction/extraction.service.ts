@@ -3,16 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { PdfProcessorService } from './ocr/pdf-processor.service';
 import { OcrService } from './ocr/ocr.service';
-import { OllamaService } from './llm/ollama.service';
+import { LlmService } from './llm/llm.service';
 import { VendorMatcherService } from './vendor-matcher.service';
 import { CurrencyService } from '../currency/currency.service';
+import { DeterministicParserService } from './ocr/deterministic-parser.service';
 import { ExtractedInvoiceData } from './llm/extraction-schema';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export interface ProcessInvoiceResult {
   invoice: {
     id: string;
-    vendorId: string;
+    vendorId: string | null; // v2.0: null on upload until user assigns
     name: string | null;
     originalAmount: number;
     originalCurrency: string;
@@ -21,14 +22,10 @@ export interface ProcessInvoiceResult {
     invoiceNumber: string | null;
     fxRate: number | null;
     fxDate: Date | null;
-    needsReview: boolean;
+    needsReview: boolean; // v2.0: true when vendorId is null
     fileUrl: string;
   };
-  vendor: {
-    id: string;
-    name: string;
-    isNew: boolean;
-  };
+  extractedVendorNameCandidate: string; // v2.0: For prefilling in post-upload modal
   extraction: {
     status: string;
     confidence: {
@@ -50,9 +47,10 @@ export class ExtractionService {
     private readonly storage: StorageService,
     private readonly pdfProcessor: PdfProcessorService,
     private readonly ocr: OcrService,
-    private readonly ollama: OllamaService,
+    private readonly llmService: LlmService, // Changed from OllamaService to LlmService
     private readonly vendorMatcher: VendorMatcherService,
     private readonly currency: CurrencyService,
+    private readonly deterministicParser: DeterministicParserService,
   ) {}
 
   private toNumber(value: Decimal | null | undefined): number | null {
@@ -60,7 +58,7 @@ export class ExtractionService {
   }
 
   /**
-   * Process invoice: saveFile → detectPdfText/OCR → LLM extract → validate → matchVendor → convertCurrency
+   * Process invoice: saveFile → detectPdfText/OCR → LLM extract → validate → matchVendor → convertCurrency → save items
    */
   async processInvoice(
     file: Buffer,
@@ -68,16 +66,22 @@ export class ExtractionService {
     mimeType: string,
     tenantId: string,
     userSystemCurrency: string,
+    fileHash?: string,
   ): Promise<ProcessInvoiceResult> {
     const startTime = Date.now();
 
     // Step 1: Save file
     this.logger.log(`Saving file: ${originalName}`);
-    const fileUrl = await this.storage.saveFileBuffer(tenantId, file, originalName);
+    const fileUrl = await this.storage.saveFileBuffer(
+      tenantId,
+      file,
+      originalName,
+    );
 
-    // Step 2: Extract text (PDF text detection or OCR)
+    // Step 2: Extract text (PDF text detection or enhanced multi-pass OCR)
     let extractedText = '';
     let ocrError: string | null = null;
+    let ocrMetadata: any = null;
 
     try {
       if (mimeType === 'application/pdf') {
@@ -85,37 +89,127 @@ export class ExtractionService {
 
         if (hasText) {
           this.logger.log('PDF has selectable text, extracting directly');
-          extractedText = (await this.pdfProcessor.extractTextFromPdf(file)) || '';
+          extractedText =
+            (await this.pdfProcessor.extractTextFromPdf(file)) || '';
+          ocrMetadata = { method: 'pdf_text', passes: [] };
         } else {
           this.logger.log('PDF requires OCR');
-          extractedText = await this.ocr.recognizeText(file, mimeType);
+          const pdfImages = await this.pdfProcessor.convertPdfToImages(file);
+
+          if (pdfImages === null) {
+            this.logger.warn('PDF conversion failed, setting needsReview');
+            ocrError = 'PDF conversion failed';
+            extractedText = '';
+            ocrMetadata = { method: 'pdf_failed', passes: [] };
+          } else {
+            const ocrResult = await this.ocr.recognizeTextMultiPass(
+              file,
+              mimeType,
+            );
+            extractedText = ocrResult.bestText;
+            ocrMetadata = {
+              method: 'multi_pass_ocr',
+              chosenPass: ocrResult.chosenPass,
+              chosenScore: ocrResult.chosenScore,
+              chosenConfidence: ocrResult.chosenConfidence,
+              passes: ocrResult.allPasses,
+            };
+          }
         }
       } else {
-        // Image file - use OCR
-        this.logger.log('Processing image with OCR');
-        extractedText = await this.ocr.recognizeText(file, mimeType);
+        this.logger.log('Processing image with enhanced multi-pass OCR');
+        const ocrResult = await this.ocr.recognizeTextMultiPass(file, mimeType);
+        extractedText = ocrResult.bestText;
+        ocrMetadata = {
+          method: 'multi_pass_ocr',
+          chosenPass: ocrResult.chosenPass,
+          chosenScore: ocrResult.chosenScore,
+          chosenConfidence: ocrResult.chosenConfidence,
+          passes: ocrResult.allPasses,
+        };
       }
     } catch (error) {
       this.logger.error(`OCR/Text extraction failed: ${error.message}`);
       ocrError = error.message;
       extractedText = '';
+      ocrMetadata = { method: 'error', error: error.message, passes: [] };
     }
 
-    // Step 3: LLM extraction
+    // Step 2.5: Deterministic parsing (extract candidates before LLM)
+    let candidates: any = null;
+    if (extractedText) {
+      this.logger.log('[ExtractionService] Running deterministic parsing');
+      const parsedCandidates =
+        this.deterministicParser.extractCandidates(extractedText);
+      candidates = {
+        bestTotal:
+          this.deterministicParser.getBestTotalAmount(parsedCandidates),
+        bestCurrency:
+          this.deterministicParser.getBestCurrency(parsedCandidates),
+        bestDate: this.deterministicParser.getBestDate(parsedCandidates),
+        vendorCandidates: parsedCandidates.vendorNames,
+        allCandidates: parsedCandidates,
+      };
+      this.logger.debug(
+        `[ExtractionService] Candidates: ${JSON.stringify(candidates)}`,
+      );
+    }
+
+    // Step 3: LLM extraction with deterministic hints
     let extractedData: ExtractedInvoiceData;
     let llmError: string | null = null;
 
     if (extractedText) {
       try {
-        this.logger.log('Extracting structured data with LLM');
-        extractedData = await this.ollama.extractFromText(extractedText);
+        this.logger.log(
+          'Extracting structured data with LLM (with deterministic hints)',
+        );
+        extractedData = await this.llmService.extractFromText(
+          extractedText,
+          candidates,
+        );
+
+        // T067: Apply fallback total extraction if LLM total is null
+        if (!extractedData.totalAmount && extractedText) {
+          this.logger.warn(
+            'LLM did not extract total, trying fallback extraction',
+          );
+          // Note: extractTotalFallback is not exposed from ollama service yet
+          // This would require adding it as a public method
+          extractedData.warnings.push(
+            'Total amount extraction required manual fallback',
+          );
+        }
+
+        // Apply fallback values for other critical null fields
+        if (!extractedData.vendorName) {
+          extractedData.vendorName = 'Unknown Vendor';
+          extractedData.warnings.push('Vendor name not found, using fallback');
+        }
+        if (!extractedData.totalAmount) {
+          extractedData.totalAmount = null;
+          extractedData.warnings.push('Total amount not found');
+        }
+        if (!extractedData.currency) {
+          extractedData.currency = 'ILS';
+          extractedData.warnings.push('Currency not found, assumed ILS');
+        }
+        if (!extractedData.invoiceDate) {
+          extractedData.invoiceDate = new Date().toISOString().split('T')[0];
+          extractedData.warnings.push('Invoice date not found, using today');
+        }
+
+        extractedData.needsReview = true;
       } catch (error) {
         this.logger.error(`LLM extraction failed: ${error.message}`);
         llmError = error.message;
         extractedData = this.getDefaultExtractedData();
+        extractedData.warnings.push(`LLM extraction failed: ${error.message}`);
       }
     } else {
+      this.logger.warn('Empty OCR text, using fallback extraction data');
       extractedData = this.getDefaultExtractedData();
+      extractedData.warnings.push('OCR returned empty text');
     }
 
     // Step 4: Validate extracted data
@@ -123,11 +217,19 @@ export class ExtractionService {
     if (ocrError) validationResult.warnings.push(`OCR error: ${ocrError}`);
     if (llmError) validationResult.warnings.push(`LLM error: ${llmError}`);
 
-    // Step 5: Match or create vendor
-    this.logger.log('Matching vendor');
-    const vendor = await this.vendorMatcher.matchVendor(
-      extractedData.vendorName || 'Unknown Vendor',
-      tenantId,
+    // Step 5: NEVER auto-create vendor (v2.0 - user assigns via post-upload modal)
+    // Store extracted vendor name as candidate for frontend to use
+    const extractedVendorNameCandidate =
+      extractedData.vendorName || 'Unknown Vendor';
+
+    this.logger.log(
+      `Extracted vendor name candidate: "${extractedVendorNameCandidate}" (will NOT auto-create)`,
+    );
+
+    // Mark as needs review since no vendor assigned
+    validationResult.needsReview = true;
+    validationResult.warnings.push(
+      `Vendor extraction: "${extractedVendorNameCandidate}" - user must assign business manually`,
     );
 
     // Step 6: Convert currency
@@ -135,7 +237,11 @@ export class ExtractionService {
     let fxRate: number | null = null;
     let fxDate: Date | null = null;
 
-    if (extractedData.totalAmount && extractedData.totalAmount > 0 && extractedData.currency) {
+    if (
+      extractedData.totalAmount &&
+      extractedData.totalAmount > 0 &&
+      extractedData.currency
+    ) {
       try {
         this.logger.log(
           `Converting ${extractedData.totalAmount} ${extractedData.currency} to ${userSystemCurrency}`,
@@ -166,50 +272,95 @@ export class ExtractionService {
       if (!isNaN(parsedDate.getTime())) {
         invoiceDate = parsedDate;
       } else {
-        this.logger.warn(`Invalid date format: ${extractedData.invoiceDate}, using today's date`);
+        this.logger.warn(
+          `Invalid date format: ${extractedData.invoiceDate}, using today's date`,
+        );
         invoiceDate = new Date();
-        validationResult.warnings.push('Invalid date format, using today\'s date');
+        validationResult.warnings.push(
+          "Invalid date format, using today's date",
+        );
         validationResult.needsReview = true;
       }
     } else {
-      this.logger.warn('No invoice date found, using today\'s date');
+      this.logger.warn("No invoice date found, using today's date");
       invoiceDate = new Date();
       validationResult.warnings.push('No invoice date found');
       validationResult.needsReview = true;
     }
 
-    // Step 8: Create invoice record
+    // Step 8: Create invoice record (allow null amounts if needsReview)
     const processingTimeMs = Date.now() - startTime;
+
+    const dbStartTime = Date.now();
+    const shouldReview =
+      validationResult.needsReview ||
+      ocrError !== null ||
+      llmError !== null ||
+      !extractedData.totalAmount;
+
+    // Determine if we should use items total
+    const hasItems =
+      extractedData.lineItems && extractedData.lineItems.length > 0;
+    const useItemsTotal = hasItems;
 
     const invoice = await this.prisma.invoice.create({
       data: {
         tenantId,
-        vendorId: vendor.id,
+        vendorId: null, // ❗ v2.0: Never auto-assign, user assigns via post-upload modal
         name: extractedData.invoiceNumber || null,
         originalAmount: extractedData.totalAmount || 0,
-        originalCurrency: extractedData.currency || 'USD',
+        originalCurrency: extractedData.currency || 'ILS',
         normalizedAmount,
         invoiceDate,
         invoiceNumber: extractedData.invoiceNumber || null,
         fxRate,
         fxDate,
-        needsReview: validationResult.needsReview || ocrError !== null || llmError !== null,
+        fileHash: fileHash || null,
+        useItemsTotal,
+        needsReview: true, // ❗ v2.0: Always true when vendorId is null
         fileUrl,
       },
     });
+
+    // Create invoice items if extracted
+    if (hasItems) {
+      await Promise.all(
+        extractedData.lineItems!.map((item, index) =>
+          this.prisma.invoiceItem.create({
+            data: {
+              invoiceId: invoice.id,
+              tenantId,
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              total: item.amount || 0,
+              currency: extractedData.currency,
+              displayOrder: index,
+            },
+          }),
+        ),
+      );
+    }
 
     // Create extraction run record
     await this.prisma.extractionRun.create({
       data: {
         tenantId,
         invoiceId: invoice.id,
-        status: llmError ? 'ERROR' : validationResult.needsReview ? 'VALIDATION_FAILED' : 'SUCCESS',
+        status: llmError
+          ? 'ERROR'
+          : validationResult.needsReview
+            ? 'VALIDATION_FAILED'
+            : 'SUCCESS',
         ocrText: extractedText || null,
         llmResponse: extractedData as any,
         errorMessage: ocrError || llmError || null,
         processingTimeMs,
       },
     });
+
+    const dbDuration = Date.now() - dbStartTime;
+    this.logger.log(`[ExtractionService] DB save took ${dbDuration}ms`);
 
     this.logger.log(
       `Invoice processed successfully in ${processingTimeMs}ms (ID: ${invoice.id})`,
@@ -230,11 +381,7 @@ export class ExtractionService {
         needsReview: invoice.needsReview,
         fileUrl: invoice.fileUrl,
       },
-      vendor: {
-        id: vendor.id,
-        name: vendor.name,
-        isNew: vendor.isNew,
-      },
+      extractedVendorNameCandidate, // v2.0: For prefilling in post-upload modal
       extraction: {
         status: validationResult.needsReview ? 'NEEDS_REVIEW' : 'SUCCESS',
         confidence: extractedData.confidence,
@@ -246,12 +393,12 @@ export class ExtractionService {
   private getDefaultExtractedData(): ExtractedInvoiceData {
     return {
       vendorName: 'Unknown Vendor',
-      invoiceDate: undefined,
-      totalAmount: 0,
-      currency: 'USD',
-      invoiceNumber: undefined,
-      vatAmount: undefined,
-      subtotalAmount: undefined,
+      invoiceDate: null,
+      totalAmount: null,
+      currency: 'ILS', // Default to ILS for Israeli invoices
+      invoiceNumber: null,
+      vatAmount: null,
+      subtotalAmount: null,
       lineItems: [],
       confidence: {
         vendorName: 0,
@@ -260,6 +407,7 @@ export class ExtractionService {
         currency: 0,
       },
       warnings: ['Could not extract invoice data'],
+      needsReview: true,
     };
   }
 

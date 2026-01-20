@@ -20,11 +20,11 @@ let VendorMatcherService = VendorMatcherService_1 = class VendorMatcherService {
         this.prisma = prisma;
     }
     normalizeVendorName(name) {
-        return name
+        return (name
             .toLowerCase()
             .trim()
-            .replace(/[^\w\s]/g, '')
-            .replace(/\s+/g, ' ');
+            .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '')
+            .replace(/\s+/g, ' '));
     }
     levenshteinDistance(str1, str2) {
         const matrix = [];
@@ -76,6 +76,7 @@ let VendorMatcherService = VendorMatcherService_1 = class VendorMatcherService {
                 name: vendorName,
                 tenantId,
                 displayOrder: (maxOrderVendor?.displayOrder ?? 0) + 1,
+                monthlyLimit: 5000,
             },
             select: { id: true, name: true },
         });

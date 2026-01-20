@@ -9,7 +9,11 @@
  */
 import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy, StrategyOptionsWithoutRequest } from 'passport-jwt';
+import {
+  ExtractJwt,
+  Strategy,
+  StrategyOptionsWithoutRequest,
+} from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { passportJwtSecret } from 'jwks-rsa';
 
@@ -17,13 +21,17 @@ import { passportJwtSecret } from 'jwks-rsa';
  * Build JWT strategy options based on configuration
  * Must be a static function called before super()
  */
-function buildJwtOptions(configService: ConfigService): StrategyOptionsWithoutRequest {
+function buildJwtOptions(
+  configService: ConfigService,
+): StrategyOptionsWithoutRequest {
   const jwksUrl = configService.get<string>('supabase.jwksUrl');
   const jwtSecret = configService.get<string>('supabase.jwtSecret');
 
   // New system: Asymmetric JWT verification via JWKS
   if (jwksUrl) {
-    console.log('🔐 JWT Strategy: Using JWKS endpoint for asymmetric verification');
+    console.log(
+      '🔐 JWT Strategy: Using JWKS endpoint for asymmetric verification',
+    );
     return {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

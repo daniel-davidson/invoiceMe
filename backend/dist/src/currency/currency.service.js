@@ -25,7 +25,8 @@ let CurrencyService = CurrencyService_1 = class CurrencyService {
         this.configService = configService;
         this.fxCache = fxCache;
         this.provider = this.configService.get('fx.provider') || 'frankfurter';
-        this.apiUrl = this.configService.get('fx.apiUrl') || 'https://api.frankfurter.app';
+        this.apiUrl =
+            this.configService.get('fx.apiUrl') || 'https://api.frankfurter.app';
         this.apiKey = this.configService.get('fx.apiKey');
     }
     async convert(amount, fromCurrency, toCurrency) {
@@ -134,9 +135,30 @@ let CurrencyService = CurrencyService_1 = class CurrencyService {
             return Object.keys(data);
         }
         return [
-            'USD', 'EUR', 'GBP', 'ILS', 'JPY', 'CAD', 'AUD', 'CHF',
-            'CNY', 'INR', 'MXN', 'BRL', 'KRW', 'SGD', 'HKD', 'NOK',
-            'SEK', 'DKK', 'NZD', 'ZAR', 'RUB', 'TRY', 'PLN', 'THB',
+            'USD',
+            'EUR',
+            'GBP',
+            'ILS',
+            'JPY',
+            'CAD',
+            'AUD',
+            'CHF',
+            'CNY',
+            'INR',
+            'MXN',
+            'BRL',
+            'KRW',
+            'SGD',
+            'HKD',
+            'NOK',
+            'SEK',
+            'DKK',
+            'NZD',
+            'ZAR',
+            'RUB',
+            'TRY',
+            'PLN',
+            'THB',
         ];
     }
 };

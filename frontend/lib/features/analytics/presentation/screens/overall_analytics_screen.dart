@@ -18,8 +18,17 @@ class OverallAnalyticsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
-            onPressed: () =>
-                ref.read(overallAnalyticsProvider.notifier).exportCsv(),
+            onPressed: () async {
+              final message = await ref.read(overallAnalyticsProvider.notifier).exportCsv();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(message),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
