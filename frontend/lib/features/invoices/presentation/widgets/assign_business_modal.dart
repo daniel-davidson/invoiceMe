@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../vendors/domain/models/vendor.dart';
-import '../../../vendors/presentation/providers/vendors_provider.dart';
+import 'package:frontend/features/home/presentation/providers/home_provider.dart';
+import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class AssignBusinessModal extends ConsumerStatefulWidget {
   final String invoiceId;
@@ -47,11 +47,15 @@ class _AssignBusinessModalState extends ConsumerState<AssignBusinessModal> {
 
     setState(() => _isLoading = true);
     try {
-      // Update invoice with selected vendor
-      await ref.read(vendorsProvider.notifier).updateInvoiceVendor(
-            widget.invoiceId,
-            _selectedVendorId!,
-          );
+      // Update invoice with selected vendor via API
+      final apiClient = ref.read(apiClientProvider);
+      await apiClient.patch('/invoices/${widget.invoiceId}', data: {
+        'vendorId': _selectedVendorId!,
+      });
+      
+      // Reload vendors to refresh counts
+      await ref.read(vendorsProvider.notifier).loadVendors();
+      
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -70,11 +74,25 @@ class _AssignBusinessModalState extends ConsumerState<AssignBusinessModal> {
 
     setState(() => _isLoading = true);
     try {
-      final vendor = await ref.read(vendorsProvider.notifier).createVendor(name);
-      setState(() {
-        _selectedVendorId = vendor.id;
-        _showCreateForm = false;
-      });
+      // Create new vendor
+      await ref.read(vendorsProvider.notifier).addVendor(name);
+      
+      // Reload vendors to get the new one
+      await ref.read(vendorsProvider.notifier).loadVendors();
+      
+      // Find the newly created vendor by name
+      final vendors = ref.read(vendorsProvider).value;
+      final newVendor = vendors?.firstWhere(
+        (v) => v.name == name,
+        orElse: () => vendors.last, // Fallback to last vendor if not found
+      );
+      
+      if (newVendor != null) {
+        setState(() {
+          _selectedVendorId = newVendor.id;
+          _showCreateForm = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
