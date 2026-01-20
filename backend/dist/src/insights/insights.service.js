@@ -12,14 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InsightsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const ollama_service_1 = require("../extraction/llm/ollama.service");
+const llm_service_1 = require("../extraction/llm/llm.service");
 const insight_dto_1 = require("./dto/insight.dto");
 let InsightsService = class InsightsService {
     prisma;
-    ollamaService;
-    constructor(prisma, ollamaService) {
+    llmService;
+    constructor(prisma, llmService) {
         this.prisma = prisma;
-        this.ollamaService = ollamaService;
+        this.llmService = llmService;
     }
     toNumber(value) {
         return value ? Number(value) : 0;
@@ -277,7 +277,7 @@ Metrics: ${JSON.stringify(metrics, null, 2)}
 Generate a 2-3 sentence insight explaining these patterns and suggesting one actionable recommendation.
 Return ONLY the narrative text, no JSON or formatting.`;
         try {
-            const response = await this.ollamaService.generate(prompt);
+            const response = await this.llmService.generate(prompt);
             return response.trim();
         }
         catch (error) {
@@ -302,6 +302,6 @@ exports.InsightsService = InsightsService;
 exports.InsightsService = InsightsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        ollama_service_1.OllamaService])
+        llm_service_1.LlmService])
 ], InsightsService);
 //# sourceMappingURL=insights.service.js.map

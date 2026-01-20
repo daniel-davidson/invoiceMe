@@ -7,15 +7,23 @@ export declare class LlmService {
     private readonly model;
     private readonly apiKey;
     private readonly ollamaUrl;
+    private readonly maxRetries;
     constructor(configService: ConfigService);
-    extractFromText(ocrText: string): Promise<ExtractedInvoiceData>;
+    extractFromText(ocrText: string, candidates?: any): Promise<ExtractedInvoiceData>;
+    private generateWithMessages;
     generate(prompt: string): Promise<string>;
-    private generateOllama;
     private generateGroq;
+    private generateOllama;
     private generateTogether;
     private generateOpenRouter;
+    private selectRelevantText;
+    private buildSystemPrompt;
     private buildExtractionPrompt;
+    private buildExtractionPrompt_old;
     private parseResponse;
+    private validateExtractedData;
     private getFallbackExtraction;
     private normalizeDate;
+    private isRetryableError;
+    private sleep;
 }

@@ -16,10 +16,10 @@ declare const _default: () => {
     };
     llm: {
         provider: string;
+        apiKey: string | undefined;
+        model: string;
         ollamaUrl: string;
         ollamaModel: string;
-        apiKey: string | undefined;
-        model: string | undefined;
     };
     ocr: {
         provider: string;

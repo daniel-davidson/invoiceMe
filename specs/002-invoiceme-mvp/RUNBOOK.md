@@ -96,9 +96,9 @@ CREATE DATABASE invoiceme;
 3. Copy the key (starts with `gsk_...`)
 4. Set in `.env`:
    ```bash
-   LLM_PROVIDER=groq
-   LLM_API_KEY=gsk_your_api_key_here
-   LLM_MODEL=mixtral-8x7b-32768
+LLM_PROVIDER=groq
+LLM_API_KEY=gsk_your_api_key_here
+LLM_MODEL=llama-3.3-70b-versatile
    ```
 
 **No additional setup needed!** Backend will call Groq API automatically.

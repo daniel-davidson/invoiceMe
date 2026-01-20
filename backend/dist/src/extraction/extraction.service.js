@@ -16,7 +16,7 @@ const prisma_service_1 = require("../prisma/prisma.service");
 const storage_service_1 = require("../storage/storage.service");
 const pdf_processor_service_1 = require("./ocr/pdf-processor.service");
 const ocr_service_1 = require("./ocr/ocr.service");
-const ollama_service_1 = require("./llm/ollama.service");
+const llm_service_1 = require("./llm/llm.service");
 const vendor_matcher_service_1 = require("./vendor-matcher.service");
 const currency_service_1 = require("../currency/currency.service");
 const deterministic_parser_service_1 = require("./ocr/deterministic-parser.service");
@@ -25,17 +25,17 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
     storage;
     pdfProcessor;
     ocr;
-    ollama;
+    llmService;
     vendorMatcher;
     currency;
     deterministicParser;
     logger = new common_1.Logger(ExtractionService_1.name);
-    constructor(prisma, storage, pdfProcessor, ocr, ollama, vendorMatcher, currency, deterministicParser) {
+    constructor(prisma, storage, pdfProcessor, ocr, llmService, vendorMatcher, currency, deterministicParser) {
         this.prisma = prisma;
         this.storage = storage;
         this.pdfProcessor = pdfProcessor;
         this.ocr = ocr;
-        this.ollama = ollama;
+        this.llmService = llmService;
         this.vendorMatcher = vendorMatcher;
         this.currency = currency;
         this.deterministicParser = deterministicParser;
@@ -118,7 +118,7 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
         if (extractedText) {
             try {
                 this.logger.log('Extracting structured data with LLM (with deterministic hints)');
-                extractedData = await this.ollama.extractFromText(extractedText, candidates);
+                extractedData = await this.llmService.extractFromText(extractedText, candidates);
                 if (!extractedData.totalAmount && extractedText) {
                     this.logger.warn('LLM did not extract total, trying fallback extraction');
                     extractedData.warnings.push('Total amount extraction required manual fallback');
@@ -358,7 +358,7 @@ exports.ExtractionService = ExtractionService = ExtractionService_1 = __decorate
         storage_service_1.StorageService,
         pdf_processor_service_1.PdfProcessorService,
         ocr_service_1.OcrService,
-        ollama_service_1.OllamaService,
+        llm_service_1.LlmService,
         vendor_matcher_service_1.VendorMatcherService,
         currency_service_1.CurrencyService,
         deterministic_parser_service_1.DeterministicParserService])

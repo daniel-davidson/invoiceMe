@@ -58,7 +58,7 @@ curl https://api.groq.com/openai/v1/chat/completions \
   -H "Authorization: Bearer YOUR_GROQ_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mixtral-8x7b-32768",
+    "model": "llama-3.3-70b-versatile",
     "messages": [{"role": "user", "content": "Hello"}],
     "temperature": 0
   }'
@@ -112,7 +112,7 @@ SUPABASE_JWKS_URL=https://[PROJECT_ID].supabase.co/.well-known/jwks.json
 # LLM Provider (Groq)
 LLM_PROVIDER=groq
 GROQ_API_KEY=[YOUR_GROQ_API_KEY_FROM_STEP_1]
-GROQ_MODEL=mixtral-8x7b-32768
+GROQ_MODEL=llama-3.3-70b-versatile
 
 # OCR Provider
 OCR_PROVIDER=tesseract

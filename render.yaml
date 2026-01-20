@@ -51,7 +51,7 @@ services:
       - key: LLM_API_KEY
         generateValue: false
       - key: LLM_MODEL
-        value: mixtral-8x7b-32768
+        value: llama-3.3-70b-versatile
       
       # OCR
       - key: OCR_PROVIDER

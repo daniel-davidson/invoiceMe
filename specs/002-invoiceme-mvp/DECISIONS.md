@@ -574,7 +574,7 @@ Question: What LLM provider should be used for production deployment?
 
 **Production**:
 - Provider: Groq API (https://console.groq.com)
-- Model: `mixtral-8x7b-32768` or `llama-3.1-70b-versatile`
+- Model: `llama-3.3-70b-versatile` (flagship Jan 2026) or `llama-3.1-8b-instant` (faster)
 - Authentication: `GROQ_API_KEY` environment variable
 - Cost: Free tier (generous limits for MVP)
 
@@ -614,7 +614,7 @@ Question: What LLM provider should be used for production deployment?
 ```bash
 LLM_PROVIDER=groq
 GROQ_API_KEY=gsk_xxx...
-GROQ_MODEL=mixtral-8x7b-32768  # or llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.3-70b-versatile  # Groq flagship (Jan 2026)
 ```
 
 **Environment Variables (Local Dev - Option A: Groq)**:
@@ -652,7 +652,7 @@ Headers:
   Content-Type: application/json
 Body:
   {
-    "model": "mixtral-8x7b-32768",
+    "model": "llama-3.3-70b-versatile",
     "messages": [
       {"role": "system", "content": "...extraction rules..."},
       {"role": "user", "content": "...OCR text..."}

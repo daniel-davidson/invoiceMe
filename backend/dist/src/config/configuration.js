@@ -19,11 +19,13 @@ exports.default = () => ({
         },
     },
     llm: {
-        provider: process.env.LLM_PROVIDER || 'ollama',
+        provider: process.env.LLM_PROVIDER || 'groq',
+        apiKey: process.env.LLM_API_KEY || process.env.GROQ_API_KEY,
+        model: process.env.LLM_MODEL ||
+            process.env.GROQ_MODEL ||
+            'llama-3.3-70b-versatile',
         ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
         ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2:3b',
-        apiKey: process.env.LLM_API_KEY,
-        model: process.env.LLM_MODEL,
     },
     ocr: {
         provider: process.env.OCR_PROVIDER || 'tesseract',

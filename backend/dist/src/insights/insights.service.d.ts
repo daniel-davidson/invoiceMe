@@ -1,10 +1,10 @@
 import { PrismaService } from '../prisma/prisma.service';
-import { OllamaService } from '../extraction/llm/ollama.service';
+import { LlmService } from '../extraction/llm/llm.service';
 import { InsightType } from './dto/insight.dto';
 export declare class InsightsService {
     private prisma;
-    private ollamaService;
-    constructor(prisma: PrismaService, ollamaService: OllamaService);
+    private llmService;
+    constructor(prisma: PrismaService, llmService: LlmService);
     private toNumber;
     findAll(tenantId: string, type?: InsightType, limit?: number): Promise<{
         id: string;

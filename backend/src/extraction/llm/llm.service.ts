@@ -32,7 +32,7 @@ export class LlmService {
 
     // Default models per provider
     const defaultModels = {
-      groq: 'mixtral-8x7b-32768',
+      groq: 'llama-3.3-70b-versatile', // Groq's flagship production model (Jan 2026)
       ollama: 'llama3.2:3b',
       together: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
       openrouter: 'meta-llama/llama-3.2-3b-instruct:free',
