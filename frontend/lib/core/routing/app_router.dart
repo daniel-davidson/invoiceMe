@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:frontend/main.dart' show navigatorKeyProvider;
 import 'package:frontend/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:frontend/features/auth/presentation/screens/login_screen.dart';
 import 'package:frontend/features/auth/presentation/screens/signup_screen.dart';
@@ -48,8 +49,12 @@ final authChangeNotifierProvider = Provider<AuthChangeNotifier>((ref) {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authChangeNotifier = ref.watch(authChangeNotifierProvider);
+  
+  // Get the navigator key from main.dart for session manager
+  final navKey = ref.read(navigatorKeyProvider);
 
   return GoRouter(
+    navigatorKey: navKey,
     initialLocation: '/',
     debugLogDiagnostics: true,
     refreshListenable: authChangeNotifier,
