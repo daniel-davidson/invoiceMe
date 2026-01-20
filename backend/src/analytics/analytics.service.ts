@@ -230,12 +230,12 @@ export class AnalyticsService {
     const totalSpend = this.toNumber(totalSpendResult._sum.normalizedAmount) 
       || this.toNumber(totalSpendResult._sum.originalAmount);
 
-    // Total limits
+    // Total limits (v2.0: monthlyLimit is always set, no need to check for null)
     const limitsResult = await this.prisma.vendor.aggregate({
-      where: { tenantId, monthlyLimit: { not: null } },
+      where: { tenantId },
       _sum: { monthlyLimit: true },
     });
-    const totalLimits = this.toNumber(limitsResult._sum.monthlyLimit);
+    const totalLimits = this.toNumber(limitsResult._sum?.monthlyLimit);
 
     // Counts
     const [vendorCount, invoiceCount] = await Promise.all([
@@ -252,7 +252,7 @@ export class AnalyticsService {
       take: 5,
     });
 
-    const vendorIds = topVendors.map((v) => v.vendorId);
+    const vendorIds = topVendors.map((v) => v.vendorId).filter((id): id is string => id !== null);
     const vendors = await this.prisma.vendor.findMany({
       where: { id: { in: vendorIds } },
     });
@@ -321,13 +321,18 @@ export class AnalyticsService {
     };
   }
 
-  async updateVendorLimit(tenantId: string, vendorId: string, monthlyLimit: number | null) {
+  async updateVendorLimit(tenantId: string, vendorId: string, monthlyLimit: number) {
     const vendor = await this.prisma.vendor.findFirst({
       where: { id: vendorId, tenantId },
     });
 
     if (!vendor) {
       throw new NotFoundException('Vendor not found');
+    }
+
+    // v2.0: monthlyLimit is required, cannot be null
+    if (monthlyLimit <= 0) {
+      throw new NotFoundException('Monthly limit must be greater than 0');
     }
 
     return this.prisma.vendor.update({

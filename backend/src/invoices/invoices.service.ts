@@ -59,24 +59,26 @@ export class InvoicesService {
     );
 
     console.log('[InvoicesService] Extraction result:', {
-      extractedVendorId: result.vendor.id,
-      extractedVendorName: result.vendor.name,
-      isNewVendor: result.vendor.isNew,
+      extractedVendorNameCandidate: result.extractedVendorNameCandidate,
+      vendorId: result.invoice.vendorId, // v2.0: null on upload
       explicitVendorIdProvided: vendorId,
     });
 
-    // If vendorId was explicitly provided and differs from extracted, update the invoice
-    if (vendorId && vendorId !== result.vendor.id) {
-      console.log('[InvoicesService] OVERRIDING vendor assignment:', {
-        from: result.vendor.id,
-        to: vendorId,
+    // v2.0: If vendorId was explicitly provided (from post-upload modal), assign it
+    if (vendorId) {
+      console.log('[InvoicesService] Assigning vendor via explicit vendorId:', {
+        vendorId,
       });
       
       await this.prisma.invoice.update({
         where: { id: result.invoice.id },
-        data: { vendorId },
+        data: { 
+          vendorId,
+          needsReview: false, // User explicitly assigned, no longer needs review
+        },
       });
       result.invoice.vendorId = vendorId;
+      result.invoice.needsReview = false;
     }
 
     return result;

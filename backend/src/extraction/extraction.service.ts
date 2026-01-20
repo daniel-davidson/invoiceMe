@@ -13,7 +13,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 export interface ProcessInvoiceResult {
   invoice: {
     id: string;
-    vendorId: null; // ❗ v2.0: Always null on upload
+    vendorId: string | null; // v2.0: null on upload until user assigns
     name: string | null;
     originalAmount: number;
     originalCurrency: string;
@@ -22,10 +22,10 @@ export interface ProcessInvoiceResult {
     invoiceNumber: string | null;
     fxRate: number | null;
     fxDate: Date | null;
-    needsReview: true; // ❗ v2.0: Always true when vendorId is null
+    needsReview: boolean; // v2.0: true when vendorId is null
     fileUrl: string;
   };
-  extractedVendorNameCandidate: string; // ❗ v2.0: For prefilling in post-upload modal
+  extractedVendorNameCandidate: string; // v2.0: For prefilling in post-upload modal
   extraction: {
     status: string;
     confidence: {

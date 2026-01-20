@@ -110,6 +110,7 @@ export class VendorMatcherService {
         name: vendorName, // Use original name, not normalized
         tenantId,
         displayOrder: (maxOrderVendor?.displayOrder ?? 0) + 1,
+        monthlyLimit: 5000, // v2.0: Required, default 5000
       },
       select: { id: true, name: true },
     });
