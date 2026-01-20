@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/auth/session_manager.dart';
 import 'package:frontend/features/auth/data/datasources/auth_remote_datasource.dart';
 import 'package:frontend/features/auth/data/datasources/auth_local_datasource.dart';
 import 'package:frontend/features/auth/data/repositories/auth_repository_impl.dart';
@@ -12,10 +13,15 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('SharedPreferences must be overridden in main');
 });
 
-// API Client provider - now includes SharedPreferences for auth token
+// API Client provider - now includes SharedPreferences and session expired callback
 final apiClientProvider = Provider<ApiClient>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
-  return ApiClient(prefs: prefs);
+  final sessionManager = ref.watch(sessionManagerProvider);
+  
+  return ApiClient(
+    prefs: prefs,
+    onSessionExpired: () => sessionManager.handleSessionExpired(),
+  );
 });
 
 // Auth datasources
@@ -40,7 +46,7 @@ final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>
   return AuthNotifier(ref.watch(authRepositoryProvider));
 });
 
-class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
+class AuthNotifier extends StateNotifier<AsyncValue<User?>> implements SessionManagerAuth {
   final AuthRepository _repository;
 
   AuthNotifier(this._repository) : super(const AsyncValue.loading()) {
@@ -113,4 +119,17 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       state = const AsyncValue.data(null);
     }
   }
+
+  /// Force logout without showing loading state (called by session manager on 401/403)
+  @override
+  Future<void> forceLogout() async {
+    try {
+      await _repository.signOut();
+    } catch (e) {
+      // Ignore errors during force logout
+    }
+    // Immediately set to null - router will redirect to login
+    state = const AsyncValue.data(null);
+  }
 }
+
