@@ -118,21 +118,35 @@ class _VendorCardState extends State<VendorCard> {
           itemBuilder: (context, index) {
             final invoice = widget.vendor.latestInvoices![index];
             return ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                color: invoice.needsReview 
-                    ? Colors.orange.withValues(alpha: 0.1)
-                    : Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  invoice.needsReview ? Icons.warning_amber : Icons.receipt_long,
-                  color: invoice.needsReview ? Colors.orange : Colors.green,
-                  size: 20,
-                ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+              leading: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      context.push('/invoice/${invoice.id}/edit');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                    color: invoice.needsReview 
+                        ? Colors.orange.withValues(alpha: 0.1)
+                        : Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      invoice.needsReview ? Icons.warning_amber : Icons.receipt_long,
+                      color: invoice.needsReview ? Colors.orange : Colors.green,
+                      size: 20,
+                    ),
+                  ),
+                ],
               ),
               title: Text(
                 invoice.name ?? 'Invoice',

@@ -20,7 +20,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () => _showEditDialog(context, ref),
+            onPressed: () => context.push('/invoice/$invoiceId/edit'),
           ),
           IconButton(
             icon: const Icon(Icons.delete),
@@ -337,10 +337,6 @@ class InvoiceDetailScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  void _showEditDialog(BuildContext context, WidgetRef ref) {
-    // TODO: Implement edit dialog
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {

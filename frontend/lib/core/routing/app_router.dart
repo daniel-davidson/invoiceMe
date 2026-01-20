@@ -7,6 +7,7 @@ import 'package:frontend/features/auth/presentation/screens/signup_screen.dart';
 import 'package:frontend/features/home/presentation/screens/home_screen.dart';
 import 'package:frontend/features/invoices/presentation/screens/invoices_list_screen.dart';
 import 'package:frontend/features/invoices/presentation/screens/invoice_detail_screen.dart';
+import 'package:frontend/features/invoices/presentation/screens/edit_invoice_screen.dart';
 import 'package:frontend/features/vendors/presentation/screens/vendor_analytics_screen.dart';
 import 'package:frontend/features/analytics/presentation/screens/overall_analytics_screen.dart';
 import 'package:frontend/features/settings/presentation/screens/settings_screen.dart';
@@ -115,6 +116,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return InvoiceDetailScreen(invoiceId: id);
+        },
+      ),
+      GoRoute(
+        path: '/invoice/:id/edit',
+        name: 'invoice-edit',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return EditInvoiceScreen(invoiceId: id);
         },
       ),
       GoRoute(

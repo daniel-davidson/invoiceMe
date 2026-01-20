@@ -42,14 +42,26 @@ class InvoicesListScreen extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   onTap: () => context.push('/invoice/${invoice.id}'),
-                  leading: CircleAvatar(
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, size: 20),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => context.push('/invoice/${invoice.id}/edit'),
+                      ),
+                      const SizedBox(width: 8),
+                      CircleAvatar(
                     backgroundColor: invoice.needsReview
                         ? Colors.orange.withValues(alpha: 0.2)
                         : Colors.green.withValues(alpha: 0.2),
-                    child: Icon(
-                      invoice.needsReview ? Icons.warning : Icons.receipt,
-                      color: invoice.needsReview ? Colors.orange : Colors.green,
-                    ),
+                        child: Icon(
+                          invoice.needsReview ? Icons.warning : Icons.receipt,
+                          color: invoice.needsReview ? Colors.orange : Colors.green,
+                        ),
+                      ),
+                    ],
                   ),
                   title: Text(invoice.vendorName),
                   subtitle: Text(DateFormatter.format(invoice.invoiceDate)),
