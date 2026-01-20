@@ -86,10 +86,11 @@ let GroqService = GroqService_1 = class GroqService {
             catch (error) {
                 lastError = error;
                 if (axios_1.default.isAxiosError(error)) {
+                    const statusCode = error.response?.status;
                     if (error.code === 'ECONNREFUSED' ||
                         error.code === 'ETIMEDOUT' ||
-                        error.response?.status === 429 ||
-                        error.response?.status >= 500) {
+                        statusCode === 429 ||
+                        (statusCode !== undefined && statusCode >= 500)) {
                         this.logger.warn(`Groq API error (attempt ${attempt + 1}/${this.maxRetries + 1}): ${error.message}`);
                         if (attempt < this.maxRetries) {
                             await this.sleep(1000 * Math.pow(2, attempt));
@@ -310,10 +311,11 @@ Return ONLY valid JSON.`;
             catch (error) {
                 lastError = error;
                 if (axios_1.default.isAxiosError(error)) {
+                    const statusCode = error.response?.status;
                     if (error.code === 'ECONNREFUSED' ||
                         error.code === 'ETIMEDOUT' ||
-                        error.response?.status === 429 ||
-                        error.response?.status >= 500) {
+                        statusCode === 429 ||
+                        (statusCode !== undefined && statusCode >= 500)) {
                         this.logger.warn(`Groq API error (attempt ${attempt + 1}/${this.maxRetries + 1}): ${error.message}`);
                         if (attempt < this.maxRetries) {
                             await this.sleep(1000 * Math.pow(2, attempt));
