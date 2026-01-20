@@ -90,6 +90,23 @@ class Vendor {
   }
 }
 
+/// Upload result data (for post-upload assignment modal)
+class UploadResult {
+  final String invoiceId;
+  final String extractedVendorId;
+  final String extractedVendorName;
+  final double confidence;
+  final bool needsReview;
+
+  const UploadResult({
+    required this.invoiceId,
+    required this.extractedVendorId,
+    required this.extractedVendorName,
+    required this.confidence,
+    required this.needsReview,
+  });
+}
+
 /// Upload state to track progress, errors, and success
 class UploadState {
   final bool isUploading;
@@ -97,6 +114,7 @@ class UploadState {
   final String? successMessage;
   final double? progress;
   final UploadStage uploadStage;
+  final UploadResult? uploadResult; // NEW: For triggering post-upload assignment modal
 
   const UploadState({
     this.isUploading = false,
@@ -104,6 +122,7 @@ class UploadState {
     this.successMessage,
     this.progress,
     this.uploadStage = UploadStage.idle,
+    this.uploadResult,
   });
 }
 
@@ -283,29 +302,32 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
       final requestDuration = responseReceivedTime.difference(requestSentTime).inMilliseconds;
       print('[HomeProvider] Request completed in ${requestDuration}ms');
       
-      // Extract vendor name from response
+      // Extract upload result from response
+      final invoiceId = response.data['invoice']?['id'] as String;
+      final vendorId = response.data['vendor']?['id'] as String;
       final vendorName = response.data['vendor']?['name'] ?? 'Unknown vendor';
+      final confidence = (response.data['vendor']?['confidence'] as num?)?.toDouble() ?? 0.0;
       final needsReview = response.data['invoice']?['needsReview'] ?? false;
       
       // Reload vendors to get updated invoice counts
       await loadVendors();
       
-      // Stage 5: Complete
-      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+      // Stage 5: Complete with upload result (triggers post-upload assignment modal)
+      _ref.read(uploadStateProvider.notifier).state = UploadState(
         isUploading: false,
         uploadStage: UploadStage.complete,
+        uploadResult: UploadResult(
+          invoiceId: invoiceId,
+          extractedVendorId: vendorId,
+          extractedVendorName: vendorName,
+          confidence: confidence,
+          needsReview: needsReview,
+        ),
       );
       
       final renderCompleteTime = DateTime.now();
       final totalDuration = renderCompleteTime.difference(uploadStartTime).inMilliseconds;
       print('[HomeProvider] Upload took ${totalDuration}ms total (request: ${requestDuration}ms, reload: ${renderCompleteTime.difference(responseReceivedTime).inMilliseconds}ms)');
-      
-      // Show success message with details
-      _setSuccessMessage(
-        needsReview 
-          ? 'Invoice uploaded for $vendorName. Please review the extracted data.'
-          : 'Invoice uploaded successfully for $vendorName!'
-      );
     } catch (e) {
       final errorTime = DateTime.now();
       final totalDuration = errorTime.difference(uploadStartTime).inMilliseconds;
@@ -372,29 +394,32 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
       final requestDuration = responseReceivedTime.difference(requestSentTime).inMilliseconds;
       print('[HomeProvider] Request completed in ${requestDuration}ms');
       
-      // Extract vendor name from response
+      // Extract upload result from response
+      final invoiceId = response.data['invoice']?['id'] as String;
+      final vendorId = response.data['vendor']?['id'] as String;
       final vendorName = response.data['vendor']?['name'] ?? 'Unknown vendor';
+      final confidence = (response.data['vendor']?['confidence'] as num?)?.toDouble() ?? 0.0;
       final needsReview = response.data['invoice']?['needsReview'] ?? false;
       
       // Reload vendors to get updated invoice counts
       await loadVendors();
       
-      // Stage 5: Complete
-      _ref.read(uploadStateProvider.notifier).state = const UploadState(
+      // Stage 5: Complete with upload result (triggers post-upload assignment modal)
+      _ref.read(uploadStateProvider.notifier).state = UploadState(
         isUploading: false,
         uploadStage: UploadStage.complete,
+        uploadResult: UploadResult(
+          invoiceId: invoiceId,
+          extractedVendorId: vendorId,
+          extractedVendorName: vendorName,
+          confidence: confidence,
+          needsReview: needsReview,
+        ),
       );
       
       final renderCompleteTime = DateTime.now();
       final totalDuration = renderCompleteTime.difference(uploadStartTime).inMilliseconds;
       print('[HomeProvider] Upload took ${totalDuration}ms total (request: ${requestDuration}ms, reload: ${renderCompleteTime.difference(responseReceivedTime).inMilliseconds}ms)');
-      
-      // Show success message with details
-      _setSuccessMessage(
-        needsReview 
-          ? 'Invoice uploaded for $vendorName. Please review the extracted data.'
-          : 'Invoice uploaded successfully for $vendorName!'
-      );
     } catch (e) {
       final errorTime = DateTime.now();
       final totalDuration = errorTime.difference(uploadStartTime).inMilliseconds;

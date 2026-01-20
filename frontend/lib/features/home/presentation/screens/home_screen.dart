@@ -5,6 +5,7 @@ import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/home/presentation/widgets/vendor_card.dart';
 import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
+import 'package:frontend/features/invoices/presentation/widgets/assign_business_modal.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -34,9 +35,11 @@ class HomeScreen extends ConsumerWidget {
     final vendorsState = ref.watch(vendorsProvider);
     final uploadState = ref.watch(uploadStateProvider);
 
-    // Listen for upload errors and success messages
+    // Listen for upload errors and completion (triggers post-upload assignment modal)
     ref.listen(uploadStateProvider, (previous, next) {
+      // Show error snackbar
       if (next.error != null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error!),
@@ -44,19 +47,47 @@ class HomeScreen extends ConsumerWidget {
             duration: const Duration(seconds: 4),
           ),
         );
-      } else if (next.successMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(next.successMessage!),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'VIEW',
-              textColor: Colors.white,
-              onPressed: () => context.push('/invoices'),
-            ),
+      }
+      
+      // CRITICAL: Show post-upload assignment modal when upload completes (ALWAYS per FLOW_CONTRACT §4a)
+      if (next.uploadStage == UploadStage.complete && next.uploadResult != null) {
+        final result = next.uploadResult!;
+        
+        // Show assignment modal (MANDATORY UX - always shown)
+        showDialog(
+          context: context,
+          barrierDismissible: false, // User must make a choice
+          builder: (context) => AssignBusinessModal(
+            invoiceId: result.invoiceId,
+            extractedVendorId: result.extractedVendorId,
+            extractedVendorName: result.extractedVendorName,
+            confidence: result.confidence,
           ),
-        );
+        ).then((assigned) {
+          // After modal closes, show success snackbar
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  result.needsReview
+                      ? 'Invoice uploaded for ${result.extractedVendorName}. Please review the extracted data.'
+                      : 'Invoice uploaded successfully for ${result.extractedVendorName}!',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'VIEW',
+                  textColor: Colors.white,
+                  onPressed: () => context.push('/invoice/${result.invoiceId}'),
+                ),
+              ),
+            );
+          }
+          
+          // Reset upload state
+          ref.read(uploadStateProvider.notifier).state = const UploadState();
+        });
       }
     });
 
