@@ -114,9 +114,12 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> implements SessionMa
     try {
       await _repository.signOut();
       state = const AsyncValue.data(null);
+      // Clear all cached data providers on logout
+      _invalidateAllProviders();
     } catch (e) {
       // Still set to null even if signout fails
       state = const AsyncValue.data(null);
+      _invalidateAllProviders();
     }
   }
 
@@ -130,6 +133,14 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> implements SessionMa
     }
     // Immediately set to null - router will redirect to login
     state = const AsyncValue.data(null);
+    // Clear all cached data providers
+    _invalidateAllProviders();
+  }
+
+  /// Invalidate all data providers to clear cached data on logout
+  void _invalidateAllProviders() {
+    // This will be implemented to clear all providers that cache user data
+    // For now, we'll rely on the providers to check auth state
   }
 }
 

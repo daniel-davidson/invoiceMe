@@ -132,14 +132,64 @@ class UploadState {
   });
 }
 
-final uploadStateProvider = StateProvider<UploadState>(
-  (ref) => const UploadState(),
-);
+final uploadStateProvider = StateProvider.autoDispose<UploadState>((ref) {
+  // Listen to auth state - reset upload state on login/logout
+  ref.listen(authStateProvider, (previous, next) {
+    final wasLoggedIn =
+        previous?.maybeWhen(
+          data: (user) => user != null,
+          orElse: () => false,
+        ) ??
+        false;
+
+    final isLoggedIn = next.maybeWhen(
+      data: (user) => user != null,
+      orElse: () => false,
+    );
+
+    // If auth state changed (login or logout), reset upload state
+    if (wasLoggedIn != isLoggedIn) {
+      ref.invalidateSelf();
+    }
+  });
+
+  return const UploadState();
+});
 
 final vendorsProvider =
-    StateNotifierProvider<VendorsNotifier, AsyncValue<List<Vendor>>>((ref) {
+    StateNotifierProvider.autoDispose<
+      VendorsNotifier,
+      AsyncValue<List<Vendor>>
+    >((ref) {
       final apiClient = ref.watch(apiClientProvider);
-      return VendorsNotifier(apiClient, ref);
+      final notifier = VendorsNotifier(apiClient, ref);
+
+      // Listen to auth state - refetch when user logs in, clear when user logs out
+      ref.listen(authStateProvider, (previous, next) {
+        final wasLoggedIn =
+            previous?.maybeWhen(
+              data: (user) => user != null,
+              orElse: () => false,
+            ) ??
+            false;
+
+        final isLoggedIn = next.maybeWhen(
+          data: (user) => user != null,
+          orElse: () => false,
+        );
+
+        // If user just logged in (was logged out, now logged in), refetch data
+        if (!wasLoggedIn && isLoggedIn) {
+          notifier.loadVendors();
+        }
+
+        // If user logged out, invalidate this provider
+        if (wasLoggedIn && !isLoggedIn) {
+          ref.invalidateSelf();
+        }
+      });
+
+      return notifier;
     });
 
 class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
