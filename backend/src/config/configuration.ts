@@ -33,7 +33,7 @@ export default () => ({
     model:
       process.env.LLM_MODEL ||
       process.env.GROQ_MODEL ||
-      'llama-3.3-70b-versatile', // Groq flagship model (Jan 2026)
+      'qwen-3-32b', // Best multilingual (Hebrew/English) support
     // Ollama (local development)
     ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
     ollamaModel: process.env.OLLAMA_MODEL || 'llama3.2:3b',
