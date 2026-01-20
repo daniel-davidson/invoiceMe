@@ -3,6 +3,12 @@ alwaysApply: true
 ---
 # InvoiceMe — Code Generation Rules
 
+## Active Spec Version (MANDATORY)
+- Before doing any work, read: specs/ACTIVE_SPEC.txt
+- Treat the referenced folder as <ACTIVE_SPEC>
+- Only implement requirements from <ACTIVE_SPEC>
+- For notes/decisions, write only to: <ACTIVE_SPEC>/DECISIONS.md
+
 ## General
 - Match endpoints and payloads exactly as defined in specs/API_CONTRACTS.md.
 - Match tables/fields exactly as defined in specs/DATA_MODEL.md.

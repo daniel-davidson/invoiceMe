@@ -3,10 +3,21 @@ alwaysApply: true
 ---
 # InvoiceMe — Workflow Rules (Spec-Driven)
 
-## Authority
-- The /specs folder is the single source of truth.
-- Do NOT invent requirements, screens, endpoints, tables, or flows not explicitly defined in /specs.
-- If specs conflict, do not guess: add a note in specs/DECISIONS.md proposing a safe default aligned with existing decisions.
+## Authority (Active Spec Version)
+
+This repository uses Spec-Kit specs.
+
+### Active Spec Pointer
+- The active spec version is defined in: specs/ACTIVE_SPEC.txt
+- You MUST read specs/ACTIVE_SPEC.txt at the start of every task.
+- ALL implementation must align ONLY with the spec folder referenced by specs/ACTIVE_SPEC.txt.
+- Do NOT implement from older spec folders unless explicitly instructed.
+
+### If Unclear / Conflicts
+- If the active spec conflicts internally or something is unclear: do NOT guess.
+- Add an Open Question to: <ACTIVE_SPEC>/DECISIONS.md
+  - Include: context, options, recommendation, reasoning.
+
 
 ## Multi-tenancy (MANDATORY)
 - tenantId MUST be derived from Supabase Auth JWT claim `sub`.
