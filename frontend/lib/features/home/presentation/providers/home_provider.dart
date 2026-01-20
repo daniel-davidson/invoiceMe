@@ -90,13 +90,20 @@ class Vendor {
   }
 }
 
-/// Upload result data (for post-upload assignment modal)
+/// Upload result data (for post-upload assignment modal + duplicate detection)
 class UploadResult {
   final String invoiceId;
   final String extractedVendorId;
   final String extractedVendorName;
   final double confidence;
   final bool needsReview;
+  
+  // Additional fields for duplicate detection dialog
+  final double? amount;
+  final String? currency;
+  final DateTime? invoiceDate;
+  final DateTime? uploadedAt;
+  final String? invoiceNumber;
 
   const UploadResult({
     required this.invoiceId,
@@ -104,6 +111,11 @@ class UploadResult {
     required this.extractedVendorName,
     required this.confidence,
     required this.needsReview,
+    this.amount,
+    this.currency,
+    this.invoiceDate,
+    this.uploadedAt,
+    this.invoiceNumber,
   });
 }
 
@@ -346,6 +358,24 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
     try {
       print('[HomeProvider] Upload started at ${uploadStartTime.toIso8601String()}');
       
+      // Stage 0.5: Check for duplicate (compute hash + API check)
+      print('[HomeProvider] Computing file hash for duplicate detection...');
+      final fileHash = FileHashUtil.computeSha256(bytes);
+      print('[HomeProvider] File hash computed: $fileHash');
+      
+      // Check for duplicate via API
+      final duplicateCheck = await _checkDuplicate(fileHash);
+      if (duplicateCheck != null) {
+        // Duplicate detected - set error state with duplicate info
+        _ref.read(uploadStateProvider.notifier).state = UploadState(
+          isUploading: false,
+          uploadStage: UploadStage.error,
+          error: 'DUPLICATE_INVOICE',
+          uploadResult: duplicateCheck,
+        );
+        return;
+      }
+      
       // Stage 1: Uploading file
       _ref.read(uploadStateProvider.notifier).state = const UploadState(
         isUploading: true,
@@ -452,5 +482,44 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
       successMessage: message,
       uploadStage: UploadStage.complete,
     );
+  }
+
+  /// Check for duplicate invoice via backend API
+  /// Returns UploadResult with existing invoice data if duplicate found, null otherwise
+  /// Per FLOW_CONTRACT §6a: Duplicate detection is "fail-open" - proceed on error
+  Future<UploadResult?> _checkDuplicate(String fileHash) async {
+    try {
+      final response = await _apiClient.post('/invoices/check-duplicate', data: {
+        'fileHash': fileHash,
+      });
+      
+      // If we get here, duplicate was found (200 OK)
+      final existing = response.data['existingInvoice'];
+      if (existing != null) {
+        return UploadResult(
+          invoiceId: existing['id'] as String,
+          extractedVendorId: existing['vendorId'] as String? ?? '',
+          extractedVendorName: existing['vendor']?['name'] as String? ?? 'Unknown',
+          confidence: 1.0, // Duplicate is 100% confident
+          needsReview: false,
+          // Additional fields for duplicate dialog
+          amount: (existing['originalAmount'] as num?)?.toDouble(),
+          currency: existing['originalCurrency'] as String?,
+          invoiceDate: existing['invoiceDate'] != null 
+              ? DateTime.parse(existing['invoiceDate'] as String) 
+              : null,
+          uploadedAt: existing['createdAt'] != null 
+              ? DateTime.parse(existing['createdAt'] as String) 
+              : null,
+          invoiceNumber: existing['invoiceNumber'] as String?,
+        );
+      }
+      return null;
+    } catch (e) {
+      // 404 Not Found = not duplicate, proceed with upload
+      // Any other error = fail-open (proceed with upload, backend will catch duplicate)
+      print('[HomeProvider] Duplicate check failed (fail-open): $e');
+      return null;
+    }
   }
 }

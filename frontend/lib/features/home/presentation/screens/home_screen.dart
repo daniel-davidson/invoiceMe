@@ -6,6 +6,7 @@ import 'package:frontend/features/home/presentation/widgets/vendor_card.dart';
 import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
 import 'package:frontend/features/invoices/presentation/widgets/assign_business_modal.dart';
+import 'package:frontend/features/invoices/presentation/widgets/duplicate_invoice_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -51,7 +52,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Listen for upload errors and completion (triggers post-upload assignment modal)
     ref.listen(uploadStateProvider, (previous, next) {
-      // Show error snackbar
+      // Handle duplicate invoice detection (per FLOW_CONTRACT §6a)
+      if (next.error == 'DUPLICATE_INVOICE' && next.uploadResult != null) {
+        final existing = next.uploadResult!;
+        showDialog(
+          context: context,
+          builder: (context) => DuplicateInvoiceDialog(
+            existingInvoiceId: existing.invoiceId,
+            vendorName: existing.extractedVendorName,
+            amount: existing.amount ?? 0.0,
+            currency: existing.currency ?? 'ILS',
+            invoiceDate: existing.invoiceDate ?? DateTime.now(),
+            uploadedAt: existing.uploadedAt ?? DateTime.now(),
+            invoiceNumber: existing.invoiceNumber,
+          ),
+        ).then((_) {
+          // Reset upload state after dialog closes
+          ref.read(uploadStateProvider.notifier).state = const UploadState();
+        });
+        return;
+      }
+      
+      // Show error snackbar for other errors
       if (next.error != null) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
