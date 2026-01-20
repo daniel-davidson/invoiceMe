@@ -207,7 +207,7 @@ class ApiClient {
         onSendProgress: onSendProgress,
       );
 
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
@@ -237,7 +237,7 @@ class ApiClient {
         onSendProgress: onSendProgress,
       );
 
-      return _handleResponse(response);
+      return await _handleResponse(response);
     } on DioException catch (e) {
       throw _handleDioException(e);
     }
