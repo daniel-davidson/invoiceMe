@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
+import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 /// State for the Edit Invoice Screen
 class EditInvoiceState {

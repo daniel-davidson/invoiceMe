@@ -213,18 +213,12 @@ final invoicesProvider =
 
 class InvoicesNotifier extends StateNotifier<AsyncValue<List<Invoice>>> {
   final ApiClient _apiClient;
-  String _currentSearch = '';
 
   InvoicesNotifier(this._apiClient) : super(const AsyncValue.loading()) {
     loadInvoices();
   }
 
   Future<void> loadInvoices({String? search}) async {
-    // Store current search for client-side fallback
-    if (search != null) {
-      _currentSearch = search;
-    }
-
     state = const AsyncValue.loading();
     try {
       // Build query string with search parameter
