@@ -552,6 +552,225 @@ function extractTotalFallback(ocrText: string): number | null {
 
 ---
 
+### D008: LLM Provider Migration (Ollama → Groq API)
+
+**Date**: 2026-01-20  
+**Status**: ✅ Decided  
+**Category**: Infrastructure / Deployment
+
+#### Context
+
+Current implementation uses Ollama for local LLM inference. This works well for local development but has challenges for production deployment:
+- Ollama requires significant resources (CPU/RAM for model hosting)
+- Free-tier cloud hosting (Render) has limited resources
+- Ollama container increases deployment complexity
+- Model loading time impacts cold starts
+
+Question: What LLM provider should be used for production deployment?
+
+#### Decision
+
+**Migrate from Ollama to Groq API for production, maintain Ollama as local dev option.**
+
+**Production**:
+- Provider: Groq API (https://console.groq.com)
+- Model: `mixtral-8x7b-32768` or `llama-3.1-70b-versatile`
+- Authentication: `GROQ_API_KEY` environment variable
+- Cost: Free tier (generous limits for MVP)
+
+**Local Development**:
+- Keep Ollama support for offline development
+- Developer can choose: `LLM_PROVIDER=ollama` or `LLM_PROVIDER=groq`
+- Default to Groq (simpler setup, no local model required)
+
+#### Rationale
+
+1. **Groq Advantages**:
+   - **Speed**: Groq is 10-100x faster than local Ollama (specialized hardware)
+   - **Free Tier**: Generous limits for MVP (60 requests/minute, no cost)
+   - **No Infrastructure**: API-based, no model hosting needed
+   - **Reliability**: Managed service with high uptime
+   - **Resource Efficient**: Render free tier can handle API calls easily
+
+2. **Deployment Simplification**:
+   - No Ollama container in production
+   - Smaller Docker image
+   - Faster cold starts
+   - Lower memory usage
+
+3. **Cost**:
+   - Groq Free Tier: 60 RPM, sufficient for MVP
+   - Ollama Self-Hosted: $0 but requires $20+/month hosting
+   - **Net Savings**: Groq is cheaper for MVP scale
+
+4. **Developer Experience**:
+   - Groq API is faster for testing locally
+   - No need to download/run Ollama models (saves disk space)
+   - Simpler onboarding (just add API key)
+
+#### Implementation Details
+
+**Environment Variables (Production)**:
+```bash
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_xxx...
+GROQ_MODEL=mixtral-8x7b-32768  # or llama-3.1-70b-versatile
+```
+
+**Environment Variables (Local Dev - Option A: Groq)**:
+```bash
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk_xxx...
+```
+
+**Environment Variables (Local Dev - Option B: Ollama)**:
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2:3b
+```
+
+**Code Changes**:
+1. Update `ExtractionService` to use `LlmService` instead of `OllamaService`
+2. `LlmService` already supports Groq (implemented but not active)
+3. Improve Groq implementation:
+   - Increase max_tokens to 2048 for complex invoices
+   - Add timeout handling (30s)
+   - Add retry logic (2 retries with exponential backoff)
+   - Structured logging (duration, tokens used if available)
+4. Smart OCR text truncation before LLM:
+   - Preserve header lines (vendor info)
+   - Preserve footer lines (totals)
+   - Preserve keyword lines (date, invoice number)
+   - Truncate middle content if >4000 chars
+
+**Groq API Format** (OpenAI-compatible):
+```typescript
+POST https://api.groq.com/openai/v1/chat/completions
+Headers:
+  Authorization: Bearer ${GROQ_API_KEY}
+  Content-Type: application/json
+Body:
+  {
+    "model": "mixtral-8x7b-32768",
+    "messages": [
+      {"role": "system", "content": "...extraction rules..."},
+      {"role": "user", "content": "...OCR text..."}
+    ],
+    "temperature": 0,
+    "max_tokens": 2048
+  }
+```
+
+#### Alternatives Considered
+
+**Option A: Keep Ollama Only**
+- **Pros**: No external dependencies, works offline
+- **Cons**: Expensive hosting, slow, complex deployment
+- **Rejected**: Not suitable for free-tier deployment
+
+**Option B: OpenAI GPT-4**
+- **Pros**: Best accuracy
+- **Cons**: Costs $0.01-0.03 per invoice (expensive at scale)
+- **Rejected**: Too expensive for MVP
+
+**Option C: Together AI / OpenRouter**
+- **Pros**: Good speed, multiple models
+- **Cons**: Groq is faster and has better free tier
+- **Rejected**: Groq is superior for MVP
+
+**Option D: Google Gemini API**
+- **Pros**: Good performance, free tier
+- **Cons**: Less specialized for LLM inference speed
+- **Rejected**: Groq specializes in speed (better UX)
+
+#### Implementation Impact
+
+**Backend Changes**:
+- Switch `ExtractionService` from `OllamaService` to `LlmService`
+- Enhance `LlmService.generateGroq()` with better error handling
+- Add smart OCR truncation (preserve important sections)
+- Update prompts for better extraction reliability
+- Remove Ollama-specific code comments/docs
+
+**Configuration Changes**:
+- Update `configuration.ts` (already supports multi-provider)
+- Update `.env.example` with Groq variables
+- Update `RUNBOOK.md` with Groq setup instructions
+- Add `SETUP_GUIDE.md` for production deployment
+
+**Testing Impact**:
+- Update E2E tests to use Groq API (or mock responses)
+- Add Groq API key to CI/CD environment variables
+- Test upload pipeline with Groq
+
+**Deployment Impact**:
+- Add Dockerfile for backend (multi-stage build)
+- Add `render.yaml` for Render deployment config
+- Document Groq API key setup in Render dashboard
+- Document CORS configuration for Cloudflare Pages frontend
+
+#### Implementation Tasks
+
+1. **Spec Updates** (This commit):
+   - Add D008 to DECISIONS.md
+   - Update RUNBOOK.md with Groq setup
+   - Create SETUP_GUIDE.md for deployment
+   - Update API_CONTRACTS.md (confirm schema unchanged)
+
+2. **Code Migration**:
+   - Update `ExtractionService` to inject/use `LlmService`
+   - Enhance `LlmService.generateGroq()` implementation
+   - Add smart OCR truncation helper
+   - Improve extraction prompts for reliability
+   - Remove Ollama-specific logic from extraction flow
+
+3. **Deployment Setup**:
+   - Create `backend/Dockerfile`
+   - Add `/health` endpoint for Render health checks
+   - Create `render.yaml` (optional) or document manual setup
+   - Update CORS config to allow Cloudflare Pages domain
+
+4. **Frontend Deployment**:
+   - Document Cloudflare Pages build process
+   - Add `_redirects` file for SPA routing
+   - Document environment variable setup (--dart-define)
+
+5. **Validation**:
+   - Local test: npm run build && npm run start
+   - Upload invoice → verify extraction with Groq
+   - Production test: Deploy to Render + Cloudflare → full flow test
+
+#### Future Considerations
+
+- **V003**: Add LLM model selection in UI (let user choose model)
+- **V003**: Add cost tracking per tenant (if using paid tier)
+- **V003**: Fallback to Ollama if Groq API is down (resilience)
+- **V003**: A/B test different models (Groq vs OpenAI vs local)
+- **V004**: Self-hosted option with Ollama for enterprise (on-premise)
+
+#### Deployment Architecture (Final)
+
+```
+Component         → Service
+─────────────────────────────────────────
+Backend           → Render (Docker, free tier)
+LLM               → Groq API (replaces Ollama)
+Storage           → Supabase Storage
+Frontend          → Cloudflare Pages (Flutter Web)
+Database          → Supabase Postgres
+Auth              → Supabase Auth
+```
+
+**Benefits**:
+- ✅ All components have generous free tiers
+- ✅ No Docker Compose required in production
+- ✅ Fast cold starts (<5s backend, <2s frontend)
+- ✅ Scalable (Groq handles LLM scaling)
+- ✅ Cost-effective (free for MVP scale)
+
+---
+
 ## Decision Status Summary
 
 | ID | Decision | Status | Implementation Tasks |
@@ -563,6 +782,7 @@ function extractTotalFallback(ocrText: string): number | null {
 | D005 | Multi-Tenant Enforcement | ✅ Decided | T068-T071 |
 | D006 | OCR Improvements | ✅ Decided (V001) | T061-T063 (verification only) |
 | D007 | LLM Robustness | ✅ Decided | T064-T067 |
+| D008 | LLM Provider (Ollama → Groq) | ✅ Decided | Deployment migration tasks |
 
 **Pending Decisions**: 1 (D002 - Export Behavior)
 

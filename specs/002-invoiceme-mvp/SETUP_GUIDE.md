@@ -1,531 +1,505 @@
-# InvoiceMe - Complete Setup Guide
+# Production Setup Guide: InvoiceMe MVP
 
-This guide covers all secrets, services, and deployment options for InvoiceMe.
-
----
-
-## Table of Contents
-
-1. [Supabase Setup](#1-supabase-setup)
-2. [Database Setup](#2-database-setup)
-3. [Currency API Setup](#3-currency-api-setup)
-4. [OCR Service Setup](#4-ocr-service-setup)
-5. [LLM Service Setup](#5-llm-service-setup)
-6. [Backend Deployment](#6-backend-deployment)
-7. [Frontend Deployment](#7-frontend-deployment)
-8. [Environment Variables Reference](#8-environment-variables-reference)
+**Version**: 002  
+**Date**: 2026-01-20  
+**Target Architecture**: Render (Backend) + Cloudflare Pages (Frontend) + Supabase (DB/Auth/Storage) + Groq API (LLM)
 
 ---
 
-## 1. Supabase Setup
+## Overview
 
-Supabase provides authentication and optionally database hosting.
+This guide covers deploying InvoiceMe to production using free-tier services:
 
-### Step 1: Create Supabase Project
+| Component | Service | Cost |
+|-----------|---------|------|
+| Backend API | Render (Docker) | Free |
+| LLM Extraction | Groq API | Free (60 RPM) |
+| Database | Supabase Postgres | Free (500MB) |
+| Auth | Supabase Auth | Free (50K users) |
+| Storage | Supabase Storage | Free (1GB) |
+| Frontend | Cloudflare Pages | Free (unlimited) |
 
-1. Go to [https://app.supabase.com](https://app.supabase.com)
-2. Click **"New Project"**
-3. Enter:
-   - **Name**: `invoiceme` (or your preference)
-   - **Database Password**: Generate a strong password (save it!)
+**Total Monthly Cost**: $0 for MVP scale
+
+---
+
+## Prerequisites
+
+1. **Accounts Required**:
+   - [Render](https://render.com) account
+   - [Groq](https://console.groq.com) account (for API key)
+   - [Supabase](https://supabase.com) project (already set up)
+   - [Cloudflare](https://pages.cloudflare.com) account
+   - GitHub account (for deployment source)
+
+2. **Local Tools**:
+   - Git
+   - Flutter SDK (for web build)
+   - Node.js 18+ (for testing backend locally)
+
+---
+
+## Part 1: Groq API Setup
+
+### Step 1.1: Create Groq API Key
+
+1. Go to [Groq Console](https://console.groq.com)
+2. Sign in or create account
+3. Navigate to **API Keys** section
+4. Click **Create API Key**
+5. Name it: `invoiceme-production`
+6. Copy the key (starts with `gsk_...`)
+7. **Save it securely** (you'll need it for Render)
+
+### Step 1.2: Test Groq API (Optional)
+
+```bash
+curl https://api.groq.com/openai/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_GROQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mixtral-8x7b-32768",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "temperature": 0
+  }'
+```
+
+Expected: JSON response with `choices[0].message.content`
+
+---
+
+## Part 2: Backend Deployment (Render)
+
+### Step 2.1: Push Code to GitHub
+
+```bash
+# Ensure latest code is committed
+git add .
+git commit -m "chore: prepare for production deployment"
+git push origin 002-invoiceme-mvp
+```
+
+### Step 2.2: Create Render Web Service
+
+1. Go to [Render Dashboard](https://dashboard.render.com)
+2. Click **New** → **Web Service**
+3. Connect your GitHub repository: `invoiceMe`
+4. Configure service:
+   - **Name**: `invoiceme-backend`
    - **Region**: Choose closest to your users
-4. Click **"Create new project"** (takes ~2 minutes)
+   - **Branch**: `002-invoiceme-mvp`
+   - **Root Directory**: `backend`
+   - **Environment**: `Docker`
+   - **Instance Type**: `Free`
 
-### Step 2: Get API Keys
+### Step 2.3: Configure Environment Variables
 
-> ⚠️ **Important**: Supabase has transitioned to a new API key system. Projects created after May 2025 use the new keys by default.
-
-Go to **Settings → API** (left sidebar)
-
-#### New Key System (Projects after May 2025)
-
-| Key Type | Where to Find | Environment Variable |
-|----------|---------------|---------------------|
-| **Project URL** | Under "Project URL" | `SUPABASE_URL` |
-| **Publishable Key** | Under "API Keys" → `sb_publishable_...` | `SUPABASE_PUBLISHABLE_KEY` |
-| **Secret Key** | Under "API Keys" → `sb_secret_...` (Reveal) | `SUPABASE_SECRET_KEY` |
-
-#### Legacy Key System (Older Projects)
-
-| Key Type | Where to Find | Environment Variable |
-|----------|---------------|---------------------|
-| **Project URL** | Under "Project URL" | `SUPABASE_URL` |
-| **anon public** | Under "Project API keys" | `SUPABASE_ANON_KEY` |
-| **service_role** | Under "Project API keys" (Reveal) | `SUPABASE_SERVICE_ROLE_KEY` |
-
-### Step 3: JWT Configuration
-
-> ℹ️ **New System**: Supabase now uses **JWT Signing Keys** instead of a single JWT secret. This supports asymmetric keys (RSA, EC) for better security.
-
-#### For New Projects (Asymmetric JWT)
-
-Your project uses asymmetric JWT signing by default. No `JWT_SECRET` needed!
-
-For JWT verification, use the JWKS endpoint:
-```
-https://[your-project-ref].supabase.co/auth/v1/.well-known/jwks.json
-```
-
-Set in your `.env`:
-```bash
-SUPABASE_JWKS_URL="https://[your-project-ref].supabase.co/auth/v1/.well-known/jwks.json"
-```
-
-#### For Legacy Projects (Symmetric JWT)
-
-1. Go to **Settings → API → JWT Settings**
-2. Click "Reveal" on **JWT Secret**
-3. Copy to `JWT_SECRET`
-
-#### Migrating Legacy to New Keys
-
-1. Go to **Settings → JWT Signing Keys**
-2. Click **"Migrate JWT Secret"**
-3. Generate a **Standby Key** (asymmetric recommended)
-4. Click **"Rotate"** to make it active
-5. After testing, revoke the legacy secret
-
-### Step 4: Configure Email Auth
-
-1. Go to **Authentication → Providers**
-2. Enable **Email** provider
-3. (Optional) Under **Authentication → Settings**:
-   - Disable "Confirm email" for faster testing
-   - Set **Site URL** to your frontend URL
-
-### Step 5: (Optional) Custom SMTP - NOT REQUIRED
-
-> ⚠️ **You can skip this step entirely!** Supabase sends auth emails automatically using their default email service. This is sufficient for development, testing, and demos.
-
-Custom SMTP is only needed if you want:
-- Emails from your own domain (branding)
-- Higher email volume limits
-- Custom email templates
-
-If you do want custom SMTP later:
-
-1. Go to **Settings → Auth → SMTP Settings**
-2. Enable "Custom SMTP"
-3. Configure with your email provider:
-
-| Provider | SMTP Host | Port | Free Tier |
-|----------|-----------|------|-----------|
-| [Resend](https://resend.com) | smtp.resend.com | 587 | 3,000/month |
-| [SendGrid](https://sendgrid.com) | smtp.sendgrid.net | 587 | 100/day |
-| [Mailgun](https://mailgun.com) | smtp.mailgun.org | 587 | 1,000/month |
-| AWS SES | email-smtp.{region}.amazonaws.com | 587 | 62,000/month (if on EC2) |
-
-### Documentation
-
-- [Supabase Auth Setup](https://supabase.com/docs/guides/auth)
-- [Supabase API Keys](https://supabase.com/docs/guides/api/api-keys)
-- [JWT Signing Keys](https://supabase.com/docs/guides/auth/signing-keys)
-- [Custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
-
----
-
-## 2. Database Setup
-
-### Option A: Supabase Database (Recommended for Shared Demo)
-
-1. Your Supabase project includes a PostgreSQL database
-2. Get connection string:
-   - Go to **Settings → Database**
-   - Copy **Connection string** (URI format)
-   - Replace `[YOUR-PASSWORD]` with your database password
-
-```
-DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres"
-```
-
-### Option B: Local PostgreSQL
-
-1. Install PostgreSQL:
-   ```bash
-   # macOS
-   brew install postgresql@15
-   brew services start postgresql@15
-   
-   # Ubuntu
-   sudo apt install postgresql postgresql-contrib
-   sudo systemctl start postgresql
-   ```
-
-2. Create database:
-   ```bash
-   createdb invoiceme
-   ```
-
-3. Connection string:
-   ```
-   DATABASE_URL="postgresql://postgres:password@localhost:5432/invoiceme"
-   ```
-
-### Option C: Other Cloud Providers
-
-| Provider | Free Tier | Setup |
-|----------|-----------|-------|
-| [Neon](https://neon.tech) | 512MB, 3GB storage | Create project → Copy connection string |
-| [Railway](https://railway.app) | $5 credit | Deploy PostgreSQL → Get connection URL |
-| [PlanetScale](https://planetscale.com) | 1 database | Requires mysql2 adapter |
-
----
-
-## 3. Currency API Setup
-
-### Recommended: Frankfurter API (FREE, No API Key)
-
-**Why**: Free, no registration, 10,000+ requests/day, all currencies as base.
-
-- **Base URL**: `https://api.frankfurter.app`
-- **Docs**: [https://www.frankfurter.app/docs/](https://www.frankfurter.app/docs/)
-
-Set in your `.env`:
-```bash
-FX_PROVIDER="frankfurter"
-# No API key needed!
-```
-
-### Alternative: Open Exchange Rates
-
-If you need historical data or more features:
-
-1. Go to [https://openexchangerates.org](https://openexchangerates.org)
-2. Sign up for **Free Forever** plan (1,000 requests/month, USD base only)
-3. Or **Developer** plan ($12/month, 10,000 requests)
-4. Copy **App ID** → `FX_API_KEY`
-
-### Alternative: ExchangeRate-API
-
-1. Go to [https://www.exchangerate-api.com](https://www.exchangerate-api.com)
-2. Free tier: 1,500 requests/month
-3. Copy API key → `FX_API_KEY`
-
----
-
-## 4. OCR Service Setup
-
-### Option A: Local Tesseract (Development)
+Add these environment variables in Render dashboard:
 
 ```bash
-# macOS
-brew install tesseract tesseract-lang
-
-# Ubuntu/Debian
-sudo apt install tesseract-ocr tesseract-ocr-heb tesseract-ocr-eng
-
-# Verify
-tesseract --version
-tesseract --list-langs  # Should show: eng, heb
-```
-
-### Option B: Cloud OCR Services (Production)
-
-| Service | Free Tier | Best For | Setup |
-|---------|-----------|----------|-------|
-| **Google Cloud Vision** | 1,000 images/month | High accuracy | [Setup Guide](https://cloud.google.com/vision/docs/setup) |
-| **AWS Textract** | 1,000 pages/month (12 months) | Document analysis | [Setup Guide](https://docs.aws.amazon.com/textract/) |
-| **Azure Computer Vision** | 5,000 transactions/month | Multi-language | [Setup Guide](https://learn.microsoft.com/en-us/azure/cognitive-services/computer-vision/) |
-| **OCR.space** | 25,000 requests/month | Simple API | [Get API Key](https://ocr.space/ocrapi) |
-
-### Google Cloud Vision Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create project or select existing
-3. Enable **Cloud Vision API**
-4. Create **Service Account** with Vision API access
-5. Download JSON key file
-6. Set environment variable:
-   ```bash
-   GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
-   ```
-
-### OCR.space Setup (Easiest)
-
-1. Go to [https://ocr.space/ocrapi](https://ocr.space/ocrapi)
-2. Get free API key
-3. Set:
-   ```bash
-   OCR_PROVIDER="ocrspace"
-   OCR_API_KEY="your-api-key"
-   ```
-
----
-
-## 5. LLM Service Setup
-
-### Option A: Local Ollama (Development)
-
-```bash
-# Install - macOS
-brew install ollama
-
-# Install - Linux
-# curl -fsSL https://ollama.ai/install.sh | sh
-
-# Install - Windows
-# Download from https://ollama.ai/download
-
-# Start (runs in background)
-ollama serve &
-
-# Pull model
-ollama pull llama3.2:3b
-
-# Verify
-curl http://localhost:11434/api/tags
-```
-
-### Option B: Cloud LLM Services (Production)
-
-| Service | Free Tier | Setup |
-|---------|-----------|-------|
-| **Groq** ⭐ | 14,400 requests/day | [Get API Key](https://console.groq.com) |
-| **Together AI** | $25 credit | [Get API Key](https://api.together.xyz) |
-| **OpenRouter** | Pay-per-use | [Get API Key](https://openrouter.ai) |
-| **Replicate** | Some free models | [Get API Key](https://replicate.com) |
-
-### Groq Setup (Recommended - Fast & Free)
-
-1. Go to [https://console.groq.com](https://console.groq.com)
-2. Sign up with Google/GitHub
-3. Go to **API Keys** → Create new key
-4. Set:
-   ```bash
-   LLM_PROVIDER="groq"
-   LLM_API_KEY="gsk_..."
-   LLM_MODEL="llama-3.2-3b-preview"
-   ```
-
-### Together AI Setup
-
-1. Go to [https://api.together.xyz](https://api.together.xyz)
-2. Sign up and get API key
-3. Set:
-   ```bash
-   LLM_PROVIDER="together"
-   LLM_API_KEY="..."
-   LLM_MODEL="meta-llama/Llama-3.2-3B-Instruct-Turbo"
-   ```
-
-### Option C: Self-Hosted Ollama (Production)
-
-For full control, deploy Ollama on a cloud server:
-
-#### Using Railway (One-Click)
-
-1. Go to [Railway Ollama Template](https://railway.app/template/ollama)
-2. Click "Deploy Now"
-3. Get public URL after deployment
-
-#### Using DigitalOcean/AWS/GCP
-
-1. Create VM (4GB+ RAM, GPU optional)
-2. Install Ollama:
-   ```bash
-   curl -fsSL https://ollama.ai/install.sh | sh
-   ```
-3. Configure for remote access:
-   ```bash
-   # Edit systemd service
-   sudo systemctl edit ollama.service
-   
-   # Add:
-   [Service]
-   Environment="OLLAMA_HOST=0.0.0.0"
-   ```
-4. Set up reverse proxy with Nginx + SSL
-5. Optionally add basic auth
-
----
-
-## 6. Backend Deployment
-
-### Option A: Railway (Recommended)
-
-1. Go to [https://railway.app](https://railway.app)
-2. Connect GitHub repo
-3. Add environment variables
-4. Deploy automatically on push
-
-```bash
-# railway.json (optional)
-{
-  "build": { "builder": "NIXPACKS" },
-  "deploy": { "startCommand": "npm run start:prod" }
-}
-```
-
-### Option B: Render
-
-1. Go to [https://render.com](https://render.com)
-2. Create "Web Service"
-3. Connect repo, set build command: `npm run build`
-4. Set start command: `npm run start:prod`
-5. Add environment variables
-
-### Option C: Fly.io
-
-```bash
-# Install flyctl
-brew install flyctl
-
-# Login and deploy
-fly auth login
-fly launch
-fly secrets set DATABASE_URL="..." SUPABASE_URL="..."
-fly deploy
-```
-
-### Option D: Docker + VPS
-
-```dockerfile
-FROM node:20-alpine
-RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-heb
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY dist ./dist
-COPY prisma ./prisma
-RUN npx prisma generate
-EXPOSE 3000
-CMD ["node", "dist/main.js"]
-```
-
----
-
-## 7. Frontend Deployment
-
-### Architecture: No Secrets in Frontend
-
-The frontend should **NOT** contain any secrets. Instead:
-
-1. **Backend provides config endpoint**: `/api/config`
-2. **Frontend fetches config at runtime**
-3. **Only the backend URL is needed** (can be from environment or build-time)
-
-### Deployment Options
-
-| Platform | Best For | Docs |
-|----------|----------|------|
-| **Vercel** | Flutter Web | Deploy `build/web` folder |
-| **Netlify** | Flutter Web | Deploy `build/web` folder |
-| **Firebase Hosting** | Flutter Web + Mobile | [Docs](https://firebase.google.com/docs/hosting) |
-| **App Store** | iOS | Standard Flutter iOS build |
-| **Play Store** | Android | Standard Flutter Android build |
-
-### Build Commands
-
-```bash
-# Web (with production API URL)
-flutter build web --release --dart-define=API_URL=https://your-api.railway.app
-# Deploy build/web folder
-
-# Android
-flutter build apk --release --dart-define=API_URL=https://your-api.railway.app
-# Or: flutter build appbundle --release
-
-# iOS
-flutter build ios --release --dart-define=API_URL=https://your-api.railway.app
-```
-
----
-
-## 8. Environment Variables Reference
-
-### Backend (.env)
-
-```bash
-# ===== DATABASE =====
-DATABASE_URL="postgresql://..."
-
-# ===== SUPABASE AUTH (Choose ONE option) =====
-
-# --- Option A: New Key System (Projects after May 2025) ---
-SUPABASE_URL="https://xxx.supabase.co"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_..."
-SUPABASE_SECRET_KEY="sb_secret_..."
-SUPABASE_JWKS_URL="https://xxx.supabase.co/auth/v1/.well-known/jwks.json"
-
-# --- Option B: Legacy Key System (Older Projects) ---
-# SUPABASE_URL="https://xxx.supabase.co"
-# SUPABASE_ANON_KEY="eyJ..."
-# SUPABASE_SERVICE_ROLE_KEY="eyJ..."
-# JWT_SECRET="your-jwt-secret"
-
-# ===== LLM SERVICE =====
-# Option 1: Local Ollama
-LLM_PROVIDER="ollama"
-OLLAMA_URL="http://localhost:11434"
-OLLAMA_MODEL="llama3.2:3b"
-
-# Option 2: Groq (Cloud - FREE tier, 14400 req/day)
-# LLM_PROVIDER="groq"
-# LLM_API_KEY="gsk_..."
-# LLM_MODEL="llama-3.2-3b-preview"
-
-# ===== OCR SERVICE =====
-OCR_PROVIDER="tesseract"
-TESSERACT_LANGS="eng+heb"
-
-# ===== CURRENCY API =====
-FX_PROVIDER="frankfurter"
-# No API key needed for Frankfurter!
-
-# ===== APPLICATION =====
-PORT=3000
+# Node Environment
 NODE_ENV=production
-STORAGE_DIR="./uploads"
-CORS_ORIGINS="https://your-frontend.com"
+PORT=3000
+
+# Database (from Supabase)
+DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres
+
+# Supabase Auth (from Supabase dashboard → Settings → API)
+SUPABASE_URL=https://[PROJECT_ID].supabase.co
+SUPABASE_SECRET_KEY=[YOUR_SERVICE_ROLE_KEY]
+SUPABASE_JWKS_URL=https://[PROJECT_ID].supabase.co/.well-known/jwks.json
+
+# LLM Provider (Groq)
+LLM_PROVIDER=groq
+GROQ_API_KEY=[YOUR_GROQ_API_KEY_FROM_STEP_1]
+GROQ_MODEL=mixtral-8x7b-32768
+
+# OCR Provider
+OCR_PROVIDER=tesseract
+TESSERACT_LANGS=eng+heb
+
+# Currency/FX
+FX_PROVIDER=frankfurter
+FX_API_URL=https://api.frankfurter.app
+
+# Storage
+STORAGE_DIR=./uploads
+
+# CORS (update after frontend deployment)
+CORS_ORIGINS=https://invoiceme.pages.dev,https://your-custom-domain.com
 ```
 
-### Frontend (runtime config from backend)
+**Important**: Replace placeholders:
+- `[PASSWORD]`, `[HOST]`, `[PROJECT_ID]`: From Supabase dashboard → Settings → Database
+- `[YOUR_SERVICE_ROLE_KEY]`: From Supabase dashboard → Settings → API → `service_role` key (**Keep secret!**)
+- `[YOUR_GROQ_API_KEY_FROM_STEP_1]`: From Step 1.1
 
-The frontend fetches configuration from `GET /api/config`:
+### Step 2.4: Deploy
 
-```json
-{
-  "apiUrl": "https://api.invoiceme.app",
-  "supabaseUrl": "https://xxx.supabase.co",
-  "supabaseAnonKey": "eyJ..."
-}
+1. Click **Create Web Service**
+2. Render will:
+   - Build Docker image from `backend/Dockerfile`
+   - Run database migrations (via Docker CMD or manual)
+   - Start the server on port 3000
+3. Wait for deployment (~5-10 minutes first time)
+4. Note your backend URL: `https://invoiceme-backend.onrender.com`
+
+### Step 2.5: Verify Backend
+
+Test health endpoint:
+```bash
+curl https://invoiceme-backend.onrender.com/health
 ```
 
-This way:
-- No secrets in frontend code
-- Config changes without rebuilding
-- Same build works for all environments
+Expected: `{"status":"ok","timestamp":"..."}` or similar
+
+Test auth (should require token):
+```bash
+curl https://invoiceme-backend.onrender.com/vendors
+```
+
+Expected: 401 Unauthorized (correct - needs auth token)
 
 ---
 
-## Quick Start Checklist
+## Part 3: Frontend Deployment (Cloudflare Pages)
 
-### Development
+### Step 3.1: Build Flutter Web
 
-- [ ] Create Supabase project
-- [ ] Copy API keys to `.env`
-- [ ] Install Tesseract locally
-- [ ] Install and run Ollama locally
-- [ ] Run `npm run start:dev`
-- [ ] Run `flutter run`
+1. Update API base URL in `frontend/lib/core/config/app_config.dart`:
+   ```dart
+   static const String apiBaseUrl = String.fromEnvironment(
+     'API_BASE_URL',
+     defaultValue: 'https://invoiceme-backend.onrender.com',
+   );
+   ```
 
-### Production
+2. Build Flutter web with production config:
+   ```bash
+   cd frontend
+   flutter build web --release \
+     --dart-define=API_BASE_URL=https://invoiceme-backend.onrender.com \
+     --dart-define=SUPABASE_URL=https://[PROJECT_ID].supabase.co \
+     --dart-define=SUPABASE_ANON_KEY=[YOUR_ANON_KEY]
+   ```
 
-- [ ] Set up cloud database (Supabase/Neon)
-- [ ] Choose LLM provider (Groq recommended)
-- [ ] Choose OCR provider (Google Vision or OCR.space)
-- [ ] Deploy backend (Railway/Render)
-- [ ] Deploy frontend (Vercel/Firebase)
-- [ ] Configure CORS and SSL
-- [ ] Test full flow
+3. Build output is in: `frontend/build/web/`
+
+### Step 3.2: Add SPA Redirect File
+
+Create `frontend/build/web/_redirects`:
+```
+/* /index.html 200
+```
+
+This ensures Flutter's client-side routing works correctly.
+
+### Step 3.3: Deploy to Cloudflare Pages
+
+**Option A: Cloudflare Dashboard (Manual)**
+
+1. Go to [Cloudflare Pages Dashboard](https://dash.cloudflare.com/pages)
+2. Click **Create a project**
+3. Connect your GitHub repository: `invoiceMe`
+4. Configure build:
+   - **Project name**: `invoiceme`
+   - **Production branch**: `002-invoiceme-mvp`
+   - **Build command**:
+     ```bash
+     cd frontend && flutter build web --release --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+     ```
+   - **Build output directory**: `frontend/build/web`
+   - **Root directory**: (leave empty)
+
+5. Add environment variables in Cloudflare Pages settings:
+   ```
+   API_BASE_URL=https://invoiceme-backend.onrender.com
+   SUPABASE_URL=https://[PROJECT_ID].supabase.co
+   SUPABASE_ANON_KEY=[YOUR_ANON_KEY]
+   ```
+
+6. Click **Save and Deploy**
+
+**Option B: Wrangler CLI (Recommended for CI/CD)**
+
+```bash
+# Install Wrangler
+npm install -g wrangler
+
+# Login to Cloudflare
+wrangler login
+
+# Deploy (from project root)
+cd frontend
+wrangler pages publish build/web --project-name=invoiceme
+```
+
+### Step 3.4: Verify Frontend
+
+1. Open your Cloudflare Pages URL: `https://invoiceme.pages.dev`
+2. Test:
+   - Welcome screen loads
+   - Can navigate to Login/Signup
+   - Can sign up new user
+   - Can log in
+   - Home screen loads after login
 
 ---
 
-## Support Resources
+## Part 4: Update CORS Configuration
 
-- [Supabase Docs](https://supabase.com/docs)
-- [Supabase JWT Signing Keys](https://supabase.com/docs/guides/auth/signing-keys)
-- [NestJS Docs](https://docs.nestjs.com)
-- [Flutter Docs](https://docs.flutter.dev)
-- [Prisma Docs](https://www.prisma.io/docs)
-- [Ollama Docs](https://ollama.ai/docs)
+Now that you have the frontend URL, update CORS in Render:
+
+1. Go to Render dashboard → invoiceme-backend → Environment
+2. Update `CORS_ORIGINS`:
+   ```
+   CORS_ORIGINS=https://invoiceme.pages.dev,https://your-custom-domain.com
+   ```
+3. Save (Render will redeploy automatically)
+
+---
+
+## Part 5: Supabase Configuration
+
+### Step 5.1: Verify Storage Buckets
+
+1. Go to Supabase dashboard → Storage
+2. Ensure bucket exists: `invoices` (or as configured)
+3. Set bucket policies (RLS):
+   ```sql
+   -- Allow authenticated users to upload to their tenant folder
+   CREATE POLICY "Users can upload to their tenant folder"
+   ON storage.objects FOR INSERT
+   TO authenticated
+   WITH CHECK (bucket_id = 'invoices' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+   -- Allow authenticated users to read from their tenant folder
+   CREATE POLICY "Users can read from their tenant folder"
+   ON storage.objects FOR SELECT
+   TO authenticated
+   USING (bucket_id = 'invoices' AND (storage.foldername(name))[1] = auth.uid()::text);
+   ```
+
+### Step 5.2: Verify Database Schema
+
+1. Go to Supabase dashboard → SQL Editor
+2. Run migrations if needed:
+   ```bash
+   # Locally, test migrations
+   cd backend
+   npx prisma migrate deploy
+   ```
+
+### Step 5.3: Verify Auth Configuration
+
+1. Go to Supabase dashboard → Authentication → Settings
+2. Ensure **Email/Password** provider is enabled
+3. Add **Site URL**: `https://invoiceme.pages.dev`
+4. Add **Redirect URLs**: `https://invoiceme.pages.dev/**`
+
+---
+
+## Part 6: Testing Production
+
+### Test Checklist
+
+- [ ] **Frontend loads**: Visit `https://invoiceme.pages.dev`
+- [ ] **Signup works**: Create new user account
+- [ ] **Login works**: Log in with created account
+- [ ] **Home screen loads**: See empty state or businesses
+- [ ] **Upload invoice**: Upload PDF or image
+  - [ ] Progress indicator shows
+  - [ ] Assign business modal appears
+  - [ ] Can create new business with monthly limit
+  - [ ] Invoice appears on home screen
+- [ ] **Vendor analytics**: Click business → see charts/KPIs
+- [ ] **Overall analytics**: Visit analytics screen
+- [ ] **Settings**: Update name, currency
+- [ ] **Logout**: Log out and verify redirect to welcome
+
+---
+
+## Part 7: Monitoring & Maintenance
+
+### Render Monitoring
+
+- **Logs**: Render dashboard → invoiceme-backend → Logs
+- **Metrics**: CPU, memory usage (free tier shows basic metrics)
+- **Health checks**: Render pings `/health` endpoint automatically
+
+### Groq API Monitoring
+
+- **Usage**: Groq console → API Keys → View usage
+- **Rate limits**: 60 RPM free tier (upgrade if needed)
+- **Costs**: Track if you exceed free tier
+
+### Cloudflare Pages Monitoring
+
+- **Analytics**: Cloudflare dashboard → Pages → invoiceme → Analytics
+- **Build logs**: Cloudflare dashboard → Pages → invoiceme → Deployments
+
+### Supabase Monitoring
+
+- **Database size**: Supabase dashboard → Database → (check size vs 500MB limit)
+- **Auth users**: Supabase dashboard → Authentication → Users
+- **Storage usage**: Supabase dashboard → Storage → (check size vs 1GB limit)
+
+---
+
+## Troubleshooting
+
+### Backend Fails to Start
+
+**Check**:
+1. Render logs for errors
+2. Verify all environment variables are set
+3. Verify `DATABASE_URL` is correct (test connection locally)
+4. Verify Docker build succeeds (check Dockerfile)
+
+**Common issues**:
+- Missing `GROQ_API_KEY`: Backend will fail on first invoice upload
+- Wrong `DATABASE_URL`: Prisma can't connect
+- Missing Tesseract: Ensure Dockerfile installs `tesseract-ocr`
+
+### Frontend Can't Connect to Backend
+
+**Check**:
+1. Browser console for CORS errors
+2. Verify `API_BASE_URL` in Flutter build matches Render URL
+3. Verify `CORS_ORIGINS` in Render includes Cloudflare Pages URL
+
+**Fix**:
+- Update `CORS_ORIGINS` in Render → Save (redeploys automatically)
+
+### Invoice Upload Fails
+
+**Check**:
+1. Render logs for extraction errors
+2. Verify Groq API key is valid (test with curl)
+3. Verify Tesseract is installed (check Render logs during build)
+
+**Common issues**:
+- Groq API rate limit exceeded: Upgrade to paid tier or wait
+- OCR timeout: Increase timeout in `ocr.service.ts`
+- Large PDF: Limit PDF pages to 2 (already implemented)
+
+### Frontend Routing Doesn't Work
+
+**Check**:
+1. Verify `_redirects` file exists in `frontend/build/web/`
+2. Verify Cloudflare Pages serves `_redirects` file
+
+**Fix**:
+- Rebuild with `_redirects` file included
+
+---
+
+## Scaling Considerations
+
+### When to Upgrade
+
+**Render Free Tier Limits**:
+- Spins down after 15 min inactivity (cold start ~30s)
+- 750 hours/month (sufficient for 1 app)
+
+**Upgrade to Render Starter ($7/mo) when**:
+- Need always-on (no cold starts)
+- >750 hours/month usage
+
+**Groq Free Tier Limits**:
+- 60 requests/minute
+- No monthly limit (as of 2026-01)
+
+**Upgrade to Groq Pro ($...) when**:
+- Need >60 RPM
+- Need higher priority queue
+
+**Supabase Free Tier Limits**:
+- 500MB database
+- 1GB storage
+- 50K auth users
+
+**Upgrade to Supabase Pro ($25/mo) when**:
+- Database >500MB
+- Storage >1GB
+- Need more than 50K users
+
+---
+
+## Security Checklist
+
+- [ ] **Environment variables**: Never commit `.env` files
+- [ ] **API keys**: Use Render/Cloudflare secret storage
+- [ ] **Supabase service role key**: Only in backend (never frontend)
+- [ ] **CORS**: Only allow your frontend domains
+- [ ] **Supabase RLS**: Enable row-level security policies
+- [ ] **HTTPS**: Render and Cloudflare provide automatic HTTPS
+- [ ] **JWT validation**: Backend validates Supabase JWT tokens
+
+---
+
+## Backup & Recovery
+
+### Database Backups
+
+Supabase automatically backs up daily (free tier keeps 7 days).
+
+**Manual backup**:
+```bash
+# Export database
+pg_dump $DATABASE_URL > backup.sql
+
+# Restore database
+psql $DATABASE_URL < backup.sql
+```
+
+### Storage Backups
+
+Supabase Storage is not automatically backed up on free tier.
+
+**Recommendation**: Download important invoices periodically via Supabase dashboard.
+
+---
+
+## Custom Domain Setup (Optional)
+
+### Cloudflare Pages
+
+1. Go to Cloudflare Pages → invoiceme → Custom domains
+2. Add your domain: `app.yourdomain.com`
+3. Follow DNS setup instructions
+4. Update `CORS_ORIGINS` in Render to include your domain
+
+### Render (Optional)
+
+Render free tier does not support custom domains. Upgrade to Starter for custom backend domain.
+
+---
+
+## Cost Projections
+
+| Users | Invoices/Month | Render | Groq | Supabase | Total |
+|-------|----------------|--------|------|----------|-------|
+| 1-10 | <100 | Free | Free | Free | **$0** |
+| 10-50 | <500 | Free | Free | Free | **$0** |
+| 50-100 | <2000 | Free | Free | Free | **$0** |
+| 100-500 | <10K | $7 | Free | $25 | **$32** |
+| 500+ | >10K | $21+ | $29+ | $25+ | **$75+** |
+
+**MVP Target**: Stay in free tier (<50 users, <500 invoices/month)
+
+---
+
+## Next Steps
+
+After successful deployment:
+
+1. **Test thoroughly** with real invoices
+2. **Monitor logs** for errors (first 24 hours)
+3. **Share link** with beta testers
+4. **Collect feedback** on extraction accuracy
+5. **Iterate** based on user feedback
+
+---
+
+**END OF SETUP GUIDE**
