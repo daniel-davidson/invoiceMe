@@ -19,6 +19,40 @@ This contract serves as the single source of truth for:
 
 ---
 
+## Global Behaviors
+
+### Session Expiry & Auto-Logout
+
+**Purpose**: Handle Supabase session expiration gracefully and force logout with clear user notice.
+
+**Detection Methods**:
+1. **Supabase Auth State Listener**:
+   - Listen to `onAuthStateChange` events
+   - If event is `SIGNED_OUT` or `TOKEN_EXPIRED` → trigger auto-logout
+
+2. **Backend 401/403 Response Interceptor**:
+   - Globally intercept all API responses
+   - If status is 401 or 403 → trigger auto-logout
+
+**Auto-Logout Flow**:
+1. Clear local session/tokens
+2. Reset Riverpod auth state
+3. Navigate to Login Screen (replace, no back stack)
+4. Show notice:
+   - **SnackBar** (preferred): "Session expired. Please log in again."
+   - **OR Dialog**: "Your session has expired. Please log in again to continue." (with OK button)
+
+**Timing**:
+- Logout must happen **immediately** on detection
+- User should never remain stuck in partially-authenticated state
+
+**Must NOT Exist**:
+- ❌ No silent failure (user must see notice)
+- ❌ No "Re-authenticate" button with current screen (must navigate to Login)
+- ❌ No retry logic for expired tokens (must login again)
+
+---
+
 ## Screen Contracts
 
 ### 1. Welcome Screen
@@ -175,7 +209,11 @@ This contract serves as the single source of truth for:
 **Required UI Elements**:
 - Input: Business name
 - Input: Business order (default: last position)
-- Button: "Save" → saves changes, closes dialog, returns to Home Screen with updated list
+- Input: Monthly Limit (numeric, required, > 0)
+  - Label: "Monthly spending limit"
+  - Validation: Must be a positive number
+  - Error message: "Monthly limit is required and must be greater than 0"
+- Button: "Save" → saves changes (disabled until all validations pass), closes dialog, returns to Home Screen with updated list
 - Button: "Delete" (only if editing existing business) → opens Delete Confirmation dialog
 
 **Allowed Navigation**:
@@ -265,10 +303,19 @@ This contract serves as the single source of truth for:
 - ❌ No "Don't show again" option (assignment is MANDATORY UX, always shown)
 - ❌ No multi-select or batch assignment
 
-**Business Logic**:
-- If LLM extraction failed (no vendor): dropdown starts empty, user MUST select or create
-- If LLM extracted vendor with high confidence: pre-select in dropdown for quick confirm
-- "Skip for Now" → invoice keeps extracted vendor, but if extraction was uncertain, `needsReview=true`
+**Business Logic (CRITICAL - Updated v2.0)**:
+- **NEVER auto-create business** during upload:
+  - Backend DOES NOT create Vendor record automatically
+  - Invoice is saved with `vendorId = null` + `needsReview = true`
+  - Backend returns `extractedVendorNameCandidate` in upload response
+- Post-upload modal behavior:
+  - If LLM extracted vendor name: prefill "Create New Business" input with extracted name
+  - Dropdown shows existing businesses only (no auto-match)
+  - User MUST explicitly:
+    1. Select existing business from dropdown, OR
+    2. Create new business (uses prefilled name or custom name)
+  - Only after Confirm: assign invoice.vendorId via PATCH /invoices/:id
+- "Skip for Now" → invoice stays with `vendorId = null` + `needsReview = true`
 - After assignment: invoice can always be reassigned later in Edit Invoice Screen
 
 ---
@@ -287,8 +334,13 @@ This contract serves as the single source of truth for:
 - Ok button → closes dialogs, returns to Home Screen
 
 **Loading/Empty/Error States**:
-- **Loading**: Circular progress indicator while deleting
-- **Error**: Display error message if delete fails
+- **Loading**: On "Ok" button press:
+  1. Immediately disable both Cancel and Ok buttons
+  2. Show CircularProgressIndicator INSIDE the dialog (below text, centered)
+  3. Keep dialog open until DELETE request completes
+  4. On success: close dialog + navigate to Home Screen with updated list
+  5. On error: hide progress indicator, re-enable buttons, show error text in dialog
+- **Error**: Display error message inline in dialog if delete fails, allow retry
 
 **Required API Interactions**:
 - DELETE /vendors/:id → deletes business and cascades to invoices
@@ -503,28 +555,34 @@ For backwards compatibility reference:
 
 ---
 
-### 7a. Delete Invoice Confirmation Dialog
+### 7a. Delete Invoice Confirmation Dialog (UPDATED v2.0)
 
-**Purpose**: Confirm invoice deletion.
+**Purpose**: Confirm invoice deletion with instant loading feedback.
 
 **Required UI Elements**:
-- Text: "Are you sure you want to delete the invoice?"
+- Text: "Are you sure you want to delete this invoice? This action cannot be undone."
 - Button: "Cancel" → closes dialog, returns to Edit Invoice Screen
-- Button: "Ok" → deletes invoice with circular indicator, closes dialog, returns to Home Screen
+- Button: "Delete" (destructive color) → deletes invoice, closes dialog, returns to previous screen
 
 **Allowed Navigation**:
 - Cancel button → closes dialog, returns to Edit Invoice Screen
-- Ok button → closes dialog, returns to Home Screen
+- Delete button → closes dialog, navigates back to previous screen (Home or Invoices List)
 
 **Loading/Empty/Error States**:
-- **Loading**: Circular progress indicator while deleting
-- **Error**: Display error message if delete fails
+- **Loading**: On "Delete" button press:
+  1. Immediately disable both Cancel and Delete buttons
+  2. Show CircularProgressIndicator INSIDE the dialog (below text, centered)
+  3. Keep dialog open until DELETE request completes
+  4. On success: close dialog + navigate back with success snackbar
+  5. On error: hide progress indicator, re-enable buttons, show error text in dialog
+- **Error**: Display error message inline in dialog if delete fails, allow retry
 
 **Required API Interactions**:
 - DELETE /invoices/:id → deletes invoice
 
 **Must NOT Exist**:
 - ❌ No "Archive instead of delete" option
+- ❌ No "Move to another business" option
 
 ---
 
@@ -638,10 +696,28 @@ For backwards compatibility reference:
 **Charts**:
 - Pie Chart: "5 most spent items in the current month"
   - Shows top 5 invoice amounts for this business in current month
-- Line Chart: "Spending by months"
-  - X-axis: Months
-  - Y-axis: Total spend amount
-  - Data: Monthly spend totals for this business
+  - Legend: Show labels with colors
+
+- Line Chart: "Spending by months" (UPDATED v2.0 - Axis Requirements):
+  - **X-axis (horizontal)**: Month labels
+    - Format: "Jan 25", "Feb 25", ... (short month + 2-digit year)
+    - Density: Adjust based on screen width:
+      - Mobile (<600px): Show every 2nd or 3rd label to prevent overlap
+      - Tablet/Desktop (≥600px): Show all labels
+    - Style: Rotated 0° or 45° if needed for readability
+    - Must be visible and not overflow chart bounds
+  
+  - **Y-axis (vertical)**: Amount with currency
+    - Format: Include currency symbol (e.g., "₪100", "$50")
+    - Scale: Auto-scale based on data range (min to max)
+    - Grid lines: Show horizontal grid lines for readability
+    - Must be visible and not overflow chart bounds
+  
+  - **Responsive sizing**:
+    - Chart must fit screen width minus padding (16px each side)
+    - Height: Fixed 300px or dynamic based on content
+    - Must NOT overflow horizontally or vertically
+    - Padding: Ensure labels don't get cut off at edges
 
 **Allowed Navigation**:
 - Share/Export button → (export functionality, UI TBD)
