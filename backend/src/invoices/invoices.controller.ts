@@ -86,7 +86,21 @@ export class InvoicesController {
     @Tenant() tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.invoicesService.findOne(tenantId, id);
+    const invoice = await this.invoicesService.findOne(tenantId, id);
+    
+    // Debug logging for analytics issue
+    console.log('[InvoicesController] GET /invoices/:id debug:', {
+      id: invoice.id,
+      vendorId: invoice.vendorId,
+      originalAmount: invoice.originalAmount,
+      normalizedAmount: invoice.normalizedAmount,
+      invoiceDate: invoice.invoiceDate,
+      originalCurrency: invoice.originalCurrency,
+      fxRate: invoice.fxRate,
+      needsReview: invoice.needsReview,
+    });
+    
+    return invoice;
   }
 
   @Patch(':id')

@@ -45,6 +45,25 @@ export class AnalyticsService {
       throw new NotFoundException('Vendor not found');
     }
 
+    // DEBUG: Log all invoices for this vendor
+    const allInvoices = await this.prisma.invoice.findMany({
+      where: { tenantId, vendorId },
+      select: {
+        id: true,
+        invoiceDate: true,
+        originalAmount: true,
+        originalCurrency: true,
+        normalizedAmount: true,
+        fxRate: true,
+        needsReview: true,
+      },
+      orderBy: { invoiceDate: 'desc' },
+    });
+    this.logger.log(`[DEBUG] Found ${allInvoices.length} invoices for vendor ${vendorId}:`);
+    allInvoices.forEach((inv, i) => {
+      this.logger.log(`  [${i}] ${inv.invoiceDate.toISOString().split('T')[0]} - Original: ${inv.originalAmount} ${inv.originalCurrency}, Normalized: ${inv.normalizedAmount}, FxRate: ${inv.fxRate}, NeedsReview: ${inv.needsReview}`);
+    });
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -57,9 +76,11 @@ export class AnalyticsService {
         vendorId,
         invoiceDate: { gte: startOfMonth },
       },
-      _sum: { normalizedAmount: true },
+      _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const currentMonthSpend = this.toNumber(currentMonthResult._sum.normalizedAmount);
+    // Fallback to originalAmount if normalizedAmount is null (FX conversion failed)
+    const currentMonthSpend = this.toNumber(currentMonthResult._sum.normalizedAmount) 
+      || this.toNumber(currentMonthResult._sum.originalAmount);
 
     // Monthly average (last 12 months)
     const last12MonthsResult = await this.prisma.invoice.aggregate({
@@ -68,9 +89,11 @@ export class AnalyticsService {
         vendorId,
         invoiceDate: { gte: twelveMonthsAgo },
       },
-      _sum: { normalizedAmount: true },
+      _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const monthlyAverage = this.toNumber(last12MonthsResult._sum.normalizedAmount) / 12;
+    const total12Months = this.toNumber(last12MonthsResult._sum.normalizedAmount) 
+      || this.toNumber(last12MonthsResult._sum.originalAmount);
+    const monthlyAverage = total12Months / 12;
 
     // Yearly average
     const yearlyResult = await this.prisma.invoice.aggregate({
@@ -79,9 +102,10 @@ export class AnalyticsService {
         vendorId,
         invoiceDate: { gte: startOfYear },
       },
-      _sum: { normalizedAmount: true },
+      _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const yearlyAverage = this.toNumber(yearlyResult._sum.normalizedAmount);
+    const yearlyAverage = this.toNumber(yearlyResult._sum.normalizedAmount) 
+      || this.toNumber(yearlyResult._sum.originalAmount);
 
     const monthlyLimit = vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null;
     const limitUtilization = monthlyLimit ? (currentMonthSpend / monthlyLimit) * 100 : null;
@@ -97,9 +121,11 @@ export class AnalyticsService {
           vendorId,
           invoiceDate: { gte: range.start, lte: range.end },
         },
-        _sum: { normalizedAmount: true },
+        _sum: { normalizedAmount: true, originalAmount: true },
       });
-      monthlyData.push(this.toNumber(result._sum.normalizedAmount));
+      const amount = this.toNumber(result._sum.normalizedAmount) 
+        || this.toNumber(result._sum.originalAmount);
+      monthlyData.push(amount);
     }
 
     const duration = Date.now() - startTime;
@@ -144,9 +170,10 @@ export class AnalyticsService {
     // Total spend current month
     const totalSpendResult = await this.prisma.invoice.aggregate({
       where: { tenantId, invoiceDate: { gte: startOfMonth } },
-      _sum: { normalizedAmount: true },
+      _sum: { normalizedAmount: true, originalAmount: true },
     });
-    const totalSpend = this.toNumber(totalSpendResult._sum.normalizedAmount);
+    const totalSpend = this.toNumber(totalSpendResult._sum.normalizedAmount) 
+      || this.toNumber(totalSpendResult._sum.originalAmount);
 
     // Total limits
     const limitsResult = await this.prisma.vendor.aggregate({
@@ -165,7 +192,7 @@ export class AnalyticsService {
     const topVendors = await this.prisma.invoice.groupBy({
       by: ['vendorId'],
       where: { tenantId },
-      _sum: { normalizedAmount: true },
+      _sum: { normalizedAmount: true, originalAmount: true },
       orderBy: { _sum: { normalizedAmount: 'desc' } },
       take: 5,
     });
@@ -176,14 +203,14 @@ export class AnalyticsService {
     });
 
     const totalAllSpend = topVendors.reduce(
-      (sum, v) => sum + this.toNumber(v._sum.normalizedAmount),
+      (sum, v) => sum + (this.toNumber(v._sum.normalizedAmount) || this.toNumber(v._sum.originalAmount)),
       0,
     );
 
     const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
     const segments = topVendors.map((v, i) => {
       const vendor = vendors.find((vn) => vn.id === v.vendorId);
-      const value = this.toNumber(v._sum.normalizedAmount);
+      const value = this.toNumber(v._sum.normalizedAmount) || this.toNumber(v._sum.originalAmount);
       return {
         label: vendor?.name || 'Unknown',
         value,
@@ -202,9 +229,11 @@ export class AnalyticsService {
           tenantId,
           invoiceDate: { gte: range.start, lte: range.end },
         },
-        _sum: { normalizedAmount: true },
+        _sum: { normalizedAmount: true, originalAmount: true },
       });
-      monthlyData.push(this.toNumber(result._sum.normalizedAmount));
+      const amount = this.toNumber(result._sum.normalizedAmount) 
+        || this.toNumber(result._sum.originalAmount);
+      monthlyData.push(amount);
     }
 
     const duration = Date.now() - startTime;
@@ -303,11 +332,13 @@ export class AnalyticsService {
       vendors.map(async (vendor) => {
         const result = await this.prisma.invoice.aggregate({
           where: { tenantId, vendorId: vendor.id },
-          _sum: { normalizedAmount: true },
+          _sum: { normalizedAmount: true, originalAmount: true },
         });
+        const totalSpend = this.toNumber(result._sum.normalizedAmount) 
+          || this.toNumber(result._sum.originalAmount);
         return {
           name: vendor.name,
-          totalSpend: this.toNumber(result._sum.normalizedAmount),
+          totalSpend,
           invoiceCount: vendor._count.invoices,
           monthlyLimit: vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null,
           latestInvoice: vendor.invoices[0]?.invoiceDate || null,
