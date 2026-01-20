@@ -1,0 +1,155 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// User / Profile (synced from Supabase Auth)
+// ============================================================================
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  fullName           String
+  personalBusinessId String?
+  systemCurrency     String    @default("USD") // ISO 4217
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  vendors   Vendor[]
+  invoices  Invoice[]
+  insights  Insight[]
+
+  @@map("users")
+}
+
+// ============================================================================
+// Vendor (Business) - where money was spent
+// ============================================================================
+model Vendor {
+  id           String    @id @default(uuid())
+  tenantId     String    // FK to User.id
+  name         String
+  displayOrder Int       @default(0)
+  monthlyLimit Decimal?  @db.Decimal(15, 2)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@unique([tenantId, name]) // Vendor names unique per tenant
+  @@index([tenantId])
+  @@index([tenantId, displayOrder])
+  @@map("vendors")
+}
+
+// ============================================================================
+// Invoice
+// ============================================================================
+model Invoice {
+  id               String    @id @default(uuid())
+  tenantId         String    // FK to User.id
+  vendorId         String    // FK to Vendor.id
+  name             String?   // User-editable name
+  originalAmount   Decimal   @db.Decimal(15, 2)
+  originalCurrency String    // ISO 4217
+  normalizedAmount Decimal?  @db.Decimal(15, 2) // In system currency
+  fxRate           Decimal?  @db.Decimal(15, 6)
+  fxDate           DateTime?
+  invoiceDate      DateTime
+  invoiceNumber    String?
+  fileUrl          String    // Path to stored file
+  needsReview      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  user           User            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor         Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  extractionRuns ExtractionRun[]
+
+  @@index([tenantId])
+  @@index([tenantId, vendorId])
+  @@index([tenantId, invoiceDate])
+  @@map("invoices")
+}
+
+// ============================================================================
+// Extraction Run - tracks OCR/LLM processing
+// ============================================================================
+model ExtractionRun {
+  id              String            @id @default(uuid())
+  tenantId        String            // FK to User.id
+  invoiceId       String            // FK to Invoice.id
+  status          ExtractionStatus  @default(PENDING)
+  ocrText         String?           @db.Text
+  llmResponse     Json?             // Raw LLM JSON response
+  errorMessage    String?
+  processingTimeMs Int?
+  createdAt       DateTime          @default(now())
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@map("extraction_runs")
+}
+
+enum ExtractionStatus {
+  PENDING
+  OCR_COMPLETE
+  LLM_COMPLETE
+  VALIDATION_FAILED
+  SUCCESS
+  ERROR
+}
+
+// ============================================================================
+// Insight - AI-generated spending insights
+// ============================================================================
+model Insight {
+  id             String      @id @default(uuid())
+  tenantId       String      // FK to User.id
+  insightType    InsightType
+  title          String
+  content        String      @db.Text
+  relatedMetrics Json        // Metrics used to generate insight
+  generatedAt    DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+
+  // Relations
+  user User @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, generatedAt])
+  @@map("insights")
+}
+
+enum InsightType {
+  MONTHLY_NARRATIVE
+  RECURRING_CHARGES
+  ANOMALIES
+}
+
+// ============================================================================
+// FX Rate Cache (optional - can use in-memory instead)
+// ============================================================================
+model FxRateCache {
+  id           String   @id @default(uuid())
+  baseCurrency String   // ISO 4217
+  rates        Json     // { "USD": 1.0, "EUR": 0.92, ... }
+  fetchedAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  @@unique([baseCurrency])
+  @@map("fx_rate_cache")
+}

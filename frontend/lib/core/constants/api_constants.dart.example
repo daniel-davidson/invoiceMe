@@ -1,0 +1,46 @@
+/// API Constants Configuration - LEGACY FILE
+/// 
+/// ⚠️  NOTE: This file is kept for reference only.
+/// 
+/// The frontend now fetches Supabase configuration from the backend at runtime.
+/// See: lib/core/config/app_config.dart
+/// 
+/// The only configuration needed is the backend API URL, which can be set via:
+/// - Build argument: flutter build web --dart-define=API_URL=https://api.example.com
+/// - Or hardcoded in lib/core/constants/api_constants.dart for development
+library;
+
+class ApiConstantsExample {
+  // ============================================
+  // BACKEND API - THE ONLY REQUIRED CONFIG
+  // ============================================
+  
+  /// Base URL for the NestJS backend
+  /// 
+  /// Development: http://localhost:3000
+  /// Android Emulator: http://10.0.2.2:3000
+  /// iOS Simulator: http://localhost:3000
+  /// Production: https://api.yourdomain.com
+  /// 
+  /// Can also be set via: --dart-define=API_URL=https://...
+  static const String baseUrl = 'http://localhost:3000';
+  
+  // ============================================
+  // SUPABASE - FETCHED FROM BACKEND
+  // ============================================
+  // 
+  // These are no longer hardcoded in the frontend!
+  // The frontend calls GET /api/config to fetch:
+  // - supabaseUrl
+  // - supabaseAnonKey (or publishableKey)
+  // 
+  // See: lib/core/config/app_config.dart
+  
+  // ============================================
+  // TIMEOUTS
+  // ============================================
+  
+  static const int connectTimeout = 30000; // 30 seconds
+  static const int receiveTimeout = 60000; // 60 seconds
+  static const int uploadTimeout = 120000; // 2 minutes
+}

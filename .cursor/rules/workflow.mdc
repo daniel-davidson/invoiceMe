@@ -1,0 +1,84 @@
+---
+alwaysApply: true
+---
+# InvoiceMe — Workflow Rules (Spec-Driven)
+
+## Authority
+- The /specs folder is the single source of truth.
+- Do NOT invent requirements, screens, endpoints, tables, or flows not explicitly defined in /specs.
+- If specs conflict, do not guess: add a note in specs/DECISIONS.md proposing a safe default aligned with existing decisions.
+
+## Multi-tenancy (MANDATORY)
+- tenantId MUST be derived from Supabase Auth JWT claim `sub`.
+- Every user-owned DB table MUST include tenantId.
+- Every read/write query MUST filter by tenantId.
+- No cross-tenant reads/writes under any circumstances.
+- Any code touching DB must include automated checks or tests verifying tenant scoping.
+
+## Domain Definition (MANDATORY)
+- "Business" in UI means "Vendor/Supplier" on the invoice (where money was spent).
+- Do not treat "Business" as a user workspace or the user's own company unless specs explicitly change this.
+
+## PDF/OCR Pipeline Rules (MANDATORY)
+- Supported uploads: image and PDF.
+- PDF handling:
+  1) If PDF has selectable text, extract text without OCR.
+  2) Else convert pages to images and OCR.
+  3) POC limit: OCR only first 2 pages max.
+- OCR must use Tesseract with languages: heb+eng.
+- Ollama is used ONLY to structure extracted OCR text into strict JSON (it does NOT do OCR).
+
+## AI Insights Rules (MANDATORY)
+- SQL/DB computes truth (totals, KPIs, trends).
+- LLM (Ollama) only summarizes/explains based on computed facts.
+- LLM output must never contradict SQL totals. If mismatch or uncertainty, mark as needsReview and surface warnings.
+
+## Storage Rules (MANDATORY)
+- Invoice files (PDF/images) must be stored outside the DB (local filesystem or object storage).
+- DB stores metadata + artifacts (raw OCR text, raw LLM JSON, confidence, warnings, validation results).
+
+## Scope Rules (MANDATORY)
+- Export for POC is complete when CSV is generated and downloadable.
+- Email/FTP integrations are OUT OF SCOPE unless specs explicitly include them.
+
+## Implementation Order (MANDATORY)
+1) Prisma schema + migrations per specs/DATA_MODEL.md
+2) Auth + tenant guard per specs/API_CONTRACTS.md
+3) Upload pipeline end-to-end per specs/PIPELINE.md
+4) CRUD APIs (vendors/invoices/settings)
+5) Analytics APIs
+6) AI insights APIs
+7) Flutter screens
+8) Tests + RUNBOOK.md
+
+## External Integrations - Must Use Latest Docs (MANDATORY)
+When implementing or updating ANY external integration (Supabase, exchangeratesapi.io, Ollama, Tesseract, etc.):
+
+1) DO NOT rely on memory or assumptions.
+2) ALWAYS verify the latest official documentation (or latest SDK reference) for:
+   - API endpoints / base URLs
+   - authentication method (keys, JWT, OAuth)
+   - env var names
+   - SDK initialization
+   - breaking changes / migration notes
+   - deprecations and replacements
+3) If documentation changed, update ALL of:
+   - project code
+   - README / docs
+   - .env.example
+   - integration helpers/services
+4) If the latest docs are unclear or multiple approaches exist:
+   - choose the recommended approach
+   - explain reasoning inside code comments or specs
+5) Every integration must include:
+   - link(s) to the official docs used
+   - last verification date (YYYY-MM-DD)
+   - SDK/version used (if applicable)
+
+## Integration Verification Requirement (STRICT)
+For every external service integration, include a short "Docs Verified" section in the implementation notes (or PR notes) containing:
+- Official docs URL(s)
+- Verified on: YYYY-MM-DD
+- SDK/version used
+
+If missing, the implementation is considered incomplete.

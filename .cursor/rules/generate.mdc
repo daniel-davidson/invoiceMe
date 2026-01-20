@@ -1,0 +1,63 @@
+---
+alwaysApply: true
+---
+# InvoiceMe — Code Generation Rules
+
+## General
+- Match endpoints and payloads exactly as defined in specs/API_CONTRACTS.md.
+- Match tables/fields exactly as defined in specs/DATA_MODEL.md.
+- Do not add new endpoints/tables unless specs explicitly require it.
+- Prefer small, reviewable diffs. Avoid large refactors unless required by specs.
+
+## Backend (NestJS + Prisma)
+- Enforce tenantId scoping in a shared repository/service helper to prevent omissions.
+- All controllers must be protected by auth + tenant guard.
+- Return structured errors: { code, message, details? }.
+- Use deterministic validation for invoice fields:
+  - currency parse
+  - date parse
+  - totals check (subtotal + tax ~= total with tolerance)
+- Persist extraction artifacts:
+  - raw OCR text (text)
+  - raw LLM JSON (jsonb)
+  - confidence per field (0..1)
+  - warnings array
+  - needsReview boolean + reason(s)
+- Currency conversion:
+  - store originalAmount + originalCurrency
+  - store normalizedAmount + normalizedCurrency (system currency)
+  - store fxRate + fxAsOf + fxSource
+- Caching:
+  - default in-memory cache TTL 12 hours
+  - Redis adapter optional; must not be required to run locally
+
+## OCR + LLM Extraction
+- PDF rules:
+  - extract selectable text first; fallback to OCR
+  - OCR first 2 pages max (POC)
+- OCR must use Tesseract heb+eng.
+- Ollama extractor MUST return strict JSON per specs (fail on invalid JSON).
+- Never trust LLM outputs without validation; set needsReview for low confidence or failures.
+
+## AI Insights
+- Compute KPI facts in SQL/Prisma queries.
+- Provide only facts to LLM for summarization.
+- LLM output must reference computed facts and not invent numbers.
+- Store insight history per tenant with timestamp and input snapshot.
+
+## Flutter (Riverpod + Clean Architecture)
+- Enforce Clean Architecture boundaries:
+  - presentation/ (screens, widgets, notifiers)
+  - domain/ (entities, usecases, repository interfaces)
+  - data/ (dto, api client, repository implementations)
+- Use Riverpod class-based notifiers only.
+- Each screen must implement explicit loading/success/error states per specs/PRD.md.
+- Upload flow must show loading indicator until backend returns and then show snackbar success/failure.
+- Do not hardcode production data; allow fixtures only if explicitly described in specs/RUNBOOK.md or specs/TEST_PLAN.md.
+
+## External Integrations (Code Requirements)
+For each external service integration, the code must include:
+- a small comment header: "Docs Verified"
+- Docs URL(s)
+- Verified date: YYYY-MM-DD
+- SDK/version used
