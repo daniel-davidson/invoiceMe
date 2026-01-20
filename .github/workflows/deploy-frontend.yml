@@ -1,0 +1,42 @@
+name: Deploy Frontend to Cloudflare Pages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+          
+      - name: Get dependencies
+        working-directory: ./frontend
+        run: flutter pub get
+        
+      - name: Build Flutter Web
+        working-directory: ./frontend
+        run: |
+          flutter build web --release \
+            --dart-define=API_URL=${{ secrets.API_URL || 'https://invoiceme-backend.onrender.com' }}
+        
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: invoiceme
+          directory: frontend/build/web
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
