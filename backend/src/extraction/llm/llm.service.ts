@@ -29,7 +29,7 @@ export class LlmService {
 
   constructor(private readonly configService: ConfigService) {
     this.provider = this.configService.get('llm.provider') || 'groq';
-    
+
     // Default models per provider
     const defaultModels = {
       groq: 'mixtral-8x7b-32768',
@@ -37,22 +37,27 @@ export class LlmService {
       together: 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
       openrouter: 'meta-llama/llama-3.2-3b-instruct:free',
     };
-    
+
     this.model =
       this.configService.get('llm.model') ||
       this.configService.get('llm.ollamaModel') ||
       defaultModels[this.provider] ||
       defaultModels.groq;
-      
+
     this.apiKey = this.configService.get('llm.apiKey');
     this.ollamaUrl =
       this.configService.get('llm.ollamaUrl') || 'http://localhost:11434';
 
     this.logger.log(`LLM Provider: ${this.provider}, Model: ${this.model}`);
-    
+
     // Warn if API key missing for cloud providers
-    if (['groq', 'together', 'openrouter'].includes(this.provider) && !this.apiKey) {
-      this.logger.warn(`${this.provider} provider requires LLM_API_KEY but it's not set`);
+    if (
+      ['groq', 'together', 'openrouter'].includes(this.provider) &&
+      !this.apiKey
+    ) {
+      this.logger.warn(
+        `${this.provider} provider requires LLM_API_KEY but it's not set`,
+      );
     }
   }
 
@@ -69,11 +74,11 @@ export class LlmService {
 
     // Smart OCR text selection (preserve important sections)
     const relevantText = this.selectRelevantText(ocrText);
-    
+
     this.logger.debug(
       `[LlmService] OCR text: ${ocrText.length} chars → ${relevantText.length} chars after smart truncation`,
     );
-    
+
     if (candidates) {
       this.logger.debug(
         `[LlmService] Deterministic candidates: ${JSON.stringify(candidates)}`,
@@ -111,14 +116,14 @@ export class LlmService {
         return extractedData;
       } catch (error) {
         lastError = error;
-        
+
         // Check if error is retryable
         const isRetryable = this.isRetryableError(error);
-        
+
         if (!isRetryable || attempt === this.maxRetries) {
           break; // Non-retryable or max retries reached
         }
-        
+
         this.logger.warn(
           `LLM call failed (attempt ${attempt + 1}/${this.maxRetries + 1}): ${error.message}`,
         );
@@ -130,7 +135,7 @@ export class LlmService {
     this.logger.error(
       `[LlmService] Extraction failed after ${this.maxRetries + 1} attempts (${totalDuration}ms): ${lastError?.message}`,
     );
-    
+
     return this.getFallbackExtraction(ocrText, candidates);
   }
 
@@ -199,14 +204,14 @@ export class LlmService {
       }
 
       const data = await response.json();
-      
+
       // Log token usage if available
       if (data.usage) {
         this.logger.debug(
           `[Groq] Tokens: ${data.usage.prompt_tokens} prompt + ${data.usage.completion_tokens} completion = ${data.usage.total_tokens} total`,
         );
       }
-      
+
       return data.choices?.[0]?.message?.content || '';
     } catch (error) {
       clearTimeout(timeoutId);
@@ -255,9 +260,7 @@ export class LlmService {
       }
       if (error.code === 'ECONNREFUSED') {
         throw new Error(
-          'Cannot connect to Ollama (is it running at ' +
-            this.ollamaUrl +
-            '?)',
+          'Cannot connect to Ollama (is it running at ' + this.ollamaUrl + '?)',
         );
       }
       throw error;
@@ -353,16 +356,16 @@ export class LlmService {
 
     // Take top 30 lines (header - vendor info)
     const headerLines = lines.slice(0, 30);
-    let headerText = headerLines.join('\n');
+    const headerText = headerLines.join('\n');
 
     // Take bottom 30 lines (footer - totals)
     const footerLines = lines.slice(-30);
-    let footerText = footerLines.join('\n');
+    const footerText = footerLines.join('\n');
 
     // Extract keyword lines from middle
     const middleLines = lines.slice(30, -30);
     const keywordLines = middleLines.filter((l) => keywordRegex.test(l));
-    let keywordText = keywordLines.slice(0, 20).join('\n'); // Max 20 keyword lines
+    const keywordText = keywordLines.slice(0, 20).join('\n'); // Max 20 keyword lines
 
     // Calculate remaining space
     const usedChars =
@@ -528,18 +531,18 @@ JSON OUTPUT:`;
   private parseResponse(response: string): ExtractedInvoiceData {
     // Try to extract JSON from response (handle markdown code blocks)
     let jsonText = response;
-    
+
     // Remove markdown code blocks if present
     jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-    
+
     // Find JSON object
     const start = jsonText.indexOf('{');
     const end = jsonText.lastIndexOf('}');
-    
+
     if (start === -1 || end === -1 || end <= start) {
       throw new Error('No JSON found in LLM response');
     }
-    
+
     jsonText = jsonText.slice(start, end + 1);
 
     try {
@@ -655,11 +658,14 @@ JSON OUTPUT:`;
       totalAmount = candidates.bestTotal ?? null;
       currency = candidates.bestCurrency ?? null;
       invoiceDate = candidates.bestDate ?? null;
-      
-      if (candidates.vendorCandidates && candidates.vendorCandidates.length > 0) {
+
+      if (
+        candidates.vendorCandidates &&
+        candidates.vendorCandidates.length > 0
+      ) {
         vendorName = candidates.vendorCandidates[0];
       }
-      
+
       if (totalAmount) {
         warnings.push('Total amount from deterministic parsing');
       }
@@ -738,8 +744,8 @@ JSON OUTPUT:`;
         if (match) {
           if (format === formats[0] || format === formats[2]) {
             // DD/MM/YYYY or DD/MM/YY
-            let day = parseInt(match[1], 10);
-            let month = parseInt(match[2], 10);
+            const day = parseInt(match[1], 10);
+            const month = parseInt(match[2], 10);
             let year = parseInt(match[3], 10);
 
             if (format === formats[2] && year < 100) {
@@ -795,7 +801,9 @@ JSON OUTPUT:`;
     ];
 
     const errorStr = error.message?.toLowerCase() || '';
-    return retryableMessages.some((msg) => errorStr.includes(msg.toLowerCase()));
+    return retryableMessages.some((msg) =>
+      errorStr.includes(msg.toLowerCase()),
+    );
   }
 
   /**
