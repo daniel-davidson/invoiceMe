@@ -169,6 +169,40 @@ This document defines the exact UI states that MUST exist for each screen:
 - List of business cards (expandable)
 - Upload button (bottom)
 
+#### Search Input State (Idle)
+
+**Trigger**: Screen loaded with businesses  
+**UI Display**:
+- Search input visible with placeholder "Search businesses..."
+- Search icon (left)
+- Clear icon (right, hidden until text entered)
+
+**User Action**: Tap to enter search text
+
+#### Search Input State (Typing)
+
+**Trigger**: User types in search input  
+**UI Display**:
+- Search input shows entered text
+- Clear icon (right) becomes visible
+- Business list filters in real-time (client-side filter, no debounce needed)
+- Filtered businesses update immediately as user types
+
+**User Action**: Continue typing or tap clear icon
+
+#### Search Input State (No Results)
+
+**Trigger**: Search filter returns no matching businesses  
+**UI Display**:
+- Search input shows search text
+- Business list area shows:
+  - Icon: Search icon (large, grey)
+  - Text: "No businesses found"
+  - Text (secondary): "Try a different search term"
+  - Clear button to reset search
+
+**User Action**: Modify search or clear to see all businesses
+
 #### Upload Flow States
 
 ##### Upload Stage 1: File Selection
@@ -314,7 +348,68 @@ This document defines the exact UI states that MUST exist for each screen:
 
 ---
 
-### 6. Edit Invoice Screen
+### 5b. Duplicate Invoice Detection Dialog (NEW v2.0)
+
+**Purpose**: Prevent duplicate invoice uploads by detecting previously uploaded files
+
+#### Loading State (Hash Computation)
+
+**Trigger**: User selects file (image or PDF) from picker  
+**UI Display**:
+- Small inline spinner appears next to file picker
+- Text: "Checking for duplicates..." (optional, if computation > 100ms)
+
+**Duration**: < 200ms for typical 10MB file
+
+#### Loading State (API Check)
+
+**Trigger**: Hash computed, calling API to check for duplicate  
+**UI Display**:
+- Small inline spinner continues
+- Text: "Checking for duplicates..."
+
+**Duration**: < 500ms (backend indexed lookup)
+
+#### Dialog State (Duplicate Detected)
+
+**Trigger**: API returns 200 OK with existing invoice details  
+**UI Display**:
+- **Dialog**: "Invoice Already Exists"
+- **Icon**: Warning icon (orange/yellow)
+- **Text (primary)**: "This invoice was already uploaded on {createdAt formatted}"
+- **Text (secondary)**: Existing invoice details:
+  - "Business: {vendorName}"
+  - "Amount: {originalAmount} {originalCurrency}"
+  - "Date: {invoiceDate formatted}"
+  - "Invoice #: {invoiceNumber or 'N/A'}"
+- **Button**: "View Existing Invoice" (primary, blue) → navigates to Invoice Detail Screen
+- **Button**: "Cancel" (secondary) → closes dialog, returns to Home Screen
+
+**User Action**: View existing invoice or cancel
+
+#### Error State (API Check Failed)
+
+**Trigger**: API call fails (network error, timeout)  
+**UI Behavior**:
+- **Fail-open**: Proceed with normal upload flow (backend will catch duplicate on upload)
+- **SnackBar** (optional warning): Yellow background, "Could not check for duplicates. Proceeding with upload."
+- Upload continues as normal (backend returns 409 Conflict if duplicate)
+
+**User Action**: Upload proceeds automatically
+
+#### Error State (Upload Returns 409 Conflict)
+
+**Trigger**: Upload API returns 409 Conflict with existing invoice details  
+**UI Display**:
+- Upload overlay dismisses
+- Show Duplicate Invoice Detection Dialog (same as "Dialog State" above)
+- Extract existing invoice details from 409 error response
+
+**User Action**: View existing invoice or cancel
+
+---
+
+### 6. Edit Invoice Screen (UPDATED v2.0)
 
 #### Loading State (Initial Load)
 
@@ -323,7 +418,7 @@ This document defines the exact UI states that MUST exist for each screen:
 - Full-screen `CircularProgressIndicator` (centered)
 - No other content visible
 
-**Duration**: Until invoice data loaded
+**Duration**: Until invoice data + items loaded
 
 #### Error State (Load Failure)
 
@@ -331,35 +426,85 @@ This document defines the exact UI states that MUST exist for each screen:
 **UI Display**:
 - **SnackBar**: Red background, white text
 - **Message**: "Failed to load invoice. Please try again."
-- Automatic back navigation to Home Screen
+- Show retry button or automatic back navigation to Home Screen after 3 seconds
 
-#### Loading State (Save)
+**User Action**: Tap retry or wait for auto-navigation
 
-**Trigger**: User taps "Save" button  
+#### Empty State (No Items)
+
+**Trigger**: Invoice has no line items  
+**UI Display**:
+- Header fields visible (name, date, amount, etc.)
+- Line Items section shows:
+  - Text: "No line items extracted. Add items to itemize this invoice."
+  - Button: "+ Add Item" (prominent, centered)
+
+**User Action**: Tap "+ Add Item" to open inline form
+
+#### Loading State (Save All Changes)
+
+**Trigger**: User taps "Save All Changes" button  
 **UI Changes**:
-- "Save" button shows `CircularProgressIndicator` (small)
-- "Save" button is disabled
-- "Delete" button is disabled
-- All input fields are disabled
+- "Save All Changes" button shows `CircularProgressIndicator` (small, white)
+- "Save All Changes" button is disabled
+- "Delete Invoice" button is disabled
+- All input fields and edit icons are disabled
+- Business dropdown disabled
+- Item add/edit/delete buttons disabled
 
-**Duration**: Until API response
+**Duration**: Until API response (includes validation)
 
 #### Loading State (Delete)
 
-**Trigger**: User confirms delete  
+**Trigger**: User confirms delete in Delete Invoice Confirmation dialog  
 **UI Changes**:
-- "Ok" button shows `CircularProgressIndicator` (small)
+- "Ok" button shows `CircularProgressIndicator` (small, white)
 - "Ok" button is disabled
 - "Cancel" button is disabled
 
 **Duration**: Until API response
 
-#### Error State (Save)
+#### Loading State (Create Business Inline)
 
-**Trigger**: Save operation fails  
+**Trigger**: User taps "Create" in business assignment dropdown inline form  
+**UI Changes**:
+- "Create" button shows `CircularProgressIndicator` (small)
+- "Create" button is disabled
+- "Cancel" button is disabled
+- Business name input is disabled
+
+**Duration**: Until API response
+
+#### Loading State (Fetch Businesses)
+
+**Trigger**: User expands business assignment dropdown  
+**UI Changes**:
+- Small `CircularProgressIndicator` appears in dropdown
+- Dropdown is expanded but empty
+- "Loading businesses..." placeholder text
+
+**Duration**: Until businesses list loaded
+
+#### Error State (Save - Validation Failed)
+
+**Trigger**: Save operation fails due to validation error  
 **UI Display**:
 - **SnackBar**: Red background, white text
-- **Message**: "Failed to save invoice. Please try again."
+- **Message Examples**:
+  - "Total mismatch: invoice amount $200.00 ≠ items total $150.00. Turn off 'Use Items Total' to override."
+  - "Item 2 missing required field: description"
+  - "Item 3: quantity and unit price don't match total (2 × $50 ≠ $120)"
+- Screen remains open
+- Scroll to first error field (if applicable)
+
+**User Action**: Fix validation errors and retry save
+
+#### Error State (Save - Network/Server Error)
+
+**Trigger**: Save operation fails due to network or server error  
+**UI Display**:
+- **SnackBar**: Red background, white text
+- **Message**: "Failed to save invoice. Please check your connection and try again."
 - Screen remains open
 
 **User Action**: Retry save
@@ -370,23 +515,156 @@ This document defines the exact UI states that MUST exist for each screen:
 **UI Display**:
 - **SnackBar**: Red background, white text
 - **Message**: "Failed to delete invoice. Please try again."
-- Both dialogs remain open
+- Delete confirmation dialog remains open
 
 **User Action**: Retry delete or cancel
 
+#### Error State (Create Business Inline)
+
+**Trigger**: Business creation fails in inline form  
+**UI Display**:
+- **SnackBar**: Red background, white text (shown behind dropdown)
+- **Message**: "Failed to create business. Please try again."
+- Inline form remains open
+
+**User Action**: Retry create or cancel
+
+#### Error State (Fetch Businesses)
+
+**Trigger**: Business list fetch fails  
+**UI Display**:
+- Dropdown shows error message: "Failed to load businesses. Tap to retry."
+- Tap to retry loads businesses again
+
+**User Action**: Tap to retry or cancel dropdown
+
 #### Success State (Save)
 
-**Trigger**: Save successful  
+**Trigger**: Save successful (invoice header + items updated atomically)  
 **UI Changes**:
-- Navigate back to Home Screen
-- **SnackBar**: Green background, "Invoice updated successfully."
+- Navigate back to Home Screen (or previous screen)
+- **SnackBar**: Green background, white text
+- **Message**: "Invoice updated successfully."
+
+**Duration**: 4 seconds (auto-dismiss)
 
 #### Success State (Delete)
 
 **Trigger**: Delete successful  
 **UI Changes**:
 - Navigate back to Home Screen
-- **SnackBar**: Green background, "Invoice deleted successfully."
+- **SnackBar**: Green background, white text
+- **Message**: "Invoice deleted successfully."
+
+**Duration**: 4 seconds (auto-dismiss)
+
+#### Success State (Create Business Inline)
+
+**Trigger**: Business created successfully in inline form  
+**UI Changes**:
+- Inline form closes
+- New business appears in dropdown list and is auto-selected
+- Business assignment card shows new business name
+- Dropdown collapses
+- No snackbar (silent success)
+
+#### Unsaved Changes State
+
+**Trigger**: User taps back navigation with unsaved local changes  
+**UI Display**:
+- **Dialog**: "Discard unsaved changes?"
+- **Message**: "You have unsaved changes to this invoice. Discard changes and go back?"
+- Button: "Cancel" → closes dialog, stays on Edit Invoice Screen
+- Button: "Discard" (destructive color) → closes dialog, navigates back
+
+**User Action**: Choose to discard or cancel
+
+#### Item Edit Form State
+
+**Trigger**: User taps edit icon on an item card  
+**UI Display**:
+- Inline form appears below item card
+- Form contains:
+  - Input: Description (pre-filled, required)
+  - Input: Quantity (pre-filled if exists, nullable)
+  - Input: Unit Price (pre-filled if exists, nullable)
+  - Input: Total (pre-filled, required)
+  - Input: Currency (pre-filled, optional)
+  - Button: "Save" (enabled if description and total are valid)
+  - Button: "Cancel"
+- Other edit/delete icons are disabled while form is open
+
+**User Action**: Edit fields and save or cancel
+
+#### Item Add Form State
+
+**Trigger**: User taps "+ Add Item" button  
+**UI Display**:
+- Inline form appears below item list (or in empty state)
+- Form contains:
+  - Input: Description (empty, required, placeholder "e.g., Software License")
+  - Input: Quantity (empty, nullable, placeholder "e.g., 2.5")
+  - Input: Unit Price (empty, nullable, placeholder "e.g., 50.25")
+  - Input: Total (empty, required, placeholder "e.g., 100.00")
+  - Input: Currency (defaults to invoice currency)
+  - Button: "Add" (enabled if description and total are valid)
+  - Button: "Cancel"
+- "+ Add Item" button is hidden while form is open
+
+**User Action**: Fill fields and add or cancel
+
+#### Item Delete Confirmation State
+
+**Trigger**: User taps delete icon on an item card  
+**UI Display**:
+- Inline confirmation appears below item card:
+  - Text: "Delete this item?"
+  - Button: "Cancel" → hides confirmation
+  - Button: "Delete" (destructive color) → removes item from local state, hides confirmation
+- Other edit/delete icons are disabled while confirmation is visible
+
+**User Action**: Confirm delete or cancel
+
+#### Business Assignment Dropdown Expanded State
+
+**Trigger**: User taps expander on Business Assignment card  
+**UI Display**:
+- Dropdown expands below card
+- Search input appears (typeahead filter, placeholder "Search businesses...")
+- Filtered business list appears (scrollable)
+- "+ Create New Business" card appears at bottom
+- Currently assigned business is highlighted
+
+**User Action**: Search, select business, or create new
+
+#### Business Assignment Create Form State
+
+**Trigger**: User taps "+ Create New Business" in dropdown  
+**UI Display**:
+- Inline form appears below "+ Create New Business" card
+- Form contains:
+  - Input: Business name (empty, required, placeholder "e.g., Acme Corp")
+  - Button: "Create" (enabled if name is not empty)
+  - Button: "Cancel"
+- Business list remains visible above
+
+**User Action**: Enter name and create or cancel
+
+#### Use Items Total Toggle State
+
+**Trigger**: User toggles "Use Items Total" switch  
+**UI Changes**:
+- **Toggle ON** (default if items exist):
+  - Amount field shows calculated total: SUM(items.total)
+  - Amount field is greyed out
+  - Amount edit icon is disabled
+  - Calculated total updates automatically when items change
+- **Toggle OFF**:
+  - Amount field becomes editable
+  - Amount edit icon is enabled
+  - Amount value can differ from items total
+
+**User Action**: Toggle to enable/disable auto-calculation
 
 ---
 
@@ -439,6 +717,66 @@ This document defines the exact UI states that MUST exist for each screen:
 - Search input (top)
 - Invoices grouped by month/year with expander
 - Each invoice shows: name, date, amount, edit icon
+
+#### Search Input State (Idle)
+
+**Trigger**: Screen loaded with invoices  
+**UI Display**:
+- Search input visible with placeholder "Search by business, amount, number..."
+- Search icon (left)
+- Clear icon (right, hidden until text entered)
+
+**User Action**: Tap to enter search text
+
+#### Search Input State (Typing - Debounced)
+
+**Trigger**: User types in search input  
+**UI Display**:
+- Search input shows entered text
+- Clear icon (right) becomes visible
+- Small spinner appears next to search icon (while debouncing, 300ms delay)
+- After 300ms delay: spinner shows while API call is in progress
+- Invoice list updates with filtered results
+
+**Behavior**:
+- Debounce: 300ms delay after last keystroke before API call
+- If < 100 invoices: client-side filter (no API call, no debounce)
+- If > 100 invoices: server-side filter (API call with debounce)
+
+**User Action**: Continue typing, tap clear, or wait for results
+
+#### Search Input State (Loading)
+
+**Trigger**: Debounce delay passed, API call in progress  
+**UI Display**:
+- Search input shows entered text
+- Small `CircularProgressIndicator` next to search icon
+- Invoice list shows previous results (or skeleton loading)
+
+**Duration**: < 1 second for typical search
+
+#### Search Input State (No Results)
+
+**Trigger**: Search returns no matching invoices  
+**UI Display**:
+- Search input shows search text
+- Invoice list area shows:
+  - Icon: Search icon (large, grey)
+  - Text: "No invoices found"
+  - Text (secondary): "Try a different search term or clear the filter"
+  - Clear button to reset search
+
+**User Action**: Modify search or clear to see all invoices
+
+#### Search Input State (Error)
+
+**Trigger**: Search API call fails  
+**UI Display**:
+- Search input shows search text
+- **SnackBar**: Red background, "Search failed. Please try again."
+- Invoice list shows previous results (if any) or empty state
+
+**User Action**: Modify search to retry or clear to see all invoices
 
 ---
 

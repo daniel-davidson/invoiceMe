@@ -311,6 +311,64 @@ For backwards compatibility reference:
 
 ---
 
+### 6a. Duplicate Invoice Detection Dialog (NEW v2.0)
+
+**Purpose**: Prevent duplicate invoice uploads by detecting previously uploaded files via SHA-256 hash comparison.
+
+**Trigger**: Before upload starts, after user selects file (image or PDF)
+
+**Detection Flow**:
+1. Frontend computes SHA-256 hash of selected file bytes
+2. Frontend calls `POST /invoices/check-duplicate` with fileHash
+3. If duplicate detected (200 OK response): show Duplicate Invoice Dialog
+4. If not duplicate (404 Not Found response): proceed with normal upload flow
+
+**Required UI Elements**:
+- Dialog: "Invoice Already Exists"
+- Icon: Warning icon (orange/yellow)
+- Text (primary): "This invoice was already uploaded on {date}"
+- Text (secondary): Details of existing invoice:
+  - "Business: {vendorName}"
+  - "Amount: {originalAmount} {originalCurrency}"
+  - "Date: {invoiceDate formatted}"
+  - "Invoice #: {invoiceNumber or 'N/A'}"
+- Button: "View Existing Invoice" (primary) → closes dialog, navigates to Invoice Detail Screen with existingInvoiceId
+- Button: "Cancel" (secondary) → closes dialog, returns to previous screen
+
+**Allowed Navigation**:
+- View Existing Invoice button → Invoice Detail Screen (with existingInvoiceId from API response)
+- Cancel button → closes dialog, returns to Home Screen or previous screen
+- Back/Close → closes dialog, returns to Home Screen
+
+**Loading/Empty/Error States**:
+- **Loading (hash computation)**: Small inline spinner next to file picker while computing hash (< 100ms for typical files)
+- **Loading (API check)**: Small inline spinner while checking duplicate via API (< 500ms)
+- **Error (API check fails)**: Proceed with upload anyway (fail-open for UX, backend will catch duplicate on upload)
+
+**Required API Interactions**:
+- POST /invoices/check-duplicate → body: `{ "fileHash": "sha256:abc123..." }`
+  - Response 200 OK if duplicate exists: `{ "isDuplicate": true, "existingInvoice": { "id": "...", "name": "...", "vendorName": "...", "originalAmount": 150.00, "originalCurrency": "USD", "invoiceDate": "2026-01-15", "createdAt": "2026-01-10T10:00:00Z" } }`
+  - Response 404 Not Found if not duplicate: `{ "isDuplicate": false }`
+
+**Must NOT Exist**:
+- ❌ No "Upload Anyway" option (duplicate detection is absolute)
+- ❌ No "This is a different invoice" override
+- ❌ No duplicate detection bypass
+
+**Business Logic**:
+- Hash computation uses SHA-256 algorithm (standard crypto library)
+- Hash comparison is case-insensitive (backend normalizes to lowercase)
+- Duplicate detection is per-tenant (backend scopes by tenantId)
+- If API check fails (network error, timeout): proceed with upload (backend will catch duplicate and return 409 Conflict)
+- If upload returns 409 Conflict: show same Duplicate Invoice Dialog with existing invoice details from error response
+
+**Performance Requirements**:
+- Hash computation: < 200ms for 10MB file
+- API check: < 500ms (backend query is indexed lookup)
+- Total dedupe UX overhead: < 1 second
+
+---
+
 ### 7. Edit Invoice Screen (UPDATED v2.0)
 
 **Purpose**: Edit invoice details (name, amount, date, number, business, LINE ITEMS) or delete invoice.
