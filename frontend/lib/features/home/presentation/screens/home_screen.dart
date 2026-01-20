@@ -7,8 +7,22 @@ import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
 import 'package:frontend/features/invoices/presentation/widgets/assign_business_modal.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   /// Map upload stage to user-friendly text
   String _getUploadStageText(UploadStage stage) {
@@ -145,18 +159,71 @@ class HomeScreen extends ConsumerWidget {
                   );
                 }
 
+                // Filter vendors by search query (client-side)
+                final filteredVendors = _searchQuery.isEmpty
+                    ? vendors
+                    : vendors.where((v) => v.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: vendors.length + 1, // +1 for header
+                  itemCount: filteredVendors.length + 2, // +1 for header, +1 for search
                   itemBuilder: (context, index) {
+                    // Search bar
                     if (index == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                decoration: InputDecoration(
+                                  hintText: 'Search businesses...',
+                                  prefixIcon: const Icon(Icons.search),
+                                  suffixIcon: _searchQuery.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            setState(() {
+                                              _searchController.clear();
+                                              _searchQuery = '';
+                                            });
+                                          },
+                                        )
+                                      : null,
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                onChanged: (value) {
+                                  setState(() => _searchQuery = value);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton.filledTonal(
+                              onPressed: () => _showAddVendorDialog(context, ref),
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Add Business',
+                            ),
+                            IconButton.filledTonal(
+                              onPressed: () => context.push('/analytics'),
+                              icon: const Icon(Icons.analytics_outlined),
+                              tooltip: 'Analytics',
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Header
+                    if (index == 1) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Your Businesses',
+                              filteredVendors.isEmpty ? 'No businesses found' : 'Your Businesses',
                               style: Theme.of(context).textTheme.headlineMedium,
                             ),
                             TextButton.icon(
@@ -169,7 +236,29 @@ class HomeScreen extends ConsumerWidget {
                       );
                     }
 
-                    final vendor = vendors[index - 1];
+                    // Show empty search result
+                    if (filteredVendors.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          children: [
+                            Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No businesses found',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Try a different search term',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final vendor = filteredVendors[index - 2];
                     return VendorCard(
                       vendor: vendor,
                       onTap: () =>
