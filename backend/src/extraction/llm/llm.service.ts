@@ -226,13 +226,13 @@ JSON OUTPUT:`;
     const data = JSON.parse(jsonMatch[0]);
 
     return {
-      vendorName: data.vendorName || undefined,
-      invoiceDate: data.invoiceDate || undefined,
-      totalAmount: data.totalAmount ? Number(data.totalAmount) : undefined,
-      currency: data.currency || undefined,
-      invoiceNumber: data.invoiceNumber || undefined,
-      vatAmount: data.vatAmount ? Number(data.vatAmount) : undefined,
-      subtotalAmount: data.subtotalAmount ? Number(data.subtotalAmount) : undefined,
+      vendorName: data.vendorName || null,
+      invoiceDate: data.invoiceDate || null,
+      totalAmount: data.totalAmount ? Number(data.totalAmount) : null,
+      currency: data.currency || null,
+      invoiceNumber: data.invoiceNumber || null,
+      vatAmount: data.vatAmount ? Number(data.vatAmount) : null,
+      subtotalAmount: data.subtotalAmount ? Number(data.subtotalAmount) : null,
       confidence: data.confidence || {
         vendorName: 0.5,
         invoiceDate: 0.5,
@@ -251,15 +251,15 @@ JSON OUTPUT:`;
     );
 
     return {
-      vendorName: undefined,
-      invoiceDate: dateMatch ? this.normalizeDate(dateMatch[1]) ?? undefined : undefined,
+      vendorName: null,
+      invoiceDate: dateMatch ? this.normalizeDate(dateMatch[1]) : null,
       totalAmount: amountMatch
         ? parseFloat(amountMatch[1].replace(',', ''))
-        : undefined,
-      currency: undefined,
-      invoiceNumber: undefined,
-      vatAmount: undefined,
-      subtotalAmount: undefined,
+        : null,
+      currency: null,
+      invoiceNumber: null,
+      vatAmount: null,
+      subtotalAmount: null,
       confidence: {
         vendorName: 0,
         invoiceDate: dateMatch ? 0.3 : 0,

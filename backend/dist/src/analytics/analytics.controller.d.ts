@@ -1,60 +1,11 @@
+import type { Response } from 'express';
 import { AnalyticsService } from './analytics.service';
+import { VendorAnalyticsDto, OverallAnalyticsDto } from './dto/analytics-response.dto';
 export declare class AnalyticsController {
     private readonly analyticsService;
     constructor(analyticsService: AnalyticsService);
-    getVendorAnalytics(tenantId: string, vendorId: string, year?: number): Promise<{
-        vendorId: string;
-        vendorName: string;
-        kpis: {
-            currentMonthSpend: number;
-            monthlyLimit: number | null;
-            monthlyAverage: number;
-            yearlyAverage: number;
-            limitUtilization: number | null;
-        };
-        pieChart: {
-            title: string;
-            segments: never[];
-            otherTotal: number;
-        };
-        lineChart: {
-            title: string;
-            labels: string[];
-            datasets: {
-                label: string;
-                data: number[];
-                color: string;
-            }[];
-        };
-    }>;
-    getOverallAnalytics(tenantId: string, year?: number): Promise<{
-        kpis: {
-            totalSpend: number;
-            totalLimits: number;
-            remainingBalance: number;
-            vendorCount: number;
-            invoiceCount: number;
-        };
-        pieChart: {
-            title: string;
-            segments: {
-                label: string;
-                value: number;
-                percentage: number;
-                color: string;
-            }[];
-            otherTotal: number;
-        };
-        lineChart: {
-            title: string;
-            labels: string[];
-            datasets: {
-                label: string;
-                data: number[];
-                color: string;
-            }[];
-        };
-    }>;
+    getVendorAnalytics(tenantId: string, vendorId: string, year?: number): Promise<VendorAnalyticsDto>;
+    getOverallAnalytics(tenantId: string, year?: number): Promise<OverallAnalyticsDto>;
     updateVendorLimit(tenantId: string, vendorId: string, body: {
         monthlyLimit: number | null;
     }): Promise<{
@@ -66,4 +17,6 @@ export declare class AnalyticsController {
         displayOrder: number;
         monthlyLimit: import("@prisma/client/runtime/library").Decimal | null;
     }>;
+    exportVendorCsv(tenantId: string, vendorId: string, res: Response): Promise<string>;
+    exportOverallCsv(tenantId: string, res: Response): Promise<string>;
 }

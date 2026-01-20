@@ -4,25 +4,25 @@ exports.EXTRACTION_SCHEMA = void 0;
 exports.EXTRACTION_SCHEMA = {
     $schema: 'http://json-schema.org/draft-07/schema#',
     type: 'object',
-    required: ['vendorName', 'totalAmount', 'currency', 'confidence', 'warnings'],
+    required: ['confidence', 'warnings'],
     properties: {
         vendorName: {
-            type: 'string',
-            description: 'Extracted vendor/supplier name from invoice',
+            type: ['string', 'null'],
+            description: 'Extracted vendor/supplier name from invoice (nullable)',
         },
         invoiceDate: {
-            type: 'string',
+            type: ['string', 'null'],
             format: 'date',
-            description: 'Invoice date in ISO 8601 format (YYYY-MM-DD)',
+            description: 'Invoice date in ISO 8601 format (YYYY-MM-DD) (nullable)',
         },
         totalAmount: {
-            type: 'number',
-            description: 'Total amount due on invoice',
+            type: ['number', 'null'],
+            description: 'Total amount due on invoice (nullable)',
         },
         currency: {
-            type: 'string',
+            type: ['string', 'null'],
             pattern: '^[A-Z]{3}$',
-            description: 'ISO 4217 currency code (e.g., USD, EUR, ILS)',
+            description: 'ISO 4217 currency code (e.g., USD, EUR, ILS) (nullable)',
         },
         invoiceNumber: {
             type: 'string',

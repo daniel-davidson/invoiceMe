@@ -17,7 +17,7 @@ let VendorsService = class VendorsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async findAll(tenantId, includeInvoiceCount = false, includeLatestInvoices = false) {
+    async findAll(tenantId, includeInvoiceCount = false, includeLatestInvoices = false, search) {
         const includeClause = {};
         if (includeInvoiceCount || includeLatestInvoices) {
             includeClause._count = { select: { invoices: true } };
@@ -37,8 +37,12 @@ let VendorsService = class VendorsService {
                 },
             };
         }
+        const where = { tenantId };
+        if (search) {
+            where.name = { contains: search, mode: 'insensitive' };
+        }
         const vendors = await this.prisma.vendor.findMany({
-            where: { tenantId },
+            where,
             orderBy: { displayOrder: 'asc' },
             include: Object.keys(includeClause).length > 0 ? includeClause : undefined,
         });

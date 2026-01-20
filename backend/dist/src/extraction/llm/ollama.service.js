@@ -33,22 +33,52 @@ let OllamaService = OllamaService_1 = class OllamaService {
         });
         this.logger.log(`Ollama configured: ${baseURL}, model: ${this.model}`);
     }
-    async extractFromText(ocrText) {
-        const prompt = this.buildExtractionPrompt(ocrText);
+    async extractFromText(ocrText, candidates) {
+        const totalStartTime = Date.now();
+        this.logger.debug(`[OllamaService] ========== OCR TEXT FOR LLM (${ocrText.length} chars) ==========`);
+        this.logger.debug(`[OllamaService] First 600 chars:\n${ocrText.substring(0, 600)}`);
+        if (ocrText.length > 600) {
+            this.logger.debug(`[OllamaService] Last 400 chars:\n${ocrText.substring(Math.max(0, ocrText.length - 400))}`);
+        }
+        if (candidates) {
+            this.logger.debug(`[OllamaService] Deterministic candidates: ${JSON.stringify(candidates)}`);
+        }
+        this.logger.debug(`[OllamaService] ========================================`);
+        const systemPrompt = this.buildSystemPrompt();
+        const userPrompt = this.buildExtractionPrompt(ocrText, candidates);
         let lastError = null;
         for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
             try {
                 if (attempt > 0) {
                     this.logger.log(`Retry attempt ${attempt}/${this.maxRetries}`);
                 }
-                const response = await this.client.post('/api/generate', {
+                const llmStartTime = Date.now();
+                const response = await this.client.post('/api/chat', {
                     model: this.model,
-                    prompt,
+                    messages: [
+                        {
+                            role: 'system',
+                            content: systemPrompt,
+                        },
+                        {
+                            role: 'user',
+                            content: userPrompt,
+                        },
+                    ],
                     stream: false,
                     format: 'json',
+                    options: {
+                        temperature: 0,
+                        num_predict: 2048,
+                    },
                 });
-                const extractedData = this.parseResponse(response.data.response);
+                const llmDuration = Date.now() - llmStartTime;
+                const responseText = response.data.message?.content || response.data.response || '';
+                const extractedData = this.parseResponse(responseText);
                 this.validateExtractedData(extractedData);
+                const totalDuration = Date.now() - totalStartTime;
+                this.logger.log(`[OllamaService] LLM extraction took ${totalDuration}ms (LLM: ${llmDuration}ms, parsing/validation: ${totalDuration - llmDuration}ms)`);
+                this.logger.debug(`[OllamaService] Extracted vendor: "${extractedData.vendorName}"`);
                 return extractedData;
             }
             catch (error) {
@@ -65,82 +95,148 @@ let OllamaService = OllamaService_1 = class OllamaService {
                 break;
             }
         }
-        this.logger.error(`Ollama extraction failed after ${this.maxRetries + 1} attempts`);
+        const totalDuration = Date.now() - totalStartTime;
+        this.logger.error(`[OllamaService] Ollama extraction failed after ${this.maxRetries + 1} attempts (${totalDuration}ms)`);
         throw new Error(`Failed to extract invoice data: ${lastError?.message || 'Unknown error'}`);
     }
     selectRelevantText(ocrText) {
+        const MAX_CHARS = 4000;
+        if (ocrText.length <= MAX_CHARS) {
+            return ocrText;
+        }
         const lines = ocrText
             .split(/\r?\n/)
             .map(l => l.trim())
             .filter(Boolean);
         const keywordRegex = /(סה["״']?כ|לתשלום|יתרה לתשלום|סכום|מע["״']?מ|VAT|TOTAL|AMOUNT\s+DUE|Invoice|חשבונית|קבלה|מס['״]?|תאריך|Date|קופה)/i;
-        const head = lines.slice(0, 40);
-        const tail = lines.slice(Math.max(0, lines.length - 40));
-        const keywordLines = lines.filter(l => keywordRegex.test(l)).slice(0, 80);
-        const seen = new Set();
-        return [...head, ...keywordLines, ...tail]
-            .filter(l => {
-            const k = l.toLowerCase();
-            if (seen.has(k))
-                return false;
-            seen.add(k);
-            return true;
-        })
-            .join('\n');
-    }
-    buildExtractionPrompt(ocrText) {
-        const relevantText = this.selectRelevantText(ocrText);
-        return `You are a strict invoice/receipt extraction engine.
-    You receive OCR text from Hebrew (עברית) or English documents.
-    
-    Return ONLY a valid JSON object (no markdown, no explanations, no extra text).
-    
-    The JSON MUST match this schema exactly:
-    {
-      "vendorName": string | null,
-      "invoiceDate": string | null,   // YYYY-MM-DD
-      "totalAmount": number | null,
-      "currency": "ILS" | "USD" | "EUR" | null,
-      "invoiceNumber": string | null,
-      "vatAmount": number | null,      // VAT/tax amount
-      "subtotalAmount": number | null, // Subtotal before tax
-      "lineItems": [                   // Items purchased (if available)
-        {
-          "description": string,
-          "quantity": number | null,
-          "unitPrice": number | null,
-          "amount": number | null
+        let topText = '';
+        let topChars = 0;
+        for (const line of lines) {
+            if (topChars + line.length > 1500)
+                break;
+            topText += line + '\n';
+            topChars += line.length + 1;
         }
-      ],
-      "confidence": { "vendorName": number, "invoiceDate": number, "totalAmount": number, "currency": number },
-      "warnings": string[]
+        let bottomText = '';
+        let bottomChars = 0;
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (bottomChars + lines[i].length > 1500)
+                break;
+            bottomText = lines[i] + '\n' + bottomText;
+            bottomChars += lines[i].length + 1;
+        }
+        const keywordLines = lines.filter(l => keywordRegex.test(l));
+        let keywordText = '';
+        let keywordChars = 0;
+        const remainingSpace = MAX_CHARS - topChars - bottomChars;
+        for (const line of keywordLines) {
+            if (keywordChars + line.length > remainingSpace)
+                break;
+            keywordText += line + '\n';
+            keywordChars += line.length + 1;
+        }
+        return topText + '\n--- KEYWORD LINES ---\n' + keywordText + '\n--- END ---\n' + bottomText;
     }
-    
-    Rules:
-    - vendorName: the supplier/store name. Often appears at the very top header, sometimes with phone/address.
-    - invoiceDate: extract from "תאריך" or "Date". Convert to YYYY-MM-DD.
-    - totalAmount: final amount paid/due. Prefer lines near:
-      Hebrew: "סה\"כ לתשלום", "לתשלום", "יתרה לתשלום", "סכום"
-      English: "Total", "Amount Due"
-    - currency: ₪ => ILS, $ => USD, € => EUR.
-      If currency is not explicit but the invoice is Hebrew/Israel, set "ILS" and add warning "Currency assumed ILS".
-    - invoiceNumber: extract if present ("מס'", "חשבונית", "קבלה", "Invoice #"). If missing, null.
-    - vatAmount: extract VAT/tax if shown ("מע\"מ", "VAT", "Tax")
-    - subtotalAmount: extract subtotal before tax if shown
-    - lineItems: extract individual items if present in the invoice. Each item should have:
-      * description: item/product name
-      * quantity: how many units
-      * unitPrice: price per unit (if shown)
-      * amount: total for this line item
-      If no itemized list is found, return empty array [].
-    - If the OCR text contains MULTIPLE receipts/invoices (multiple totals / multiple 'קופה' blocks):
-      Extract the LAST receipt/invoice and add warning "Multiple documents detected; extracted last one".
-    - confidence values are 0..1.
-    - If any field is unclear, set it to null, reduce confidence, and add a warning.
-    
-    OCR TEXT:
-    ${relevantText}`;
-        ;
+    extractTotalFallback(ocrText) {
+        const lines = ocrText.split(/\r?\n/).map(l => l.trim());
+        const totalKeywords = [
+            /סה["״']?כ\s*לתשלום/i,
+            /לתשלום/i,
+            /יתרה\s*לתשלום/i,
+            /\btotal\b/i,
+            /amount\s+due/i,
+        ];
+        const moneyPattern = /(\d{1,10}[.,]\d{2})\b/g;
+        for (const line of lines) {
+            const hasKeyword = totalKeywords.some(regex => regex.test(line));
+            if (!hasKeyword)
+                continue;
+            const matches = Array.from(line.matchAll(moneyPattern));
+            if (matches.length > 0) {
+                const amounts = matches.map(m => parseFloat(m[1].replace(',', '.')));
+                const maxAmount = Math.max(...amounts);
+                if (maxAmount > 0) {
+                    this.logger.log(`[OllamaService] Fallback total extraction found: ${maxAmount}`);
+                    return maxAmount;
+                }
+            }
+        }
+        this.logger.warn('[OllamaService] Fallback total extraction failed');
+        return null;
+    }
+    buildSystemPrompt() {
+        return `You are a strict invoice/receipt extraction engine.
+You extract structured data from Hebrew (עברית) or English documents.
+
+**CRITICAL: Extract data ONLY from the current document. Never use information from previous conversations.**
+
+Return ONLY a valid JSON object (no markdown, no explanations, no extra text).
+
+JSON Schema:
+{
+  "vendorName": string | null,
+  "invoiceDate": string | null,   // YYYY-MM-DD
+  "totalAmount": number | null,
+  "currency": "ILS" | "USD" | "EUR" | null,
+  "invoiceNumber": string | null,
+  "vatAmount": number | null,
+  "subtotalAmount": number | null,
+  "lineItems": [
+    {
+      "description": string,
+      "quantity": number | null,
+      "unitPrice": number | null,
+      "amount": number | null
+    }
+  ],
+  "confidence": { "vendorName": number, "invoiceDate": number, "totalAmount": number, "currency": number },
+  "warnings": string[]
+}
+
+- **vendorName**: Extract the EXACT business/company name from THIS document ONLY.
+  * Located at the TOP (first 1-3 lines)
+  * Hebrew: "בן בוטנרו ייעוץ תזונה", "קריאטיב סופטוור בע״מ"
+  * English: "Apple Inc.", "Google LLC"
+  * Include suffix if present (בע״מ, Ltd., Inc.)
+  
+- **totalAmount**: MOST CRITICAL. Extract the final amount paid/due.
+  * Hebrew keywords: "סה״כ לתשלום", "לתשלום", "יתרה לתשלום", "סה״כ"
+  * English keywords: "Total", "Amount Due", "Grand Total", "Balance"
+  * Usually at bottom, largest number, near VAT
+  
+- **invoiceDate**: Extract from "תאריך"/"Date". Convert to YYYY-MM-DD.
+
+- **currency**: ₪→ILS, $→USD, €→EUR. If unclear and Hebrew doc, assume ILS with warning.
+
+- **invoiceNumber**: Extract from "מס׳"/"חשבונית"/"Invoice #".
+
+- **lineItems**: Extract items if present, else [].
+
+- **confidence**: 0-1 for each field. If unclear, set null + low confidence + warning.
+
+Return ONLY valid JSON.`;
+    }
+    buildExtractionPrompt(ocrText, candidates) {
+        const relevantText = this.selectRelevantText(ocrText);
+        let prompt = `Extract invoice data from the following OCR text:\n\n`;
+        if (candidates) {
+            prompt += `**HINTS from deterministic parsing (use if confident):**\n`;
+            if (candidates.bestTotal !== null && candidates.bestTotal !== undefined) {
+                prompt += `- Detected total amount: ${candidates.bestTotal}\n`;
+            }
+            if (candidates.bestCurrency) {
+                prompt += `- Detected currency: ${candidates.bestCurrency}\n`;
+            }
+            if (candidates.bestDate) {
+                prompt += `- Detected date: ${candidates.bestDate}\n`;
+            }
+            if (candidates.vendorCandidates && candidates.vendorCandidates.length > 0) {
+                prompt += `- Vendor candidates from top of document: ${candidates.vendorCandidates.slice(0, 3).join(', ')}\n`;
+            }
+            prompt += `\n**Important:** These hints may help, but ALWAYS verify against the OCR text below. If the OCR text contradicts a hint, trust the OCR text.\n\n`;
+        }
+        prompt += `OCR TEXT:\n${relevantText}`;
+        return prompt;
     }
     parseResponse(responseText) {
         try {
@@ -159,7 +255,7 @@ let OllamaService = OllamaService_1 = class OllamaService {
         }
     }
     validateExtractedData(data) {
-        const required = ['vendorName', 'invoiceDate', 'totalAmount', 'currency', 'confidence', 'warnings'];
+        const required = ['confidence', 'warnings'];
         for (const field of required) {
             if (!(field in data)) {
                 throw new Error(`Missing required field: ${field}`);
@@ -174,15 +270,25 @@ let OllamaService = OllamaService_1 = class OllamaService {
                 data.confidence[field] = 0.5;
             }
         }
-        if (typeof data.totalAmount !== 'number' || !Number.isFinite(data.totalAmount) || data.totalAmount <= 0) {
+        if (data.totalAmount !== null && (typeof data.totalAmount !== 'number' || !Number.isFinite(data.totalAmount) || data.totalAmount <= 0)) {
             data.warnings.push('Invalid totalAmount extracted');
             data.confidence.totalAmount = Math.min(data.confidence.totalAmount ?? 0.5, 0.3);
+            data.totalAmount = null;
+        }
+        if (data.totalAmount === null) {
+            data.warnings.push('Total amount not found');
+            data.confidence.totalAmount = 0;
         }
         const allowedCurrencies = new Set(['ILS', 'USD', 'EUR']);
-        if (typeof data.currency !== 'string' || !allowedCurrencies.has(data.currency)) {
+        if (data.currency !== null && (typeof data.currency !== 'string' || !allowedCurrencies.has(data.currency))) {
             data.warnings.push('Unrecognized currency; defaulted to ILS');
             data.currency = 'ILS';
             data.confidence.currency = Math.min(data.confidence.currency ?? 0.5, 0.4);
+        }
+        if (data.currency === null) {
+            data.warnings.push('Currency not found, defaulted to ILS');
+            data.currency = 'ILS';
+            data.confidence.currency = 0;
         }
     }
     sleep(ms) {

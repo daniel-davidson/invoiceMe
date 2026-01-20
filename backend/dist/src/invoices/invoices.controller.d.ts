@@ -4,16 +4,45 @@ import { InvoicesService } from './invoices.service';
 import { UploadInvoiceDto } from './dto/upload-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { InvoiceQueryDto } from './dto/invoice-query.dto';
+import { CheckDuplicateDto } from './dto/check-duplicate.dto';
 export declare class InvoicesController {
     private readonly invoicesService;
     constructor(invoicesService: InvoicesService);
     upload(tenantId: string, file: Express.Multer.File, dto: UploadInvoiceDto): Promise<import("../extraction/extraction.service").ProcessInvoiceResult>;
+    checkDuplicate(tenantId: string, dto: CheckDuplicateDto): Promise<{
+        isDuplicate: boolean;
+        existingInvoice: {
+            id: string;
+            name: string | null;
+            vendorName: string;
+            originalAmount: number;
+            originalCurrency: string;
+            invoiceDate: Date;
+            createdAt: Date;
+        };
+    } | {
+        isDuplicate: boolean;
+        existingInvoice?: undefined;
+    }>;
     findAll(tenantId: string, query: InvoiceQueryDto): Promise<{
         data: ({
             vendor: {
                 id: string;
                 name: string;
             };
+            items: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string;
+                displayOrder: number;
+                invoiceId: string;
+                currency: string | null;
+                description: string;
+                quantity: import("@prisma/client/runtime/library").Decimal | null;
+                unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+                total: import("@prisma/client/runtime/library").Decimal;
+            }[];
         } & {
             id: string;
             createdAt: Date;
@@ -28,6 +57,8 @@ export declare class InvoicesController {
             invoiceDate: Date;
             invoiceNumber: string | null;
             fileUrl: string;
+            fileHash: string | null;
+            useItemsTotal: boolean;
             needsReview: boolean;
             vendorId: string;
         })[];
@@ -54,6 +85,19 @@ export declare class InvoicesController {
             processingTimeMs: number | null;
             invoiceId: string;
         }[];
+        items: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            displayOrder: number;
+            invoiceId: string;
+            currency: string | null;
+            description: string;
+            quantity: import("@prisma/client/runtime/library").Decimal | null;
+            unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            total: import("@prisma/client/runtime/library").Decimal;
+        }[];
     } & {
         id: string;
         createdAt: Date;
@@ -68,14 +112,29 @@ export declare class InvoicesController {
         invoiceDate: Date;
         invoiceNumber: string | null;
         fileUrl: string;
+        fileHash: string | null;
+        useItemsTotal: boolean;
         needsReview: boolean;
         vendorId: string;
     }>;
-    update(tenantId: string, id: string, dto: UpdateInvoiceDto): Promise<{
+    update(tenantId: string, id: string, dto: UpdateInvoiceDto): Promise<({
         vendor: {
             id: string;
             name: string;
         };
+        items: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            displayOrder: number;
+            invoiceId: string;
+            currency: string | null;
+            description: string;
+            quantity: import("@prisma/client/runtime/library").Decimal | null;
+            unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            total: import("@prisma/client/runtime/library").Decimal;
+        }[];
     } & {
         id: string;
         createdAt: Date;
@@ -90,9 +149,11 @@ export declare class InvoicesController {
         invoiceDate: Date;
         invoiceNumber: string | null;
         fileUrl: string;
+        fileHash: string | null;
+        useItemsTotal: boolean;
         needsReview: boolean;
         vendorId: string;
-    }>;
+    }) | null>;
     remove(tenantId: string, id: string): Promise<{
         deletedInvoiceId: string;
     }>;

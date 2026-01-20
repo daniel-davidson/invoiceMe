@@ -11,12 +11,18 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateInvoiceDto = void 0;
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+const invoice_item_dto_1 = require("./invoice-item.dto");
 class UpdateInvoiceDto {
     name;
+    invoiceNumber;
     originalAmount;
     originalCurrency;
     invoiceDate;
     vendorId;
+    useItemsTotal;
+    needsReview;
+    items;
 }
 exports.UpdateInvoiceDto = UpdateInvoiceDto;
 __decorate([
@@ -25,6 +31,12 @@ __decorate([
     (0, class_validator_1.MaxLength)(200),
     __metadata("design:type", String)
 ], UpdateInvoiceDto.prototype, "name", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], UpdateInvoiceDto.prototype, "invoiceNumber", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
@@ -47,4 +59,21 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], UpdateInvoiceDto.prototype, "vendorId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateInvoiceDto.prototype, "useItemsTotal", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateInvoiceDto.prototype, "needsReview", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => invoice_item_dto_1.InvoiceItemDto),
+    __metadata("design:type", Array)
+], UpdateInvoiceDto.prototype, "items", void 0);
 //# sourceMappingURL=update-invoice.dto.js.map

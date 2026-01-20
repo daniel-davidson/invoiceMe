@@ -26,8 +26,8 @@ let VendorsController = class VendorsController {
     constructor(vendorsService) {
         this.vendorsService = vendorsService;
     }
-    async findAll(tenantId, includeInvoiceCount, includeLatestInvoices) {
-        return this.vendorsService.findAll(tenantId, includeInvoiceCount === 'true', includeLatestInvoices === 'true');
+    async findAll(tenantId, includeInvoiceCount, includeLatestInvoices, search) {
+        return this.vendorsService.findAll(tenantId, includeInvoiceCount === 'true', includeLatestInvoices === 'true', search);
     }
     async findOne(tenantId, id) {
         return this.vendorsService.findOne(tenantId, id);
@@ -51,8 +51,9 @@ __decorate([
     __param(0, (0, tenant_decorator_1.Tenant)()),
     __param(1, (0, common_1.Query)('includeInvoiceCount')),
     __param(2, (0, common_1.Query)('includeLatestInvoices')),
+    __param(3, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], VendorsController.prototype, "findAll", null);
 __decorate([

@@ -28,11 +28,13 @@ export class VendorsController {
     @Tenant() tenantId: string,
     @Query('includeInvoiceCount') includeInvoiceCount?: string,
     @Query('includeLatestInvoices') includeLatestInvoices?: string,
+    @Query('search') search?: string,
   ) {
     return this.vendorsService.findAll(
       tenantId,
       includeInvoiceCount === 'true',
       includeLatestInvoices === 'true',
+      search,
     );
   }
 

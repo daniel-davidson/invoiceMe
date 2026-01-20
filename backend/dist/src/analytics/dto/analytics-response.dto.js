@@ -1,59 +1,59 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OverallAnalyticsResponse = exports.VendorAnalyticsResponse = exports.LineChartData = exports.LineChartDataset = exports.PieChartData = exports.PieChartSegment = exports.OverallKPIs = exports.VendorKPIs = void 0;
-class VendorKPIs {
+exports.OverallAnalyticsDto = exports.OverallKpisDto = exports.VendorAnalyticsDto = exports.PieChartDto = exports.PieChartSegmentDto = exports.LineChartDto = exports.ChartDatasetDto = exports.KpisDto = void 0;
+class KpisDto {
     currentMonthSpend;
     monthlyLimit;
     monthlyAverage;
     yearlyAverage;
     limitUtilization;
 }
-exports.VendorKPIs = VendorKPIs;
-class OverallKPIs {
-    totalSpend;
-    totalLimits;
-    remainingBalance;
-    vendorCount;
-    invoiceCount;
+exports.KpisDto = KpisDto;
+class ChartDatasetDto {
+    label;
+    data;
+    color;
 }
-exports.OverallKPIs = OverallKPIs;
-class PieChartSegment {
+exports.ChartDatasetDto = ChartDatasetDto;
+class LineChartDto {
+    title;
+    labels;
+    datasets;
+}
+exports.LineChartDto = LineChartDto;
+class PieChartSegmentDto {
     label;
     value;
     percentage;
     color;
 }
-exports.PieChartSegment = PieChartSegment;
-class PieChartData {
+exports.PieChartSegmentDto = PieChartSegmentDto;
+class PieChartDto {
     title;
     segments;
     otherTotal;
 }
-exports.PieChartData = PieChartData;
-class LineChartDataset {
-    label;
-    data;
-    color;
-}
-exports.LineChartDataset = LineChartDataset;
-class LineChartData {
-    title;
-    labels;
-    datasets;
-}
-exports.LineChartData = LineChartData;
-class VendorAnalyticsResponse {
+exports.PieChartDto = PieChartDto;
+class VendorAnalyticsDto {
     vendorId;
     vendorName;
     kpis;
     pieChart;
     lineChart;
 }
-exports.VendorAnalyticsResponse = VendorAnalyticsResponse;
-class OverallAnalyticsResponse {
+exports.VendorAnalyticsDto = VendorAnalyticsDto;
+class OverallKpisDto {
+    totalSpend;
+    totalLimits;
+    remainingBalance;
+    vendorCount;
+    invoiceCount;
+}
+exports.OverallKpisDto = OverallKpisDto;
+class OverallAnalyticsDto {
     kpis;
     pieChart;
     lineChart;
 }
-exports.OverallAnalyticsResponse = OverallAnalyticsResponse;
+exports.OverallAnalyticsDto = OverallAnalyticsDto;
 //# sourceMappingURL=analytics-response.dto.js.map

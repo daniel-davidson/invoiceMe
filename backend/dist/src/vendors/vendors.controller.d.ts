@@ -5,7 +5,7 @@ import { ReorderVendorsDto } from './dto/reorder-vendors.dto';
 export declare class VendorsController {
     private readonly vendorsService;
     constructor(vendorsService: VendorsService);
-    findAll(tenantId: string, includeInvoiceCount?: string, includeLatestInvoices?: string): Promise<any[]>;
+    findAll(tenantId: string, includeInvoiceCount?: string, includeLatestInvoices?: string, search?: string): Promise<any[]>;
     findOne(tenantId: string, id: string): Promise<{
         recentInvoices: {
             id: string;

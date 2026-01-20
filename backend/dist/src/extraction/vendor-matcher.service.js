@@ -23,7 +23,7 @@ let VendorMatcherService = VendorMatcherService_1 = class VendorMatcherService {
         return name
             .toLowerCase()
             .trim()
-            .replace(/[^\w\s]/g, '')
+            .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '')
             .replace(/\s+/g, ' ');
     }
     levenshteinDistance(str1, str2) {

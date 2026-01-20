@@ -32,6 +32,24 @@ let AnalyticsController = class AnalyticsController {
     async updateVendorLimit(tenantId, vendorId, body) {
         return this.analyticsService.updateVendorLimit(tenantId, vendorId, body.monthlyLimit);
     }
+    async exportVendorCsv(tenantId, vendorId, res) {
+        const csv = await this.analyticsService.exportVendorCsv(tenantId, vendorId);
+        const date = new Date().toISOString().split('T')[0];
+        res.set({
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="vendor-analytics-${date}.csv"`,
+        });
+        return csv;
+    }
+    async exportOverallCsv(tenantId, res) {
+        const csv = await this.analyticsService.exportOverallCsv(tenantId);
+        const date = new Date().toISOString().split('T')[0];
+        res.set({
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="overall-analytics-${date}.csv"`,
+        });
+        return csv;
+    }
 };
 exports.AnalyticsController = AnalyticsController;
 __decorate([
@@ -60,6 +78,23 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], AnalyticsController.prototype, "updateVendorLimit", null);
+__decorate([
+    (0, common_1.Get)('vendor/:vendorId/export'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Param)('vendorId', common_1.ParseUUIDPipe)),
+    __param(2, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "exportVendorCsv", null);
+__decorate([
+    (0, common_1.Get)('overall/export'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Res)({ passthrough: true })),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AnalyticsController.prototype, "exportOverallCsv", null);
 exports.AnalyticsController = AnalyticsController = __decorate([
     (0, common_1.Controller)('analytics'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_guard_1.TenantGuard),

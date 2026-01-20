@@ -13,18 +13,18 @@ datasource db {
 // User / Profile (synced from Supabase Auth)
 // ============================================================================
 model User {
-  id                 String    @id @default(uuid())
-  email              String    @unique
+  id                 String   @id @default(uuid())
+  email              String   @unique
   fullName           String
   personalBusinessId String?
-  systemCurrency     String    @default("USD") // ISO 4217
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  systemCurrency     String   @default("USD") // ISO 4217
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // Relations
-  vendors   Vendor[]
-  invoices  Invoice[]
-  insights  Insight[]
+  vendors  Vendor[]
+  invoices Invoice[]
+  insights Insight[]
 
   @@map("users")
 }
@@ -33,13 +33,13 @@ model User {
 // Vendor (Business) - where money was spent
 // ============================================================================
 model Vendor {
-  id           String    @id @default(uuid())
-  tenantId     String    // FK to User.id
+  id           String   @id @default(uuid())
+  tenantId     String // FK to User.id
   name         String
-  displayOrder Int       @default(0)
-  monthlyLimit Decimal?  @db.Decimal(15, 2)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  displayOrder Int      @default(0)
+  monthlyLimit Decimal? @db.Decimal(15, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // Relations
   user     User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -56,17 +56,19 @@ model Vendor {
 // ============================================================================
 model Invoice {
   id               String    @id @default(uuid())
-  tenantId         String    // FK to User.id
-  vendorId         String    // FK to Vendor.id
-  name             String?   // User-editable name
+  tenantId         String // FK to User.id
+  vendorId         String // FK to Vendor.id
+  name             String? // User-editable name
   originalAmount   Decimal   @db.Decimal(15, 2)
-  originalCurrency String    // ISO 4217
+  originalCurrency String // ISO 4217
   normalizedAmount Decimal?  @db.Decimal(15, 2) // In system currency
   fxRate           Decimal?  @db.Decimal(15, 6)
   fxDate           DateTime?
   invoiceDate      DateTime
   invoiceNumber    String?
-  fileUrl          String    // Path to stored file
+  fileUrl          String // Path to stored file
+  fileHash         String? // SHA-256 hash for dedupe
+  useItemsTotal    Boolean   @default(true) // Auto-calc total from items
   needsReview      Boolean   @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -75,26 +77,54 @@ model Invoice {
   user           User            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   vendor         Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   extractionRuns ExtractionRun[]
+  items          InvoiceItem[] // Line items
 
+  @@unique([tenantId, fileHash])
   @@index([tenantId])
   @@index([tenantId, vendorId])
   @@index([tenantId, invoiceDate])
+  @@index([tenantId, fileHash])
   @@map("invoices")
+}
+
+// ============================================================================
+// Invoice Item - Line items from invoices
+// ============================================================================
+model InvoiceItem {
+  id           String   @id @default(uuid())
+  invoiceId    String // FK to Invoice.id
+  tenantId     String // FK to User.id
+  description  String
+  quantity     Decimal? @db.Decimal(10, 3)
+  unitPrice    Decimal? @db.Decimal(15, 2)
+  total        Decimal  @db.Decimal(15, 2)
+  currency     String? // Defaults to invoice currency
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@index([invoiceId, displayOrder])
+  @@map("invoice_items")
 }
 
 // ============================================================================
 // Extraction Run - tracks OCR/LLM processing
 // ============================================================================
 model ExtractionRun {
-  id              String            @id @default(uuid())
-  tenantId        String            // FK to User.id
-  invoiceId       String            // FK to Invoice.id
-  status          ExtractionStatus  @default(PENDING)
-  ocrText         String?           @db.Text
-  llmResponse     Json?             // Raw LLM JSON response
-  errorMessage    String?
+  id               String           @id @default(uuid())
+  tenantId         String // FK to User.id
+  invoiceId        String // FK to Invoice.id
+  status           ExtractionStatus @default(PENDING)
+  ocrText          String?          @db.Text
+  llmResponse      Json? // Raw LLM JSON response
+  errorMessage     String?
   processingTimeMs Int?
-  createdAt       DateTime          @default(now())
+  createdAt        DateTime         @default(now())
 
   // Relations
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -118,11 +148,11 @@ enum ExtractionStatus {
 // ============================================================================
 model Insight {
   id             String      @id @default(uuid())
-  tenantId       String      // FK to User.id
+  tenantId       String // FK to User.id
   insightType    InsightType
   title          String
   content        String      @db.Text
-  relatedMetrics Json        // Metrics used to generate insight
+  relatedMetrics Json // Metrics used to generate insight
   generatedAt    DateTime    @default(now())
   createdAt      DateTime    @default(now())
 
@@ -145,8 +175,8 @@ enum InsightType {
 // ============================================================================
 model FxRateCache {
   id           String   @id @default(uuid())
-  baseCurrency String   // ISO 4217
-  rates        Json     // { "USD": 1.0, "EUR": 0.92, ... }
+  baseCurrency String // ISO 4217
+  rates        Json // { "USD": 1.0, "EUR": 0.92, ... }
   fetchedAt    DateTime @default(now())
   expiresAt    DateTime
 

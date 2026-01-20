@@ -1,4 +1,9 @@
-export class VendorKPIs {
+/**
+ * DTOs for Analytics API Responses
+ * All numeric fields are strictly typed as number for type safety
+ */
+
+export class KpisDto {
   currentMonthSpend: number;
   monthlyLimit: number | null;
   monthlyAverage: number;
@@ -6,7 +11,40 @@ export class VendorKPIs {
   limitUtilization: number | null;
 }
 
-export class OverallKPIs {
+export class ChartDatasetDto {
+  label: string;
+  data: number[];
+  color: string;
+}
+
+export class LineChartDto {
+  title: string;
+  labels: string[];
+  datasets: ChartDatasetDto[];
+}
+
+export class PieChartSegmentDto {
+  label: string;
+  value: number;
+  percentage: number;
+  color: string;
+}
+
+export class PieChartDto {
+  title: string;
+  segments: PieChartSegmentDto[];
+  otherTotal: number;
+}
+
+export class VendorAnalyticsDto {
+  vendorId: string;
+  vendorName: string;
+  kpis: KpisDto;
+  pieChart: PieChartDto;
+  lineChart: LineChartDto;
+}
+
+export class OverallKpisDto {
   totalSpend: number;
   totalLimits: number;
   remainingBalance: number;
@@ -14,41 +52,8 @@ export class OverallKPIs {
   invoiceCount: number;
 }
 
-export class PieChartSegment {
-  label: string;
-  value: number;
-  percentage: number;
-  color: string;
-}
-
-export class PieChartData {
-  title: string;
-  segments: PieChartSegment[];
-  otherTotal: number;
-}
-
-export class LineChartDataset {
-  label: string;
-  data: number[];
-  color: string;
-}
-
-export class LineChartData {
-  title: string;
-  labels: string[];
-  datasets: LineChartDataset[];
-}
-
-export class VendorAnalyticsResponse {
-  vendorId: string;
-  vendorName: string;
-  kpis: VendorKPIs;
-  pieChart: PieChartData;
-  lineChart: LineChartData;
-}
-
-export class OverallAnalyticsResponse {
-  kpis: OverallKPIs;
-  pieChart: PieChartData;
-  lineChart: LineChartData;
+export class OverallAnalyticsDto {
+  kpis: OverallKpisDto;
+  pieChart: PieChartDto;
+  lineChart: LineChartDto;
 }

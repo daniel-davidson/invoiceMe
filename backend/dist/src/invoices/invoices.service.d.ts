@@ -3,6 +3,7 @@ import { ExtractionService } from '../extraction/extraction.service';
 import { StorageService } from '../storage/storage.service';
 import { InvoiceQueryDto } from './dto/invoice-query.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
+import { CheckDuplicateDto } from './dto/check-duplicate.dto';
 export declare class InvoicesService {
     private prisma;
     private extractionService;
@@ -15,6 +16,19 @@ export declare class InvoicesService {
                 id: string;
                 name: string;
             };
+            items: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string;
+                displayOrder: number;
+                invoiceId: string;
+                currency: string | null;
+                description: string;
+                quantity: import("@prisma/client/runtime/library").Decimal | null;
+                unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+                total: import("@prisma/client/runtime/library").Decimal;
+            }[];
         } & {
             id: string;
             createdAt: Date;
@@ -29,6 +43,8 @@ export declare class InvoicesService {
             invoiceDate: Date;
             invoiceNumber: string | null;
             fileUrl: string;
+            fileHash: string | null;
+            useItemsTotal: boolean;
             needsReview: boolean;
             vendorId: string;
         })[];
@@ -55,6 +71,19 @@ export declare class InvoicesService {
             processingTimeMs: number | null;
             invoiceId: string;
         }[];
+        items: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            displayOrder: number;
+            invoiceId: string;
+            currency: string | null;
+            description: string;
+            quantity: import("@prisma/client/runtime/library").Decimal | null;
+            unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            total: import("@prisma/client/runtime/library").Decimal;
+        }[];
     } & {
         id: string;
         createdAt: Date;
@@ -69,14 +98,29 @@ export declare class InvoicesService {
         invoiceDate: Date;
         invoiceNumber: string | null;
         fileUrl: string;
+        fileHash: string | null;
+        useItemsTotal: boolean;
         needsReview: boolean;
         vendorId: string;
     }>;
-    update(tenantId: string, id: string, dto: UpdateInvoiceDto): Promise<{
+    update(tenantId: string, id: string, dto: UpdateInvoiceDto): Promise<({
         vendor: {
             id: string;
             name: string;
         };
+        items: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            displayOrder: number;
+            invoiceId: string;
+            currency: string | null;
+            description: string;
+            quantity: import("@prisma/client/runtime/library").Decimal | null;
+            unitPrice: import("@prisma/client/runtime/library").Decimal | null;
+            total: import("@prisma/client/runtime/library").Decimal;
+        }[];
     } & {
         id: string;
         createdAt: Date;
@@ -91,9 +135,11 @@ export declare class InvoicesService {
         invoiceDate: Date;
         invoiceNumber: string | null;
         fileUrl: string;
+        fileHash: string | null;
+        useItemsTotal: boolean;
         needsReview: boolean;
         vendorId: string;
-    }>;
+    }) | null>;
     remove(tenantId: string, id: string): Promise<{
         deletedInvoiceId: string;
     }>;
@@ -101,5 +147,21 @@ export declare class InvoicesService {
         buffer: Buffer;
         mimeType: string;
         fileName: string;
+    }>;
+    private computeFileHash;
+    checkDuplicate(tenantId: string, dto: CheckDuplicateDto): Promise<{
+        isDuplicate: boolean;
+        existingInvoice: {
+            id: string;
+            name: string | null;
+            vendorName: string;
+            originalAmount: number;
+            originalCurrency: string;
+            invoiceDate: Date;
+            createdAt: Date;
+        };
+    } | {
+        isDuplicate: boolean;
+        existingInvoice?: undefined;
     }>;
 }

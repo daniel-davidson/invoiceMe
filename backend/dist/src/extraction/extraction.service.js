@@ -19,6 +19,7 @@ const ocr_service_1 = require("./ocr/ocr.service");
 const ollama_service_1 = require("./llm/ollama.service");
 const vendor_matcher_service_1 = require("./vendor-matcher.service");
 const currency_service_1 = require("../currency/currency.service");
+const deterministic_parser_service_1 = require("./ocr/deterministic-parser.service");
 let ExtractionService = ExtractionService_1 = class ExtractionService {
     prisma;
     storage;
@@ -27,8 +28,9 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
     ollama;
     vendorMatcher;
     currency;
+    deterministicParser;
     logger = new common_1.Logger(ExtractionService_1.name);
-    constructor(prisma, storage, pdfProcessor, ocr, ollama, vendorMatcher, currency) {
+    constructor(prisma, storage, pdfProcessor, ocr, ollama, vendorMatcher, currency, deterministicParser) {
         this.prisma = prisma;
         this.storage = storage;
         this.pdfProcessor = pdfProcessor;
@@ -36,61 +38,155 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
         this.ollama = ollama;
         this.vendorMatcher = vendorMatcher;
         this.currency = currency;
+        this.deterministicParser = deterministicParser;
     }
     toNumber(value) {
         return value ? Number(value) : null;
     }
-    async processInvoice(file, originalName, mimeType, tenantId, userSystemCurrency) {
+    async processInvoice(file, originalName, mimeType, tenantId, userSystemCurrency, fileHash) {
         const startTime = Date.now();
         this.logger.log(`Saving file: ${originalName}`);
         const fileUrl = await this.storage.saveFileBuffer(tenantId, file, originalName);
         let extractedText = '';
         let ocrError = null;
+        let ocrMetadata = null;
         try {
             if (mimeType === 'application/pdf') {
                 const hasText = await this.pdfProcessor.hasSelectableText(file);
                 if (hasText) {
                     this.logger.log('PDF has selectable text, extracting directly');
                     extractedText = (await this.pdfProcessor.extractTextFromPdf(file)) || '';
+                    ocrMetadata = { method: 'pdf_text', passes: [] };
                 }
                 else {
                     this.logger.log('PDF requires OCR');
-                    extractedText = await this.ocr.recognizeText(file, mimeType);
+                    const pdfImages = await this.pdfProcessor.convertPdfToImages(file);
+                    if (pdfImages === null) {
+                        this.logger.warn('PDF conversion failed, setting needsReview');
+                        ocrError = 'PDF conversion failed';
+                        extractedText = '';
+                        ocrMetadata = { method: 'pdf_failed', passes: [] };
+                    }
+                    else {
+                        const ocrResult = await this.ocr.recognizeTextMultiPass(file, mimeType);
+                        extractedText = ocrResult.bestText;
+                        ocrMetadata = {
+                            method: 'multi_pass_ocr',
+                            chosenPass: ocrResult.chosenPass,
+                            chosenScore: ocrResult.chosenScore,
+                            chosenConfidence: ocrResult.chosenConfidence,
+                            passes: ocrResult.allPasses,
+                        };
+                    }
                 }
             }
             else {
-                this.logger.log('Processing image with OCR');
-                extractedText = await this.ocr.recognizeText(file, mimeType);
+                this.logger.log('Processing image with enhanced multi-pass OCR');
+                const ocrResult = await this.ocr.recognizeTextMultiPass(file, mimeType);
+                extractedText = ocrResult.bestText;
+                ocrMetadata = {
+                    method: 'multi_pass_ocr',
+                    chosenPass: ocrResult.chosenPass,
+                    chosenScore: ocrResult.chosenScore,
+                    chosenConfidence: ocrResult.chosenConfidence,
+                    passes: ocrResult.allPasses,
+                };
             }
         }
         catch (error) {
             this.logger.error(`OCR/Text extraction failed: ${error.message}`);
             ocrError = error.message;
             extractedText = '';
+            ocrMetadata = { method: 'error', error: error.message, passes: [] };
+        }
+        let candidates = null;
+        if (extractedText) {
+            this.logger.log('[ExtractionService] Running deterministic parsing');
+            const parsedCandidates = this.deterministicParser.extractCandidates(extractedText);
+            candidates = {
+                bestTotal: this.deterministicParser.getBestTotalAmount(parsedCandidates),
+                bestCurrency: this.deterministicParser.getBestCurrency(parsedCandidates),
+                bestDate: this.deterministicParser.getBestDate(parsedCandidates),
+                vendorCandidates: parsedCandidates.vendorNames,
+                allCandidates: parsedCandidates,
+            };
+            this.logger.debug(`[ExtractionService] Candidates: ${JSON.stringify(candidates)}`);
         }
         let extractedData;
         let llmError = null;
         if (extractedText) {
             try {
-                this.logger.log('Extracting structured data with LLM');
-                extractedData = await this.ollama.extractFromText(extractedText);
+                this.logger.log('Extracting structured data with LLM (with deterministic hints)');
+                extractedData = await this.ollama.extractFromText(extractedText, candidates);
+                if (!extractedData.totalAmount && extractedText) {
+                    this.logger.warn('LLM did not extract total, trying fallback extraction');
+                    extractedData.warnings.push('Total amount extraction required manual fallback');
+                }
+                if (!extractedData.vendorName) {
+                    extractedData.vendorName = 'Unknown Vendor';
+                    extractedData.warnings.push('Vendor name not found, using fallback');
+                }
+                if (!extractedData.totalAmount) {
+                    extractedData.totalAmount = null;
+                    extractedData.warnings.push('Total amount not found');
+                }
+                if (!extractedData.currency) {
+                    extractedData.currency = 'ILS';
+                    extractedData.warnings.push('Currency not found, assumed ILS');
+                }
+                if (!extractedData.invoiceDate) {
+                    extractedData.invoiceDate = new Date().toISOString().split('T')[0];
+                    extractedData.warnings.push('Invoice date not found, using today');
+                }
+                extractedData.needsReview = true;
             }
             catch (error) {
                 this.logger.error(`LLM extraction failed: ${error.message}`);
                 llmError = error.message;
                 extractedData = this.getDefaultExtractedData();
+                extractedData.warnings.push(`LLM extraction failed: ${error.message}`);
             }
         }
         else {
+            this.logger.warn('Empty OCR text, using fallback extraction data');
             extractedData = this.getDefaultExtractedData();
+            extractedData.warnings.push('OCR returned empty text');
         }
         const validationResult = this.validateExtractedData(extractedData);
         if (ocrError)
             validationResult.warnings.push(`OCR error: ${ocrError}`);
         if (llmError)
             validationResult.warnings.push(`LLM error: ${llmError}`);
-        this.logger.log('Matching vendor');
-        const vendor = await this.vendorMatcher.matchVendor(extractedData.vendorName || 'Unknown Vendor', tenantId);
+        let vendor;
+        if (extractedData.vendorName === 'Unknown Vendor') {
+            this.logger.warn('Vendor name is "Unknown Vendor", skipping vendor creation');
+            const existingUnknown = await this.prisma.vendor.findFirst({
+                where: { tenantId, name: 'Unknown Vendor' },
+            });
+            if (existingUnknown) {
+                vendor = { id: existingUnknown.id, name: existingUnknown.name, isNew: false };
+            }
+            else {
+                const maxOrderVendor = await this.prisma.vendor.findFirst({
+                    where: { tenantId },
+                    orderBy: { displayOrder: 'desc' },
+                    select: { displayOrder: true },
+                });
+                const newUnknown = await this.prisma.vendor.create({
+                    data: {
+                        name: 'Unknown Vendor',
+                        tenantId,
+                        displayOrder: (maxOrderVendor?.displayOrder ?? 0) + 1,
+                    },
+                });
+                vendor = { id: newUnknown.id, name: newUnknown.name, isNew: true };
+            }
+            validationResult.warnings.push('Invoice assigned to "Unknown Vendor" - please review and reassign');
+        }
+        else {
+            this.logger.log('Matching vendor');
+            vendor = await this.vendorMatcher.matchVendor(extractedData.vendorName || 'Unknown Vendor', tenantId);
+        }
         let normalizedAmount = null;
         let fxRate = null;
         let fxDate = null;
@@ -129,22 +225,42 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
             validationResult.needsReview = true;
         }
         const processingTimeMs = Date.now() - startTime;
+        const dbStartTime = Date.now();
+        const shouldReview = validationResult.needsReview || ocrError !== null || llmError !== null || !extractedData.totalAmount;
+        const hasItems = extractedData.lineItems && extractedData.lineItems.length > 0;
+        const useItemsTotal = hasItems;
         const invoice = await this.prisma.invoice.create({
             data: {
                 tenantId,
                 vendorId: vendor.id,
                 name: extractedData.invoiceNumber || null,
                 originalAmount: extractedData.totalAmount || 0,
-                originalCurrency: extractedData.currency || 'USD',
+                originalCurrency: extractedData.currency || 'ILS',
                 normalizedAmount,
                 invoiceDate,
                 invoiceNumber: extractedData.invoiceNumber || null,
                 fxRate,
                 fxDate,
-                needsReview: validationResult.needsReview || ocrError !== null || llmError !== null,
+                fileHash: fileHash || null,
+                useItemsTotal,
+                needsReview: shouldReview,
                 fileUrl,
             },
         });
+        if (hasItems) {
+            await Promise.all(extractedData.lineItems.map((item, index) => this.prisma.invoiceItem.create({
+                data: {
+                    invoiceId: invoice.id,
+                    tenantId,
+                    description: item.description,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    total: item.amount || 0,
+                    currency: extractedData.currency,
+                    displayOrder: index,
+                },
+            })));
+        }
         await this.prisma.extractionRun.create({
             data: {
                 tenantId,
@@ -156,6 +272,8 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
                 processingTimeMs,
             },
         });
+        const dbDuration = Date.now() - dbStartTime;
+        this.logger.log(`[ExtractionService] DB save took ${dbDuration}ms`);
         this.logger.log(`Invoice processed successfully in ${processingTimeMs}ms (ID: ${invoice.id})`);
         return {
             invoice: {
@@ -187,12 +305,12 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
     getDefaultExtractedData() {
         return {
             vendorName: 'Unknown Vendor',
-            invoiceDate: undefined,
-            totalAmount: 0,
-            currency: 'USD',
-            invoiceNumber: undefined,
-            vatAmount: undefined,
-            subtotalAmount: undefined,
+            invoiceDate: null,
+            totalAmount: null,
+            currency: 'ILS',
+            invoiceNumber: null,
+            vatAmount: null,
+            subtotalAmount: null,
             lineItems: [],
             confidence: {
                 vendorName: 0,
@@ -201,6 +319,7 @@ let ExtractionService = ExtractionService_1 = class ExtractionService {
                 currency: 0,
             },
             warnings: ['Could not extract invoice data'],
+            needsReview: true,
         };
     }
     validateExtractedData(data) {
@@ -261,6 +380,7 @@ exports.ExtractionService = ExtractionService = ExtractionService_1 = __decorate
         ocr_service_1.OcrService,
         ollama_service_1.OllamaService,
         vendor_matcher_service_1.VendorMatcherService,
-        currency_service_1.CurrencyService])
+        currency_service_1.CurrencyService,
+        deterministic_parser_service_1.DeterministicParserService])
 ], ExtractionService);
 //# sourceMappingURL=extraction.service.js.map

@@ -22,13 +22,23 @@ const tenant_decorator_1 = require("../common/decorators/tenant.decorator");
 const upload_invoice_dto_1 = require("./dto/upload-invoice.dto");
 const update_invoice_dto_1 = require("./dto/update-invoice.dto");
 const invoice_query_dto_1 = require("./dto/invoice-query.dto");
+const check_duplicate_dto_1 = require("./dto/check-duplicate.dto");
 let InvoicesController = class InvoicesController {
     invoicesService;
     constructor(invoicesService) {
         this.invoicesService = invoicesService;
     }
     async upload(tenantId, file, dto) {
+        console.log('[InvoicesController] Upload request:', {
+            tenantId,
+            fileName: file.originalname,
+            vendorIdFromDto: dto.vendorId,
+            dtoKeys: Object.keys(dto),
+        });
         return this.invoicesService.upload(tenantId, file, dto.vendorId);
+    }
+    async checkDuplicate(tenantId, dto) {
+        return this.invoicesService.checkDuplicate(tenantId, dto);
     }
     async findAll(tenantId, query) {
         return this.invoicesService.findAll(tenantId, query);
@@ -78,6 +88,14 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, upload_invoice_dto_1.UploadInvoiceDto]),
     __metadata("design:returntype", Promise)
 ], InvoicesController.prototype, "upload", null);
+__decorate([
+    (0, common_1.Post)('check-duplicate'),
+    __param(0, (0, tenant_decorator_1.Tenant)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, check_duplicate_dto_1.CheckDuplicateDto]),
+    __metadata("design:returntype", Promise)
+], InvoicesController.prototype, "checkDuplicate", null);
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, tenant_decorator_1.Tenant)()),

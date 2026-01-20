@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 export declare class VendorsService {
     private prisma;
     constructor(prisma: PrismaService);
-    findAll(tenantId: string, includeInvoiceCount?: boolean, includeLatestInvoices?: boolean): Promise<any[]>;
+    findAll(tenantId: string, includeInvoiceCount?: boolean, includeLatestInvoices?: boolean, search?: string): Promise<any[]>;
     findOne(tenantId: string, id: string): Promise<{
         recentInvoices: {
             id: string;

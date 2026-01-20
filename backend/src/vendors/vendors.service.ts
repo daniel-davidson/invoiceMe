@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client';
 export class VendorsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(tenantId: string, includeInvoiceCount = false, includeLatestInvoices = false) {
+  async findAll(tenantId: string, includeInvoiceCount = false, includeLatestInvoices = false, search?: string) {
     const includeClause: any = {};
     
     if (includeInvoiceCount || includeLatestInvoices) {
@@ -31,8 +31,15 @@ export class VendorsService {
       };
     }
 
+    const where: any = { tenantId };
+
+    // Add search filter
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
     const vendors = await this.prisma.vendor.findMany({
-      where: { tenantId },
+      where,
       orderBy: { displayOrder: 'asc' },
       include: Object.keys(includeClause).length > 0 ? includeClause : undefined,
     });

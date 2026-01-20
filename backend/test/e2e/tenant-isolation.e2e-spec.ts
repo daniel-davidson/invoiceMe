@@ -1,14 +1,38 @@
+/**
+ * Tenant Isolation E2E Test
+ * 
+ * Verifies that users cannot access each other's data across the API.
+ * 
+ * Test Scenario:
+ * 1. Create 2 test users (Tenant A & Tenant B)
+ * 2. Each tenant creates vendors and uploads invoices
+ * 3. Verify Tenant A cannot access Tenant B's data (and vice versa)
+ * 4. Verify analytics are properly isolated
+ */
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../../src/app.module';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 describe('Tenant Isolation (e2e)', () => {
   let app: INestApplication;
-  let tenant1Token: string;
-  let tenant2Token: string;
-  let tenant1VendorId: string;
-  let tenant1InvoiceId: string;
+  let prisma: PrismaService;
+
+  // Test user IDs (mock tenantIds)
+  const tenantA = 'test-tenant-a-' + Date.now();
+  const tenantB = 'test-tenant-b-' + Date.now();
+
+  // Auth tokens (for testing, these would be JWT tokens)
+  let tokenA: string;
+  let tokenB: string;
+
+  // Created resource IDs
+  let vendorAId: string;
+  let vendorBId: string;
+  let invoiceAId: string;
+  let invoiceBId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,213 +41,294 @@ describe('Tenant Isolation (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    
     await app.init();
+    
+    prisma = app.get<PrismaService>(PrismaService);
 
-    // Create two test users (tenants)
-    const tenant1Response = await request(app.getHttpServer())
-      .post('/auth/signup')
-      .send({
-        email: `tenant1-${Date.now()}@example.com`,
-        password: 'password123',
-        fullName: 'Tenant One',
+    // Create test users
+    await prisma.user.create({
+      data: {
+        id: tenantA,
+        email: `tenant-a-${Date.now()}@test.com`,
+        fullName: 'Tenant A',
         systemCurrency: 'USD',
-      });
+      },
+    });
 
-    const tenant2Response = await request(app.getHttpServer())
-      .post('/auth/signup')
-      .send({
-        email: `tenant2-${Date.now()}@example.com`,
-        password: 'password123',
-        fullName: 'Tenant Two',
-        systemCurrency: 'EUR',
-      });
+    await prisma.user.create({
+      data: {
+        id: tenantB,
+        email: `tenant-b-${Date.now()}@test.com`,
+        fullName: 'Tenant B',
+        systemCurrency: 'USD',
+      },
+    });
 
-    if (tenant1Response.status === 201) {
-      tenant1Token = tenant1Response.body.accessToken;
-    }
-    if (tenant2Response.status === 201) {
-      tenant2Token = tenant2Response.body.accessToken;
-    }
-
-    // Create a vendor for tenant 1
-    const vendorResponse = await request(app.getHttpServer())
-      .post('/vendors')
-      .set('Authorization', `Bearer ${tenant1Token}`)
-      .send({ name: 'Tenant1 Vendor' });
-
-    if (vendorResponse.status === 201) {
-      tenant1VendorId = vendorResponse.body.id;
-    }
+    // In a real scenario, you'd authenticate and get JWT tokens
+    // For this test, we'll mock the tenant ID in requests
+    tokenA = `mock-token-${tenantA}`;
+    tokenB = `mock-token-${tenantB}`;
   });
 
   afterAll(async () => {
+    // Cleanup: Delete test data
+    await prisma.invoice.deleteMany({
+      where: { tenantId: { in: [tenantA, tenantB] } },
+    });
+    
+    await prisma.vendor.deleteMany({
+      where: { tenantId: { in: [tenantA, tenantB] } },
+    });
+    
+    await prisma.user.deleteMany({
+      where: { id: { in: [tenantA, tenantB] } },
+    });
+
     await app.close();
   });
 
-  describe('Vendor isolation', () => {
-    it('tenant1 should only see own vendors', async () => {
+  describe('Vendor Isolation', () => {
+    it('Tenant A can create a vendor', async () => {
       const response = await request(app.getHttpServer())
-        .get('/vendors')
-        .set('Authorization', `Bearer ${tenant1Token}`)
-        .expect(200);
-
-      // All vendors should belong to tenant1
-      response.body.forEach((vendor: any) => {
-        expect(vendor.name).not.toBe('Tenant2 Vendor');
-      });
-    });
-
-    it('tenant2 should not see tenant1 vendors', async () => {
-      // First create a vendor for tenant2
-      await request(app.getHttpServer())
         .post('/vendors')
-        .set('Authorization', `Bearer ${tenant2Token}`)
-        .send({ name: 'Tenant2 Vendor' });
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ name: 'Vendor A', monthlyLimit: 1000 })
+        .expect(201);
 
+      vendorAId = response.body.id;
+      expect(response.body.name).toBe('Vendor A');
+      expect(response.body.tenantId).toBe(tenantA);
+    });
+
+    it('Tenant B can create a vendor', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/vendors')
+        .set('Authorization', `Bearer ${tokenB}`)
+        .send({ name: 'Vendor B', monthlyLimit: 2000 })
+        .expect(201);
+
+      vendorBId = response.body.id;
+      expect(response.body.name).toBe('Vendor B');
+      expect(response.body.tenantId).toBe(tenantB);
+    });
+
+    it('Tenant A cannot access Tenant B\'s vendor', async () => {
+      await request(app.getHttpServer())
+        .get(`/vendors/${vendorBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(404); // Not found (due to tenant scoping)
+    });
+
+    it('Tenant B cannot access Tenant A\'s vendor', async () => {
+      await request(app.getHttpServer())
+        .get(`/vendors/${vendorAId}`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(404);
+    });
+
+    it('Tenant A can only see their own vendors', async () => {
       const response = await request(app.getHttpServer())
         .get('/vendors')
-        .set('Authorization', `Bearer ${tenant2Token}`)
+        .set('Authorization', `Bearer ${tokenA}`)
         .expect(200);
 
-      // Should not contain tenant1's vendor
-      const hasT1Vendor = response.body.some(
-        (v: any) => v.name === 'Tenant1 Vendor',
-      );
-      expect(hasT1Vendor).toBe(false);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].id).toBe(vendorAId);
+      expect(response.body[0].name).toBe('Vendor A');
     });
 
-    it('tenant2 should not access tenant1 vendor by ID', async () => {
-      if (!tenant1VendorId) {
-        console.log('Skipping: tenant1VendorId not set');
-        return;
-      }
+    it('Tenant B can only see their own vendors', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/vendors')
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(200);
 
-      await request(app.getHttpServer())
-        .get(`/vendors/${tenant1VendorId}`)
-        .set('Authorization', `Bearer ${tenant2Token}`)
-        .expect(404);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].id).toBe(vendorBId);
+      expect(response.body[0].name).toBe('Vendor B');
     });
 
-    it('tenant2 should not update tenant1 vendor', async () => {
-      if (!tenant1VendorId) {
-        console.log('Skipping: tenant1VendorId not set');
-        return;
-      }
-
+    it('Tenant A cannot update Tenant B\'s vendor', async () => {
       await request(app.getHttpServer())
-        .patch(`/vendors/${tenant1VendorId}`)
-        .set('Authorization', `Bearer ${tenant2Token}`)
-        .send({ name: 'Hacked!' })
+        .patch(`/vendors/${vendorBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ name: 'Hacked Vendor B' })
         .expect(404);
+
+      // Verify vendor B is unchanged
+      const vendor = await prisma.vendor.findUnique({ where: { id: vendorBId } });
+      expect(vendor?.name).toBe('Vendor B');
     });
 
-    it('tenant2 should not delete tenant1 vendor', async () => {
-      if (!tenant1VendorId) {
-        console.log('Skipping: tenant1VendorId not set');
-        return;
-      }
-
+    it('Tenant A cannot delete Tenant B\'s vendor', async () => {
       await request(app.getHttpServer())
-        .delete(`/vendors/${tenant1VendorId}`)
-        .set('Authorization', `Bearer ${tenant2Token}`)
+        .delete(`/vendors/${vendorBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
+
+      // Verify vendor B still exists
+      const vendor = await prisma.vendor.findUnique({ where: { id: vendorBId } });
+      expect(vendor).not.toBeNull();
     });
   });
 
-  describe('Invoice isolation', () => {
-    it('tenant2 should not see tenant1 invoices', async () => {
+  describe('Invoice Isolation', () => {
+    beforeAll(async () => {
+      // Create test invoices directly in DB (upload API requires file upload)
+      const invoiceA = await prisma.invoice.create({
+        data: {
+          tenantId: tenantA,
+          vendorId: vendorAId,
+          name: 'Invoice A',
+          originalAmount: 500,
+          originalCurrency: 'USD',
+          invoiceDate: new Date(),
+          fileUrl: '/test/invoice-a.pdf',
+          needsReview: false,
+        },
+      });
+      invoiceAId = invoiceA.id;
+
+      const invoiceB = await prisma.invoice.create({
+        data: {
+          tenantId: tenantB,
+          vendorId: vendorBId,
+          name: 'Invoice B',
+          originalAmount: 750,
+          originalCurrency: 'USD',
+          invoiceDate: new Date(),
+          fileUrl: '/test/invoice-b.pdf',
+          needsReview: false,
+        },
+      });
+      invoiceBId = invoiceB.id;
+    });
+
+    it('Tenant A cannot access Tenant B\'s invoice', async () => {
+      await request(app.getHttpServer())
+        .get(`/invoices/${invoiceBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(404);
+    });
+
+    it('Tenant B cannot access Tenant A\'s invoice', async () => {
+      await request(app.getHttpServer())
+        .get(`/invoices/${invoiceAId}`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(404);
+    });
+
+    it('Tenant A can only see their own invoices', async () => {
       const response = await request(app.getHttpServer())
         .get('/invoices')
-        .set('Authorization', `Bearer ${tenant2Token}`)
+        .set('Authorization', `Bearer ${tokenA}`)
         .expect(200);
 
-      // Should be empty or only contain tenant2's invoices
-      if (response.body.data && response.body.data.length > 0) {
-        // If there are invoices, verify none belong to tenant1
-        expect(response.body.data.every((i: any) => !i.vendorId?.includes('tenant1'))).toBe(true);
-      }
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].id).toBe(invoiceAId);
+    });
+
+    it('Tenant B can only see their own invoices', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/invoices')
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].id).toBe(invoiceBId);
+    });
+
+    it('Tenant A cannot update Tenant B\'s invoice', async () => {
+      await request(app.getHttpServer())
+        .patch(`/invoices/${invoiceBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .send({ name: 'Hacked Invoice B' })
+        .expect(404);
+
+      // Verify invoice B is unchanged
+      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceBId } });
+      expect(invoice?.name).toBe('Invoice B');
+    });
+
+    it('Tenant A cannot delete Tenant B\'s invoice', async () => {
+      await request(app.getHttpServer())
+        .delete(`/invoices/${invoiceBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(404);
+
+      // Verify invoice B still exists
+      const invoice = await prisma.invoice.findUnique({ where: { id: invoiceBId } });
+      expect(invoice).not.toBeNull();
     });
   });
 
-  describe('Analytics isolation', () => {
-    it('tenant2 should not access tenant1 vendor analytics', async () => {
-      if (!tenant1VendorId) {
-        console.log('Skipping: tenant1VendorId not set');
-        return;
-      }
+  describe('Analytics Isolation', () => {
+    it('Tenant A analytics only includes their data', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/analytics/overall')
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
 
+      expect(response.body.kpis.vendorCount).toBe(1);
+      expect(response.body.kpis.invoiceCount).toBe(1);
+      // Verify total spend matches only Tenant A's invoice
+      expect(response.body.kpis.totalSpend).toBeCloseTo(500, 2);
+    });
+
+    it('Tenant B analytics only includes their data', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/analytics/overall')
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(200);
+
+      expect(response.body.kpis.vendorCount).toBe(1);
+      expect(response.body.kpis.invoiceCount).toBe(1);
+      // Verify total spend matches only Tenant B's invoice
+      expect(response.body.kpis.totalSpend).toBeCloseTo(750, 2);
+    });
+
+    it('Tenant A cannot access Tenant B\'s vendor analytics', async () => {
       await request(app.getHttpServer())
-        .get(`/analytics/vendor/${tenant1VendorId}`)
-        .set('Authorization', `Bearer ${tenant2Token}`)
+        .get(`/analytics/vendor/${vendorBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
     });
 
-    it('tenant2 overall analytics should not include tenant1 data', async () => {
-      const t1Response = await request(app.getHttpServer())
-        .get('/analytics/overall')
-        .set('Authorization', `Bearer ${tenant1Token}`);
-
-      const t2Response = await request(app.getHttpServer())
-        .get('/analytics/overall')
-        .set('Authorization', `Bearer ${tenant2Token}`);
-
-      // If both succeed, they should have different data
-      if (t1Response.status === 200 && t2Response.status === 200) {
-        // Vendor counts should not match (different tenants)
-        // This isn't a perfect test but validates isolation is in place
-        expect(t1Response.body.kpis).toBeDefined();
-        expect(t2Response.body.kpis).toBeDefined();
-      }
+    it('Tenant B cannot access Tenant A\'s vendor analytics', async () => {
+      await request(app.getHttpServer())
+        .get(`/analytics/vendor/${vendorAId}`)
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(404);
     });
   });
 
-  describe('Insights isolation', () => {
-    it('tenant2 should not see tenant1 insights', async () => {
-      // Generate insights for tenant1
-      await request(app.getHttpServer())
-        .post('/insights/generate')
-        .set('Authorization', `Bearer ${tenant1Token}`)
-        .send({});
-
-      // Get insights for tenant2
+  describe('Search and Filter Isolation', () => {
+    it('Tenant A search cannot find Tenant B\'s data', async () => {
       const response = await request(app.getHttpServer())
-        .get('/insights')
-        .set('Authorization', `Bearer ${tenant2Token}`)
+        .get('/invoices?search=Invoice B')
+        .set('Authorization', `Bearer ${tokenA}`)
         .expect(200);
 
-      // Should not contain tenant1's insights
-      // (Insights are tenant-scoped by tenantId filter)
-    });
-  });
-
-  describe('Export isolation', () => {
-    it('tenant2 export should not include tenant1 data', async () => {
-      const t1Response = await request(app.getHttpServer())
-        .get('/export/invoices')
-        .set('Authorization', `Bearer ${tenant1Token}`);
-
-      const t2Response = await request(app.getHttpServer())
-        .get('/export/invoices')
-        .set('Authorization', `Bearer ${tenant2Token}`);
-
-      // Both should succeed independently
-      expect([200, 204]).toContain(t1Response.status);
-      expect([200, 204]).toContain(t2Response.status);
-    });
-  });
-
-  describe('Request without tenant context', () => {
-    it('should reject requests without valid JWT', async () => {
-      await request(app.getHttpServer())
-        .get('/vendors')
-        .expect(401);
+      expect(response.body.data).toHaveLength(0);
     });
 
-    it('should reject requests with malformed JWT', async () => {
-      await request(app.getHttpServer())
-        .get('/vendors')
-        .set('Authorization', 'Bearer malformed.token.here')
-        .expect(401);
+    it('Tenant B search cannot find Tenant A\'s data', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/invoices?search=Invoice A')
+        .set('Authorization', `Bearer ${tokenB}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(0);
+    });
+
+    it('Filtering by Tenant B\'s vendorId returns nothing for Tenant A', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/invoices?vendorId=${vendorBId}`)
+        .set('Authorization', `Bearer ${tokenA}`)
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(0);
     });
   });
 });

@@ -1,9 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { VendorAnalyticsDto, OverallAnalyticsDto } from './dto/analytics-response.dto';
 
 @Injectable()
 export class AnalyticsService {
+  private readonly logger = new Logger(AnalyticsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   private toNumber(value: Decimal | null): number {
@@ -31,7 +34,9 @@ export class AnalyticsService {
     return ranges;
   }
 
-  async getVendorAnalytics(tenantId: string, vendorId: string) {
+  async getVendorAnalytics(tenantId: string, vendorId: string): Promise<VendorAnalyticsDto> {
+    const startTime = Date.now();
+    
     const vendor = await this.prisma.vendor.findFirst({
       where: { id: vendorId, tenantId },
     });
@@ -97,6 +102,9 @@ export class AnalyticsService {
       monthlyData.push(this.toNumber(result._sum.normalizedAmount));
     }
 
+    const duration = Date.now() - startTime;
+    this.logger.log(`[AnalyticsService] Vendor analytics query took ${duration}ms`);
+
     return {
       vendorId,
       vendorName: vendor.name,
@@ -126,7 +134,9 @@ export class AnalyticsService {
     };
   }
 
-  async getOverallAnalytics(tenantId: string) {
+  async getOverallAnalytics(tenantId: string): Promise<OverallAnalyticsDto> {
+    const startTime = Date.now();
+    
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
@@ -197,6 +207,9 @@ export class AnalyticsService {
       monthlyData.push(this.toNumber(result._sum.normalizedAmount));
     }
 
+    const duration = Date.now() - startTime;
+    this.logger.log(`[AnalyticsService] Overall analytics query took ${duration}ms`);
+
     return {
       kpis: {
         totalSpend,
@@ -237,5 +250,82 @@ export class AnalyticsService {
       where: { id: vendorId },
       data: { monthlyLimit },
     });
+  }
+
+  /**
+   * Export vendor analytics as CSV
+   */
+  async exportVendorCsv(tenantId: string, vendorId: string): Promise<string> {
+    const analytics = await this.getVendorAnalytics(tenantId, vendorId);
+    
+    // CSV header
+    let csv = 'Month,Spend,Monthly Limit,Utilization %\n';
+    
+    // CSV rows (combine labels and data)
+    const labels = analytics.lineChart.labels;
+    const data = analytics.lineChart.datasets[0].data;
+    
+    for (let i = 0; i < labels.length; i++) {
+      const month = labels[i];
+      const spend = data[i].toFixed(2);
+      const limit = analytics.kpis.monthlyLimit?.toFixed(2) || '';
+      const utilization = analytics.kpis.monthlyLimit 
+        ? ((data[i] / analytics.kpis.monthlyLimit) * 100).toFixed(1)
+        : '';
+      
+      csv += `${month},${spend},${limit},${utilization}\n`;
+    }
+    
+    return csv;
+  }
+
+  /**
+   * Export overall analytics as CSV
+   */
+  async exportOverallCsv(tenantId: string): Promise<string> {
+    const analytics = await this.getOverallAnalytics(tenantId);
+    
+    // Get detailed vendor data
+    const vendors = await this.prisma.vendor.findMany({
+      where: { tenantId },
+      include: {
+        _count: { select: { invoices: true } },
+        invoices: {
+          orderBy: { invoiceDate: 'desc' },
+          take: 1,
+          select: { invoiceDate: true, originalAmount: true },
+        },
+      },
+    });
+
+    // Aggregate spend per vendor
+    const vendorSpends = await Promise.all(
+      vendors.map(async (vendor) => {
+        const result = await this.prisma.invoice.aggregate({
+          where: { tenantId, vendorId: vendor.id },
+          _sum: { normalizedAmount: true },
+        });
+        return {
+          name: vendor.name,
+          totalSpend: this.toNumber(result._sum.normalizedAmount),
+          invoiceCount: vendor._count.invoices,
+          monthlyLimit: vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null,
+          latestInvoice: vendor.invoices[0]?.invoiceDate || null,
+        };
+      }),
+    );
+
+    // CSV header
+    let csv = 'Business,Total Spend,Invoice Count,Monthly Limit,Latest Invoice\n';
+    
+    // CSV rows (sorted by spend descending)
+    vendorSpends
+      .sort((a, b) => b.totalSpend - a.totalSpend)
+      .forEach((v) => {
+        const latestDate = v.latestInvoice ? v.latestInvoice.toISOString().split('T')[0] : '';
+        csv += `"${v.name}",${v.totalSpend.toFixed(2)},${v.invoiceCount},${v.monthlyLimit?.toFixed(2) || ''},${latestDate}\n`;
+      });
+    
+    return csv;
   }
 }

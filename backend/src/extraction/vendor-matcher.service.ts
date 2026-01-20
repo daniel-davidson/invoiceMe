@@ -10,12 +10,15 @@ export class VendorMatcherService {
   /**
    * Normalize vendor name for matching
    * Removes extra whitespace, converts to lowercase, removes special characters
+   * CRITICAL: Preserves Hebrew characters (U+0590-U+05FF) and other Unicode letters
    */
   normalizeVendorName(name: string): string {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s]/g, '') // Remove special characters
+      // Remove special characters but KEEP Hebrew, Latin, digits, and spaces
+      // Hebrew range: \u0590-\u05FF
+      .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '')
       .replace(/\s+/g, ' '); // Normalize whitespace
   }
 
