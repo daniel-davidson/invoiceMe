@@ -13,28 +13,72 @@ export class AnalyticsService {
     return value ? Number(value) : 0;
   }
 
-  private getMonthLabels(): string[] {
+  private getMonthLabels(referenceDate: Date): string[] {
     const labels: string[] = [];
-    const now = new Date();
     for (let i = 11; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const date = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
       labels.push(date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
     }
     return labels;
   }
 
-  private getMonthRanges(): { start: Date; end: Date }[] {
+  private getMonthRanges(referenceDate: Date): { start: Date; end: Date }[] {
     const ranges: { start: Date; end: Date }[] = [];
-    const now = new Date();
     for (let i = 11; i >= 0; i--) {
-      const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
+      const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i + 1, 0, 23, 59, 59);
       ranges.push({ start, end });
     }
     return ranges;
   }
 
-  async getVendorAnalytics(tenantId: string, vendorId: string): Promise<VendorAnalyticsDto> {
+  /**
+   * Get all available year/month periods that have invoices for a vendor
+   */
+  async getAvailablePeriods(tenantId: string, vendorId: string) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: { tenantId, vendorId },
+      select: { invoiceDate: true },
+      orderBy: { invoiceDate: 'desc' },
+    });
+
+    if (invoices.length === 0) {
+      return {
+        periods: [],
+        latestPeriod: null,
+      };
+    }
+
+    // Extract unique year-month combinations
+    const periodsSet = new Set<string>();
+    invoices.forEach((inv) => {
+      const year = inv.invoiceDate.getFullYear();
+      const month = inv.invoiceDate.getMonth() + 1; // 1-12
+      periodsSet.add(`${year}-${month}`);
+    });
+
+    const periods = Array.from(periodsSet)
+      .map((p) => {
+        const [year, month] = p.split('-').map(Number);
+        return { year, month };
+      })
+      .sort((a, b) => {
+        if (a.year !== b.year) return b.year - a.year;
+        return b.month - a.month;
+      });
+
+    return {
+      periods,
+      latestPeriod: periods[0] || null,
+    };
+  }
+
+  async getVendorAnalytics(
+    tenantId: string,
+    vendorId: string,
+    year?: number,
+    month?: number,
+  ): Promise<VendorAnalyticsDto> {
     const startTime = Date.now();
     
     const vendor = await this.prisma.vendor.findFirst({
@@ -45,35 +89,36 @@ export class AnalyticsService {
       throw new NotFoundException('Vendor not found');
     }
 
-    // DEBUG: Log all invoices for this vendor
-    const allInvoices = await this.prisma.invoice.findMany({
-      where: { tenantId, vendorId },
-      select: {
-        id: true,
-        invoiceDate: true,
-        originalAmount: true,
-        originalCurrency: true,
-        normalizedAmount: true,
-        fxRate: true,
-        needsReview: true,
-      },
-      orderBy: { invoiceDate: 'desc' },
-    });
-    this.logger.log(`[DEBUG] Found ${allInvoices.length} invoices for vendor ${vendorId}:`);
-    allInvoices.forEach((inv, i) => {
-      this.logger.log(`  [${i}] ${inv.invoiceDate.toISOString().split('T')[0]} - Original: ${inv.originalAmount} ${inv.originalCurrency}, Normalized: ${inv.normalizedAmount}, FxRate: ${inv.fxRate}, NeedsReview: ${inv.needsReview}`);
-    });
-
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    // If year/month not provided, use current date
+    // If year provided without month, use latest month in that year with data
+    let referenceDate: Date;
     
-    // DEBUG: Log date ranges being queried
-    this.logger.log(`[DEBUG] Date ranges for analytics:`);
-    this.logger.log(`  Current month: ${startOfMonth.toISOString().split('T')[0]} to now`);
-    this.logger.log(`  Last 12 months: ${twelveMonthsAgo.toISOString().split('T')[0]} to now`);
-    this.logger.log(`  Year to date: ${startOfYear.toISOString().split('T')[0]} to now`);
+    if (year && month) {
+      // Specific year and month provided
+      referenceDate = new Date(year, month - 1, 1); // month is 1-12, Date expects 0-11
+    } else if (year) {
+      // Only year provided, find latest month in that year with data
+      const latestInYear = await this.prisma.invoice.findFirst({
+        where: {
+          tenantId,
+          vendorId,
+          invoiceDate: {
+            gte: new Date(year, 0, 1),
+            lt: new Date(year + 1, 0, 1),
+          },
+        },
+        orderBy: { invoiceDate: 'desc' },
+        select: { invoiceDate: true },
+      });
+      referenceDate = latestInYear?.invoiceDate || new Date(year, 0, 1);
+    } else {
+      // No year/month provided, use current date
+      referenceDate = new Date();
+    }
+
+    const startOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
+    const startOfYear = new Date(referenceDate.getFullYear(), 0, 1);
+    const twelveMonthsAgo = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 11, 1);
 
     // Current month spend
     const currentMonthResult = await this.prisma.invoice.aggregate({
@@ -116,8 +161,8 @@ export class AnalyticsService {
     const monthlyLimit = vendor.monthlyLimit ? Number(vendor.monthlyLimit) : null;
     const limitUtilization = monthlyLimit ? (currentMonthSpend / monthlyLimit) * 100 : null;
 
-    // Line chart data
-    const monthRanges = this.getMonthRanges();
+    // Line chart data (12 months ending with reference month)
+    const monthRanges = this.getMonthRanges(referenceDate);
     const monthlyData: number[] = [];
 
     for (const range of monthRanges) {
@@ -140,6 +185,10 @@ export class AnalyticsService {
     return {
       vendorId,
       vendorName: vendor.name,
+      selectedPeriod: {
+        year: referenceDate.getFullYear(),
+        month: referenceDate.getMonth() + 1,
+      },
       kpis: {
         currentMonthSpend,
         monthlyLimit,
@@ -154,7 +203,7 @@ export class AnalyticsService {
       },
       lineChart: {
         title: 'Monthly Spending',
-        labels: this.getMonthLabels(),
+        labels: this.getMonthLabels(referenceDate),
         datasets: [
           {
             label: 'Spend',

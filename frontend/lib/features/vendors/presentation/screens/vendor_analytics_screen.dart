@@ -13,11 +13,61 @@ class VendorAnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsState = ref.watch(vendorAnalyticsProvider(vendorId));
+    final notifier = ref.watch(vendorAnalyticsProvider(vendorId).notifier);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Business Analytics'),
         actions: [
+          // Period Selector Dropdown
+          if (notifier.availablePeriods != null &&
+              notifier.availablePeriods!.periods.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Center(
+                child: analyticsState.when(
+                  data: (analytics) {
+                    if (analytics == null) return const SizedBox.shrink();
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<SelectedPeriod>(
+                        value: analytics.selectedPeriod,
+                        underline: const SizedBox.shrink(),
+                        dropdownColor: Theme.of(context).colorScheme.surface,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        icon: Icon(
+                          Icons.arrow_drop_down,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        items: notifier.availablePeriods!.periods.map((period) {
+                          return DropdownMenuItem<SelectedPeriod>(
+                            value: period,
+                            child: Text(period.label),
+                          );
+                        }).toList(),
+                        onChanged: (period) {
+                          if (period != null) {
+                            notifier.loadForPeriod(period);
+                          }
+                        },
+                      ),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.download),
             onPressed: () async {

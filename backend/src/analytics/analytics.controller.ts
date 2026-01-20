@@ -16,8 +16,17 @@ export class AnalyticsController {
     @Tenant() tenantId: string,
     @Param('vendorId', ParseUUIDPipe) vendorId: string,
     @Query('year') year?: number,
+    @Query('month') month?: number,
   ): Promise<VendorAnalyticsDto> {
-    return this.analyticsService.getVendorAnalytics(tenantId, vendorId);
+    return this.analyticsService.getVendorAnalytics(tenantId, vendorId, year, month);
+  }
+
+  @Get('vendor/:vendorId/available-periods')
+  async getAvailablePeriods(
+    @Tenant() tenantId: string,
+    @Param('vendorId', ParseUUIDPipe) vendorId: string,
+  ) {
+    return this.analyticsService.getAvailablePeriods(tenantId, vendorId);
   }
 
   @Get('overall')

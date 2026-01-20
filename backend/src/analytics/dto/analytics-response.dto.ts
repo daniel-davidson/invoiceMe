@@ -36,9 +36,15 @@ export class PieChartDto {
   otherTotal: number;
 }
 
+export class SelectedPeriodDto {
+  year: number;
+  month: number; // 1-12
+}
+
 export class VendorAnalyticsDto {
   vendorId: string;
   vendorName: string;
+  selectedPeriod: SelectedPeriodDto;
   kpis: KpisDto;
   pieChart: PieChartDto;
   lineChart: LineChartDto;
