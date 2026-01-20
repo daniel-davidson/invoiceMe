@@ -1,6 +1,6 @@
 /**
  * Enhanced OCR Service with preprocessing and multi-pass recognition
- * 
+ *
  * Docs Verified: Tesseract.js OCR
  * - Official docs: https://tesseract.projectnaptha.com/
  * - API Reference: https://github.com/naptha/tesseract.js/blob/master/docs/api.md
@@ -11,7 +11,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Tesseract from 'tesseract.js';
-import { ImagePreprocessorService, PreprocessingResult } from './image-preprocessor.service';
+import {
+  ImagePreprocessorService,
+  PreprocessingResult,
+} from './image-preprocessor.service';
 
 interface OcrResult {
   text: string;
@@ -43,17 +46,19 @@ export class OcrService {
 
   // PSM modes to try in multi-pass OCR (per OCR Quality Rules)
   private readonly PSM_MODES = [
-    { psm: 6, name: 'block_of_text' },     // Block of text
-    { psm: 4, name: 'columns' },           // Columns
-    { psm: 11, name: 'sparse_text' },      // Sparse text
-    { psm: 12, name: 'sparse_receipt' },   // Sparse (receipts)
+    { psm: 6, name: 'block_of_text' }, // Block of text
+    { psm: 4, name: 'columns' }, // Columns
+    { psm: 11, name: 'sparse_text' }, // Sparse text
+    { psm: 12, name: 'sparse_receipt' }, // Sparse (receipts)
   ];
 
   constructor(
     private configService: ConfigService,
     private preprocessor: ImagePreprocessorService,
   ) {
-    this.debugMode = process.env.OCR_DEBUG === 'true' || process.env.NODE_ENV === 'development';
+    this.debugMode =
+      process.env.OCR_DEBUG === 'true' ||
+      process.env.NODE_ENV === 'development';
   }
 
   /**
@@ -78,7 +83,9 @@ export class OcrService {
 
       this.logger.log('Tesseract worker initialized successfully');
     } catch (error) {
-      this.logger.error(`Failed to initialize Tesseract worker: ${error.message}`);
+      this.logger.error(
+        `Failed to initialize Tesseract worker: ${error.message}`,
+      );
       // Don't throw - allow service to start, but OCR will fail gracefully
     }
   }
@@ -105,20 +112,20 @@ export class OcrService {
 
     // Money keywords (Hebrew and English)
     const moneyKeywords = [
-      /סה["״']?כ/gi,              // Total (Hebrew)
-      /לתשלום/gi,                  // To pay (Hebrew)
-      /יתרה\s*לתשלום/gi,          // Balance due (Hebrew)
-      /מע["״']?מ/gi,              // VAT (Hebrew)
-      /חשבונית/gi,                 // Invoice (Hebrew)
-      /קבלה/gi,                    // Receipt (Hebrew)
-      /\btotal\b/gi,               // Total (English)
-      /\bamount\s+due\b/gi,        // Amount due (English)
-      /\binvoice\b/gi,             // Invoice (English)
-      /\breceipt\b/gi,             // Receipt (English)
-      /\bVAT\b/g,                  // VAT (English)
+      /סה["״']?כ/gi, // Total (Hebrew)
+      /לתשלום/gi, // To pay (Hebrew)
+      /יתרה\s*לתשלום/gi, // Balance due (Hebrew)
+      /מע["״']?מ/gi, // VAT (Hebrew)
+      /חשבונית/gi, // Invoice (Hebrew)
+      /קבלה/gi, // Receipt (Hebrew)
+      /\btotal\b/gi, // Total (English)
+      /\bamount\s+due\b/gi, // Amount due (English)
+      /\binvoice\b/gi, // Invoice (English)
+      /\breceipt\b/gi, // Receipt (English)
+      /\bVAT\b/g, // VAT (English)
     ];
 
-    moneyKeywords.forEach(regex => {
+    moneyKeywords.forEach((regex) => {
       const matches = text.match(regex);
       if (matches) {
         score += matches.length * 10; // 10 points per keyword match
@@ -134,12 +141,12 @@ export class OcrService {
 
     // Date-like patterns
     const datePatterns = [
-      /\b\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\b/g,  // dd/mm/yyyy, dd.mm.yy
-      /\b\d{4}-\d{2}-\d{2}\b/g,                     // yyyy-mm-dd
-      /\b\d{1,2}\s+[א-ת]{3,10}\s+\d{4}\b/g,       // Hebrew dates
+      /\b\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}\b/g, // dd/mm/yyyy, dd.mm.yy
+      /\b\d{4}-\d{2}-\d{2}\b/g, // yyyy-mm-dd
+      /\b\d{1,2}\s+[א-ת]{3,10}\s+\d{4}\b/g, // Hebrew dates
     ];
 
-    datePatterns.forEach(regex => {
+    datePatterns.forEach((regex) => {
       const matches = text.match(regex);
       if (matches) {
         score += matches.length * 3; // 3 points per date
@@ -206,7 +213,10 @@ export class OcrService {
    * @param mimeType - MIME type of the file
    * @returns Multi-pass OCR result with best text and all pass details
    */
-  async recognizeTextMultiPass(buffer: Buffer, mimeType: string): Promise<MultiPassOcrResult> {
+  async recognizeTextMultiPass(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<MultiPassOcrResult> {
     if (!this.worker) {
       this.logger.error('Tesseract worker not initialized');
       return {
@@ -219,7 +229,9 @@ export class OcrService {
     }
 
     try {
-      this.logger.log(`[OcrService] Starting enhanced multi-pass OCR for ${mimeType}`);
+      this.logger.log(
+        `[OcrService] Starting enhanced multi-pass OCR for ${mimeType}`,
+      );
       const totalStartTime = Date.now();
 
       // Step 1: Preprocess image with both variants
@@ -231,20 +243,34 @@ export class OcrService {
       // Run on standard preprocessing
       for (const { psm, name } of this.PSM_MODES) {
         try {
-          const result = await this.runOcrWithPSM(preprocessing.standard, psm, name, 'standard');
+          const result = await this.runOcrWithPSM(
+            preprocessing.standard,
+            psm,
+            name,
+            'standard',
+          );
           results.push(result);
         } catch (error) {
-          this.logger.warn(`PSM ${psm} (${name}, standard) failed: ${error.message}`);
+          this.logger.warn(
+            `PSM ${psm} (${name}, standard) failed: ${error.message}`,
+          );
         }
       }
 
       // Run on no-lines variant
       for (const { psm, name } of this.PSM_MODES) {
         try {
-          const result = await this.runOcrWithPSM(preprocessing.noLines, psm, name, 'no_lines');
+          const result = await this.runOcrWithPSM(
+            preprocessing.noLines,
+            psm,
+            name,
+            'no_lines',
+          );
           results.push(result);
         } catch (error) {
-          this.logger.warn(`PSM ${psm} (${name}, no_lines) failed: ${error.message}`);
+          this.logger.warn(
+            `PSM ${psm} (${name}, no_lines) failed: ${error.message}`,
+          );
         }
       }
 
@@ -270,8 +296,8 @@ export class OcrService {
       // Step 4: Log results
       this.logger.log(
         `[OcrService] Multi-pass OCR completed in ${totalDuration}ms: ` +
-        `Best=${chosenPass}, score=${bestResult.score.toFixed(1)}, ` +
-        `conf=${bestResult.confidence.toFixed(1)}%, ${bestResult.text.length} chars`,
+          `Best=${chosenPass}, score=${bestResult.score.toFixed(1)}, ` +
+          `conf=${bestResult.confidence.toFixed(1)}%, ${bestResult.text.length} chars`,
       );
 
       if (this.debugMode) {
@@ -282,7 +308,10 @@ export class OcrService {
         // Log all scores for comparison
         const scoreTable = results
           .sort((a, b) => b.score - a.score)
-          .map(r => `  psm${r.psm}_${r.variant}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`)
+          .map(
+            (r) =>
+              `  psm${r.psm}_${r.variant}: score=${r.score.toFixed(1)}, conf=${r.confidence.toFixed(1)}%, chars=${r.text.length}`,
+          )
           .join('\n');
         this.logger.debug(`[OcrService] All pass scores:\n${scoreTable}`);
       }
@@ -292,7 +321,7 @@ export class OcrService {
         chosenPass,
         chosenScore: bestResult.score,
         chosenConfidence: bestResult.confidence,
-        allPasses: results.map(r => ({
+        allPasses: results.map((r) => ({
           psm: r.psm,
           variant: r.variant,
           score: r.score,

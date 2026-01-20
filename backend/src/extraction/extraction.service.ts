@@ -72,7 +72,11 @@ export class ExtractionService {
 
     // Step 1: Save file
     this.logger.log(`Saving file: ${originalName}`);
-    const fileUrl = await this.storage.saveFileBuffer(tenantId, file, originalName);
+    const fileUrl = await this.storage.saveFileBuffer(
+      tenantId,
+      file,
+      originalName,
+    );
 
     // Step 2: Extract text (PDF text detection or enhanced multi-pass OCR)
     let extractedText = '';
@@ -85,19 +89,23 @@ export class ExtractionService {
 
         if (hasText) {
           this.logger.log('PDF has selectable text, extracting directly');
-          extractedText = (await this.pdfProcessor.extractTextFromPdf(file)) || '';
+          extractedText =
+            (await this.pdfProcessor.extractTextFromPdf(file)) || '';
           ocrMetadata = { method: 'pdf_text', passes: [] };
         } else {
           this.logger.log('PDF requires OCR');
           const pdfImages = await this.pdfProcessor.convertPdfToImages(file);
-          
+
           if (pdfImages === null) {
             this.logger.warn('PDF conversion failed, setting needsReview');
             ocrError = 'PDF conversion failed';
             extractedText = '';
             ocrMetadata = { method: 'pdf_failed', passes: [] };
           } else {
-            const ocrResult = await this.ocr.recognizeTextMultiPass(file, mimeType);
+            const ocrResult = await this.ocr.recognizeTextMultiPass(
+              file,
+              mimeType,
+            );
             extractedText = ocrResult.bestText;
             ocrMetadata = {
               method: 'multi_pass_ocr',
@@ -131,15 +139,20 @@ export class ExtractionService {
     let candidates: any = null;
     if (extractedText) {
       this.logger.log('[ExtractionService] Running deterministic parsing');
-      const parsedCandidates = this.deterministicParser.extractCandidates(extractedText);
+      const parsedCandidates =
+        this.deterministicParser.extractCandidates(extractedText);
       candidates = {
-        bestTotal: this.deterministicParser.getBestTotalAmount(parsedCandidates),
-        bestCurrency: this.deterministicParser.getBestCurrency(parsedCandidates),
+        bestTotal:
+          this.deterministicParser.getBestTotalAmount(parsedCandidates),
+        bestCurrency:
+          this.deterministicParser.getBestCurrency(parsedCandidates),
         bestDate: this.deterministicParser.getBestDate(parsedCandidates),
         vendorCandidates: parsedCandidates.vendorNames,
         allCandidates: parsedCandidates,
       };
-      this.logger.debug(`[ExtractionService] Candidates: ${JSON.stringify(candidates)}`);
+      this.logger.debug(
+        `[ExtractionService] Candidates: ${JSON.stringify(candidates)}`,
+      );
     }
 
     // Step 3: LLM extraction with deterministic hints
@@ -148,17 +161,26 @@ export class ExtractionService {
 
     if (extractedText) {
       try {
-        this.logger.log('Extracting structured data with LLM (with deterministic hints)');
-        extractedData = await this.ollama.extractFromText(extractedText, candidates);
-        
+        this.logger.log(
+          'Extracting structured data with LLM (with deterministic hints)',
+        );
+        extractedData = await this.ollama.extractFromText(
+          extractedText,
+          candidates,
+        );
+
         // T067: Apply fallback total extraction if LLM total is null
         if (!extractedData.totalAmount && extractedText) {
-          this.logger.warn('LLM did not extract total, trying fallback extraction');
+          this.logger.warn(
+            'LLM did not extract total, trying fallback extraction',
+          );
           // Note: extractTotalFallback is not exposed from ollama service yet
           // This would require adding it as a public method
-          extractedData.warnings.push('Total amount extraction required manual fallback');
+          extractedData.warnings.push(
+            'Total amount extraction required manual fallback',
+          );
         }
-        
+
         // Apply fallback values for other critical null fields
         if (!extractedData.vendorName) {
           extractedData.vendorName = 'Unknown Vendor';
@@ -176,7 +198,7 @@ export class ExtractionService {
           extractedData.invoiceDate = new Date().toISOString().split('T')[0];
           extractedData.warnings.push('Invoice date not found, using today');
         }
-        
+
         extractedData.needsReview = true;
       } catch (error) {
         this.logger.error(`LLM extraction failed: ${error.message}`);
@@ -197,20 +219,29 @@ export class ExtractionService {
 
     // Step 5: NEVER auto-create vendor (v2.0 - user assigns via post-upload modal)
     // Store extracted vendor name as candidate for frontend to use
-    const extractedVendorNameCandidate = extractedData.vendorName || 'Unknown Vendor';
-    
-    this.logger.log(`Extracted vendor name candidate: "${extractedVendorNameCandidate}" (will NOT auto-create)`);
-    
+    const extractedVendorNameCandidate =
+      extractedData.vendorName || 'Unknown Vendor';
+
+    this.logger.log(
+      `Extracted vendor name candidate: "${extractedVendorNameCandidate}" (will NOT auto-create)`,
+    );
+
     // Mark as needs review since no vendor assigned
     validationResult.needsReview = true;
-    validationResult.warnings.push(`Vendor extraction: "${extractedVendorNameCandidate}" - user must assign business manually`);
+    validationResult.warnings.push(
+      `Vendor extraction: "${extractedVendorNameCandidate}" - user must assign business manually`,
+    );
 
     // Step 6: Convert currency
     let normalizedAmount: number | null = null;
     let fxRate: number | null = null;
     let fxDate: Date | null = null;
 
-    if (extractedData.totalAmount && extractedData.totalAmount > 0 && extractedData.currency) {
+    if (
+      extractedData.totalAmount &&
+      extractedData.totalAmount > 0 &&
+      extractedData.currency
+    ) {
       try {
         this.logger.log(
           `Converting ${extractedData.totalAmount} ${extractedData.currency} to ${userSystemCurrency}`,
@@ -241,13 +272,17 @@ export class ExtractionService {
       if (!isNaN(parsedDate.getTime())) {
         invoiceDate = parsedDate;
       } else {
-        this.logger.warn(`Invalid date format: ${extractedData.invoiceDate}, using today's date`);
+        this.logger.warn(
+          `Invalid date format: ${extractedData.invoiceDate}, using today's date`,
+        );
         invoiceDate = new Date();
-        validationResult.warnings.push('Invalid date format, using today\'s date');
+        validationResult.warnings.push(
+          "Invalid date format, using today's date",
+        );
         validationResult.needsReview = true;
       }
     } else {
-      this.logger.warn('No invoice date found, using today\'s date');
+      this.logger.warn("No invoice date found, using today's date");
       invoiceDate = new Date();
       validationResult.warnings.push('No invoice date found');
       validationResult.needsReview = true;
@@ -255,12 +290,17 @@ export class ExtractionService {
 
     // Step 8: Create invoice record (allow null amounts if needsReview)
     const processingTimeMs = Date.now() - startTime;
-    
+
     const dbStartTime = Date.now();
-    const shouldReview = validationResult.needsReview || ocrError !== null || llmError !== null || !extractedData.totalAmount;
-    
+    const shouldReview =
+      validationResult.needsReview ||
+      ocrError !== null ||
+      llmError !== null ||
+      !extractedData.totalAmount;
+
     // Determine if we should use items total
-    const hasItems = extractedData.lineItems && extractedData.lineItems.length > 0;
+    const hasItems =
+      extractedData.lineItems && extractedData.lineItems.length > 0;
     const useItemsTotal = hasItems;
 
     const invoice = await this.prisma.invoice.create({
@@ -307,14 +347,18 @@ export class ExtractionService {
       data: {
         tenantId,
         invoiceId: invoice.id,
-        status: llmError ? 'ERROR' : validationResult.needsReview ? 'VALIDATION_FAILED' : 'SUCCESS',
+        status: llmError
+          ? 'ERROR'
+          : validationResult.needsReview
+            ? 'VALIDATION_FAILED'
+            : 'SUCCESS',
         ocrText: extractedText || null,
         llmResponse: extractedData as any,
         errorMessage: ocrError || llmError || null,
         processingTimeMs,
       },
     });
-    
+
     const dbDuration = Date.now() - dbStartTime;
     this.logger.log(`[ExtractionService] DB save took ${dbDuration}ms`);
 

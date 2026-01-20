@@ -20,7 +20,9 @@ export default () => ({
     jwtSecret: process.env.JWT_SECRET,
     // Computed: which key to use for frontend config
     get clientKey() {
-      return process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
+      return (
+        process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY
+      );
     },
   },
 
@@ -62,6 +64,8 @@ export default () => ({
 
   // CORS
   cors: {
-    origins: (process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:8080').split(','),
+    origins: (
+      process.env.CORS_ORIGINS || 'http://localhost:3000,http://localhost:8080'
+    ).split(','),
   },
 });

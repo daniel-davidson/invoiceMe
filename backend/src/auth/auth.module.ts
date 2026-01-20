@@ -19,10 +19,10 @@ import { PrismaModule } from '../prisma/prisma.module';
         // For legacy system, we use the JWT secret
         const jwtSecret = configService.get<string>('supabase.jwtSecret');
         const jwksUrl = configService.get<string>('supabase.jwksUrl');
-        
+
         return {
           // Only set secret for legacy system; for JWKS, passport-jwt handles it
-          secret: jwksUrl ? undefined : (jwtSecret || ''),
+          secret: jwksUrl ? undefined : jwtSecret || '',
           // Note: We rely on Supabase's token expiration, not our own
         };
       },
@@ -33,4 +33,4 @@ import { PrismaModule } from '../prisma/prisma.module';
   providers: [AuthService, JwtStrategy],
   exports: [AuthService, JwtStrategy, PassportModule],
 })
-export class AuthModule { }
+export class AuthModule {}

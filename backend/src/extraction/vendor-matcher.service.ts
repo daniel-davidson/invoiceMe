@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class VendorMatcherService {
   private readonly logger = new Logger(VendorMatcherService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
    * Normalize vendor name for matching
@@ -13,13 +13,15 @@ export class VendorMatcherService {
    * CRITICAL: Preserves Hebrew characters (U+0590-U+05FF) and other Unicode letters
    */
   normalizeVendorName(name: string): string {
-    return name
-      .toLowerCase()
-      .trim()
-      // Remove special characters but KEEP Hebrew, Latin, digits, and spaces
-      // Hebrew range: \u0590-\u05FF
-      .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '')
-      .replace(/\s+/g, ' '); // Normalize whitespace
+    return (
+      name
+        .toLowerCase()
+        .trim()
+        // Remove special characters but KEEP Hebrew, Latin, digits, and spaces
+        // Hebrew range: \u0590-\u05FF
+        .replace(/[^\u0590-\u05FFa-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+    ); // Normalize whitespace
   }
 
   /**

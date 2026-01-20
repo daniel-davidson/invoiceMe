@@ -28,7 +28,8 @@ export class CurrencyService {
     private readonly fxCache: FxCacheService,
   ) {
     this.provider = this.configService.get('fx.provider') || 'frankfurter';
-    this.apiUrl = this.configService.get('fx.apiUrl') || 'https://api.frankfurter.app';
+    this.apiUrl =
+      this.configService.get('fx.apiUrl') || 'https://api.frankfurter.app';
     this.apiKey = this.configService.get('fx.apiKey');
   }
 
@@ -104,16 +105,18 @@ export class CurrencyService {
    * https://www.frankfurter.app/docs/
    * Returns all rates for the base currency
    */
-  private async fetchFrankfurterRates(from: string): Promise<{ rates: Record<string, number> }> {
+  private async fetchFrankfurterRates(
+    from: string,
+  ): Promise<{ rates: Record<string, number> }> {
     const url = `https://api.frankfurter.app/latest?from=${from}`;
-    
+
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Frankfurter API error: ${response.status}`);
     }
 
     const data = await response.json();
-    
+
     if (!data.rates) {
       throw new Error(`No rates found for ${from}`);
     }
@@ -125,14 +128,17 @@ export class CurrencyService {
    * Open Exchange Rates - requires API key
    * Free tier: USD base only, 1000 req/month
    */
-  private async fetchOpenExchangeRate(from: string, to: string): Promise<number> {
+  private async fetchOpenExchangeRate(
+    from: string,
+    to: string,
+  ): Promise<number> {
     if (!this.apiKey) {
       throw new Error('OXR API key not configured');
     }
 
     // OXR free tier only allows USD as base
     const url = `https://openexchangerates.org/api/latest.json?app_id=${this.apiKey}`;
-    
+
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`OXR API error: ${response.status}`);
@@ -156,20 +162,23 @@ export class CurrencyService {
    * ExchangeRate-API - requires API key
    * Free tier: 1500 req/month
    */
-  private async fetchExchangeRateApiRate(from: string, to: string): Promise<number> {
+  private async fetchExchangeRateApiRate(
+    from: string,
+    to: string,
+  ): Promise<number> {
     if (!this.apiKey) {
       throw new Error('ExchangeRate-API key not configured');
     }
 
     const url = `https://v6.exchangerate-api.com/v6/${this.apiKey}/pair/${from}/${to}`;
-    
+
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`ExchangeRate-API error: ${response.status}`);
     }
 
     const data = await response.json();
-    
+
     if (data.result !== 'success') {
       throw new Error(`ExchangeRate-API error: ${data['error-type']}`);
     }
@@ -189,9 +198,30 @@ export class CurrencyService {
 
     // Default list
     return [
-      'USD', 'EUR', 'GBP', 'ILS', 'JPY', 'CAD', 'AUD', 'CHF', 
-      'CNY', 'INR', 'MXN', 'BRL', 'KRW', 'SGD', 'HKD', 'NOK',
-      'SEK', 'DKK', 'NZD', 'ZAR', 'RUB', 'TRY', 'PLN', 'THB',
+      'USD',
+      'EUR',
+      'GBP',
+      'ILS',
+      'JPY',
+      'CAD',
+      'AUD',
+      'CHF',
+      'CNY',
+      'INR',
+      'MXN',
+      'BRL',
+      'KRW',
+      'SGD',
+      'HKD',
+      'NOK',
+      'SEK',
+      'DKK',
+      'NZD',
+      'ZAR',
+      'RUB',
+      'TRY',
+      'PLN',
+      'THB',
     ];
   }
 }

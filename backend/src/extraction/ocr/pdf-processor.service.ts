@@ -35,11 +35,15 @@ export class PdfProcessorService {
         return text;
       }
 
-      this.logger.log(`[PdfProcessorService] PDF has insufficient selectable text (checked in ${duration}ms), will need OCR`);
+      this.logger.log(
+        `[PdfProcessorService] PDF has insufficient selectable text (checked in ${duration}ms), will need OCR`,
+      );
       return null;
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error(`[PdfProcessorService] Failed to extract text from PDF after ${duration}ms: ${error.message}`);
+      this.logger.error(
+        `[PdfProcessorService] Failed to extract text from PDF after ${duration}ms: ${error.message}`,
+      );
       return null;
     }
   }
@@ -59,11 +63,15 @@ export class PdfProcessorService {
       // This is a simplified implementation that returns the PDF buffer
       // Tesseract.js will handle the conversion internally
       const duration = Date.now() - startTime;
-      this.logger.log(`[PdfProcessorService] PDF conversion took ${duration}ms`);
+      this.logger.log(
+        `[PdfProcessorService] PDF conversion took ${duration}ms`,
+      );
       return [buffer];
     } catch (error) {
       const duration = Date.now() - startTime;
-      this.logger.error(`[PdfProcessorService] PDF conversion failed after ${duration}ms: ${error.message}`);
+      this.logger.error(
+        `[PdfProcessorService] PDF conversion failed after ${duration}ms: ${error.message}`,
+      );
       return null;
     }
   }

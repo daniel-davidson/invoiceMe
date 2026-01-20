@@ -1,6 +1,6 @@
 /**
  * Advanced Image Preprocessing Service
- * 
+ *
  * Implements comprehensive preprocessing for OCR including:
  * - Auto-rotation and deskewing
  * - Contrast normalization
@@ -11,8 +11,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import sharp from 'sharp';
 
 export interface PreprocessingResult {
-  standard: Buffer;      // Standard preprocessing
-  noLines: Buffer;       // Preprocessing with table lines removed
+  standard: Buffer; // Standard preprocessing
+  noLines: Buffer; // Preprocessing with table lines removed
   metadata: {
     originalSize: { width: number; height: number };
     processedSize: { width: number; height: number };
@@ -39,7 +39,7 @@ export class ImagePreprocessorService {
 
       this.logger.debug(
         `[ImagePreprocessor] Original: ${metadata.width}x${metadata.height}, ` +
-        `format: ${metadata.format}, space: ${metadata.space}`,
+          `format: ${metadata.format}, space: ${metadata.space}`,
       );
 
       // Step 1: Auto-rotate based on EXIF
@@ -63,10 +63,7 @@ export class ImagePreprocessorService {
 
       // Step 7: Adaptive threshold (binarization)
       // Create standard version with simple threshold
-      const standardBuffer = await processed
-        .threshold(128)
-        .png()
-        .toBuffer();
+      const standardBuffer = await processed.threshold(128).png().toBuffer();
 
       // Create version without table lines (for invoices with grids)
       const noLinesBuffer = await this.removeTableLines(processed);
@@ -74,7 +71,7 @@ export class ImagePreprocessorService {
       const duration = Date.now() - startTime;
       this.logger.log(
         `[ImagePreprocessor] Preprocessing completed in ${duration}ms ` +
-        `(${scaledMetadata.width}x${scaledMetadata.height})`,
+          `(${scaledMetadata.width}x${scaledMetadata.height})`,
       );
 
       return {
@@ -121,14 +118,16 @@ export class ImagePreprocessorService {
     }
 
     const maxDim = Math.max(metadata.width, metadata.height);
-    
+
     if (maxDim < this.minDimension) {
       // Scale up small images
       const scale = this.minDimension / maxDim;
       const newWidth = Math.round(metadata.width * scale);
       const newHeight = Math.round(metadata.height * scale);
 
-      this.logger.debug(`[ImagePreprocessor] Scaling up to ${newWidth}x${newHeight} for better OCR`);
+      this.logger.debug(
+        `[ImagePreprocessor] Scaling up to ${newWidth}x${newHeight} for better OCR`,
+      );
 
       return {
         image: image.resize(newWidth, newHeight, {
@@ -150,14 +149,12 @@ export class ImagePreprocessorService {
   private async removeTableLines(image: sharp.Sharp): Promise<Buffer> {
     try {
       // Clone the image for line removal processing
-      const binarized = await image
-        .threshold(128)
-        .toBuffer();
+      const binarized = await image.threshold(128).toBuffer();
 
       // For line removal, we need to use morphological operations
       // Since sharp doesn't have built-in morphology, we'll use a workaround:
       // Apply a slight blur to merge broken lines, then threshold again
-      
+
       const withoutLines = await sharp(binarized)
         // Light blur to merge broken lines
         .blur(0.5)
@@ -172,7 +169,9 @@ export class ImagePreprocessorService {
       this.logger.debug('[ImagePreprocessor] Table line removal applied');
       return withoutLines;
     } catch (error) {
-      this.logger.warn(`Line removal failed: ${error.message}, using standard version`);
+      this.logger.warn(
+        `Line removal failed: ${error.message}, using standard version`,
+      );
       // Fall back to standard binarization
       return await image.threshold(128).png().toBuffer();
     }
@@ -185,7 +184,9 @@ export class ImagePreprocessorService {
     const results: PreprocessingResult[] = [];
 
     for (let i = 0; i < buffers.length; i++) {
-      this.logger.log(`[ImagePreprocessor] Processing page ${i + 1}/${buffers.length}`);
+      this.logger.log(
+        `[ImagePreprocessor] Processing page ${i + 1}/${buffers.length}`,
+      );
       const result = await this.preprocess(buffers[i]);
       results.push(result);
     }
@@ -200,10 +201,10 @@ export class ImagePreprocessorService {
   async needsPreprocessing(buffer: Buffer): Promise<boolean> {
     try {
       const metadata = await sharp(buffer).metadata();
-      
+
       // Check if already high-res (we'll always preprocess for OCR quality)
       const isHighRes = metadata.width && metadata.width >= this.minDimension;
-      
+
       // Always preprocess images for OCR, even if high-res
       return true;
     } catch {

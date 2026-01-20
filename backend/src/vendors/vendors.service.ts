@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -8,13 +12,18 @@ import { Prisma } from '@prisma/client';
 export class VendorsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(tenantId: string, includeInvoiceCount = false, includeLatestInvoices = false, search?: string) {
+  async findAll(
+    tenantId: string,
+    includeInvoiceCount = false,
+    includeLatestInvoices = false,
+    search?: string,
+  ) {
     const includeClause: any = {};
-    
+
     if (includeInvoiceCount || includeLatestInvoices) {
       includeClause._count = { select: { invoices: true } };
     }
-    
+
     if (includeLatestInvoices) {
       includeClause.invoices = {
         orderBy: { invoiceDate: 'desc' },
@@ -41,7 +50,8 @@ export class VendorsService {
     const vendors = await this.prisma.vendor.findMany({
       where,
       orderBy: { displayOrder: 'asc' },
-      include: Object.keys(includeClause).length > 0 ? includeClause : undefined,
+      include:
+        Object.keys(includeClause).length > 0 ? includeClause : undefined,
     });
 
     return vendors.map((vendor) => {
@@ -63,7 +73,9 @@ export class VendorsService {
         result.latestInvoices = (vendor as any).invoices.map((inv: any) => ({
           ...inv,
           originalAmount: Number(inv.originalAmount),
-          normalizedAmount: inv.normalizedAmount ? Number(inv.normalizedAmount) : null,
+          normalizedAmount: inv.normalizedAmount
+            ? Number(inv.normalizedAmount)
+            : null,
         }));
       }
 

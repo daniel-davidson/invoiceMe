@@ -7,7 +7,7 @@ import type { RequestWithTenant } from '../common/interfaces/request-with-tenant
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('signup')
   async signup(@Body() signupDto: SignupDto) {

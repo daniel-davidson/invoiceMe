@@ -43,7 +43,11 @@ export class ExportController {
     @Query('year') year?: number,
     @Res() res?: Response,
   ) {
-    const csv = await this.exportService.exportAnalytics(tenantId, vendorId, year);
+    const csv = await this.exportService.exportAnalytics(
+      tenantId,
+      vendorId,
+      year,
+    );
 
     const filename = `analytics_${new Date().toISOString().split('T')[0]}.csv`;
 

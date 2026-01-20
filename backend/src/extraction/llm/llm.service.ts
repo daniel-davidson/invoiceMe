@@ -140,19 +140,22 @@ export class LlmService {
       throw new Error('Together API key not configured');
     }
 
-    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      'https://api.together.xyz/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model || 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          max_tokens: 1024,
+        }),
       },
-      body: JSON.stringify({
-        model: this.model || 'meta-llama/Llama-3.2-3B-Instruct-Turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        max_tokens: 1024,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const error = await response.text();

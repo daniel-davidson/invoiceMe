@@ -44,7 +44,10 @@ export class InvoicesController {
         if (allowedMimes.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new Error('Invalid file type. Only PDF, JPEG, PNG allowed.'), false);
+          cb(
+            new Error('Invalid file type. Only PDF, JPEG, PNG allowed.'),
+            false,
+          );
         }
       },
     }),
@@ -61,7 +64,7 @@ export class InvoicesController {
       vendorIdFromDto: dto.vendorId,
       dtoKeys: Object.keys(dto),
     });
-    
+
     return this.invoicesService.upload(tenantId, file, dto.vendorId);
   }
 
@@ -74,10 +77,7 @@ export class InvoicesController {
   }
 
   @Get()
-  async findAll(
-    @Tenant() tenantId: string,
-    @Query() query: InvoiceQueryDto,
-  ) {
+  async findAll(@Tenant() tenantId: string, @Query() query: InvoiceQueryDto) {
     return this.invoicesService.findAll(tenantId, query);
   }
 

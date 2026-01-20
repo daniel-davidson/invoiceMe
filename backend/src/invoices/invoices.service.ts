@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExtractionService } from '../extraction/extraction.service';
 import { StorageService } from '../storage/storage.service';
@@ -15,11 +19,7 @@ export class InvoicesService {
     private storageService: StorageService,
   ) {}
 
-  async upload(
-    tenantId: string,
-    file: Express.Multer.File,
-    vendorId?: string,
-  ) {
+  async upload(tenantId: string, file: Express.Multer.File, vendorId?: string) {
     // Log for debugging
     console.log('[InvoicesService] Upload called with:', {
       tenantId,
@@ -30,7 +30,7 @@ export class InvoicesService {
 
     // Compute file hash for dedupe
     const fileHash = this.computeFileHash(file.buffer);
-    
+
     // Check for duplicate
     const duplicate = await this.checkDuplicate(tenantId, { fileHash });
     if (duplicate.isDuplicate) {
@@ -40,7 +40,7 @@ export class InvoicesService {
         existingInvoice: duplicate.existingInvoice,
       });
     }
-    
+
     // Get user's system currency
     const user = await this.prisma.user.findUnique({
       where: { id: tenantId },
@@ -69,10 +69,10 @@ export class InvoicesService {
       console.log('[InvoicesService] Assigning vendor via explicit vendorId:', {
         vendorId,
       });
-      
+
       await this.prisma.invoice.update({
         where: { id: result.invoice.id },
-        data: { 
+        data: {
           vendorId,
           needsReview: false, // User explicitly assigned, no longer needs review
         },
@@ -85,7 +85,14 @@ export class InvoicesService {
   }
 
   async findAll(tenantId: string, query: InvoiceQueryDto) {
-    const { vendorId, search, startDate, endDate, page = 1, limit = 20 } = query;
+    const {
+      vendorId,
+      search,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 20,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
@@ -101,9 +108,9 @@ export class InvoicesService {
         { vendor: { name: { contains: search, mode: 'insensitive' } } },
         { invoiceNumber: { contains: search, mode: 'insensitive' } },
         // Amount search: convert search to number if possible
-        ...(isNaN(Number(search)) ? [] : [
-          { originalAmount: { equals: Number(search) } },
-        ]),
+        ...(isNaN(Number(search))
+          ? []
+          : [{ originalAmount: { equals: Number(search) } }]),
       ];
     }
 
@@ -116,7 +123,7 @@ export class InvoicesService {
     const [invoices, total] = await Promise.all([
       this.prisma.invoice.findMany({
         where,
-        include: { 
+        include: {
           vendor: { select: { id: true, name: true } },
           items: { orderBy: { displayOrder: 'asc' } },
         },
@@ -171,8 +178,9 @@ export class InvoicesService {
     // Validation: if useItemsTotal=true and items provided, validate total matches
     if (dto.useItemsTotal !== false && dto.items && dto.items.length > 0) {
       const itemsTotal = dto.items.reduce((sum, item) => sum + item.total, 0);
-      const invoiceAmount = dto.originalAmount ?? Number(invoice.originalAmount);
-      
+      const invoiceAmount =
+        dto.originalAmount ?? Number(invoice.originalAmount);
+
       const tolerance = 0.01; // $0.01 tolerance
       if (Math.abs(itemsTotal - invoiceAmount) > tolerance) {
         throw new Error(
@@ -200,11 +208,15 @@ export class InvoicesService {
 
       // Handle items update (full replace)
       if (dto.items !== undefined) {
-        const existingItemIds = invoice.items.map(item => item.id);
-        const providedItemIds = dto.items.filter(item => item.id).map(item => item.id!);
+        const existingItemIds = invoice.items.map((item) => item.id);
+        const providedItemIds = dto.items
+          .filter((item) => item.id)
+          .map((item) => item.id!);
 
         // Delete items not in provided array
-        const itemsToDelete = existingItemIds.filter(id => !providedItemIds.includes(id));
+        const itemsToDelete = existingItemIds.filter(
+          (id) => !providedItemIds.includes(id),
+        );
         if (itemsToDelete.length > 0) {
           await tx.invoiceItem.deleteMany({
             where: { id: { in: itemsToDelete } },
@@ -214,7 +226,7 @@ export class InvoicesService {
         // Update existing items or create new ones
         for (let i = 0; i < dto.items.length; i++) {
           const itemDto = dto.items[i];
-          
+
           if (itemDto.id) {
             // Update existing item
             await tx.invoiceItem.update({

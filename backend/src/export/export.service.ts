@@ -48,11 +48,16 @@ export class ExportService {
       name: invoice.name || '',
       originalAmount: Number(invoice.originalAmount).toFixed(2),
       originalCurrency: invoice.originalCurrency,
-      normalizedAmount: invoice.normalizedAmount ? Number(invoice.normalizedAmount).toFixed(2) : '',
+      normalizedAmount: invoice.normalizedAmount
+        ? Number(invoice.normalizedAmount).toFixed(2)
+        : '',
       invoiceNumber: invoice.invoiceNumber || '',
     }));
 
-    return csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
+    return (
+      csvStringifier.getHeaderString() +
+      csvStringifier.stringifyRecords(records)
+    );
   }
 
   async exportAnalytics(
@@ -80,10 +85,16 @@ export class ExportService {
     });
 
     // Group by month and vendor
-    const monthlyData: Map<string, { month: string; vendor: string; total: number }> = new Map();
+    const monthlyData: Map<
+      string,
+      { month: string; vendor: string; total: number }
+    > = new Map();
 
     for (const invoice of invoices) {
-      const month = invoice.invoiceDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const month = invoice.invoiceDate.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
       const vendorName = invoice.vendor?.name || 'Unassigned'; // v2.0: vendor can be null
       const key = `${month}-${vendorName}`;
       const amount = Number(invoice.normalizedAmount || invoice.originalAmount);
@@ -109,6 +120,9 @@ export class ExportService {
       total: data.total.toFixed(2),
     }));
 
-    return csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(records);
+    return (
+      csvStringifier.getHeaderString() +
+      csvStringifier.stringifyRecords(records)
+    );
   }
 }

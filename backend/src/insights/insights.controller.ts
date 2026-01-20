@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Query,
+  Body,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
 import { InsightsService } from './insights.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantGuard } from '../common/guards/tenant.guard';
@@ -28,10 +38,7 @@ export class InsightsController {
   }
 
   @Post('generate')
-  async generate(
-    @Tenant() tenantId: string,
-    @Body() dto: GenerateInsightsDto,
-  ) {
+  async generate(@Tenant() tenantId: string, @Body() dto: GenerateInsightsDto) {
     return this.insightsService.generate(tenantId, dto.types);
   }
 

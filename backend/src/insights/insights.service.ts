@@ -98,8 +98,11 @@ export class InsightsService {
         break;
     }
 
-    if (!metrics || (Array.isArray(metrics.detected) && metrics.detected.length === 0) ||
-        (Array.isArray(metrics.items) && metrics.items.length === 0)) {
+    if (
+      !metrics ||
+      (Array.isArray(metrics.detected) && metrics.detected.length === 0) ||
+      (Array.isArray(metrics.items) && metrics.items.length === 0)
+    ) {
       return null;
     }
 
@@ -124,8 +127,19 @@ export class InsightsService {
   private async computeMonthlyNarrativeMetrics(tenantId: string) {
     const now = new Date();
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfPreviousMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    const startOfPreviousMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() - 1,
+      1,
+    );
+    const endOfPreviousMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+    );
 
     const [currentResult, previousResult] = await Promise.all([
       this.prisma.invoice.aggregate({
@@ -133,19 +147,32 @@ export class InsightsService {
         _sum: { normalizedAmount: true },
       }),
       this.prisma.invoice.aggregate({
-        where: { tenantId, invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } },
+        where: {
+          tenantId,
+          invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+        },
         _sum: { normalizedAmount: true },
       }),
     ]);
 
-    const currentMonthSpend = this.toNumber(currentResult._sum.normalizedAmount);
-    const previousMonthSpend = this.toNumber(previousResult._sum.normalizedAmount);
-    const changePercent = previousMonthSpend > 0
-      ? ((currentMonthSpend - previousMonthSpend) / previousMonthSpend) * 100
-      : 0;
+    const currentMonthSpend = this.toNumber(
+      currentResult._sum.normalizedAmount,
+    );
+    const previousMonthSpend = this.toNumber(
+      previousResult._sum.normalizedAmount,
+    );
+    const changePercent =
+      previousMonthSpend > 0
+        ? ((currentMonthSpend - previousMonthSpend) / previousMonthSpend) * 100
+        : 0;
 
     // Find top vendor change
-    const topVendorChange = await this.findTopVendorChange(tenantId, startOfCurrentMonth, startOfPreviousMonth, endOfPreviousMonth);
+    const topVendorChange = await this.findTopVendorChange(
+      tenantId,
+      startOfCurrentMonth,
+      startOfPreviousMonth,
+      endOfPreviousMonth,
+    );
 
     return {
       currentMonthSpend,
@@ -169,7 +196,10 @@ export class InsightsService {
 
     const previousByVendor = await this.prisma.invoice.groupBy({
       by: ['vendorId'],
-      where: { tenantId, invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth } },
+      where: {
+        tenantId,
+        invoiceDate: { gte: startOfPreviousMonth, lte: endOfPreviousMonth },
+      },
       _sum: { normalizedAmount: true },
     });
 
@@ -177,9 +207,13 @@ export class InsightsService {
     let topVendorId = '';
 
     for (const current of currentByVendor) {
-      const previous = previousByVendor.find((p) => p.vendorId === current.vendorId);
+      const previous = previousByVendor.find(
+        (p) => p.vendorId === current.vendorId,
+      );
       const currentAmount = this.toNumber(current._sum.normalizedAmount);
-      const previousAmount = previous ? this.toNumber(previous._sum.normalizedAmount) : 0;
+      const previousAmount = previous
+        ? this.toNumber(previous._sum.normalizedAmount)
+        : 0;
       const change = currentAmount - previousAmount;
 
       if (current.vendorId && Math.abs(change) > Math.abs(maxChange)) {
@@ -190,7 +224,9 @@ export class InsightsService {
 
     if (!topVendorId) return null;
 
-    const vendor = await this.prisma.vendor.findUnique({ where: { id: topVendorId } });
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: topVendorId },
+    });
 
     return {
       name: vendor?.name || 'Unknown',
@@ -206,10 +242,14 @@ export class InsightsService {
       orderBy: { invoiceDate: 'desc' },
     });
 
-    const patterns: Map<string, { vendor: string; amount: number; count: number }> = new Map();
+    const patterns: Map<
+      string,
+      { vendor: string; amount: number; count: number }
+    > = new Map();
 
     for (const invoice of invoices) {
-      const amount = Math.round(this.toNumber(invoice.originalAmount) * 100) / 100;
+      const amount =
+        Math.round(this.toNumber(invoice.originalAmount) * 100) / 100;
       const key = `${invoice.vendorId}-${amount}`;
 
       if (patterns.has(key)) {
@@ -229,7 +269,7 @@ export class InsightsService {
         vendor: p.vendor,
         amount: p.amount,
         frequency: 'monthly',
-        confidence: Math.min(0.95, 0.7 + (p.count * 0.05)),
+        confidence: Math.min(0.95, 0.7 + p.count * 0.05),
       }))
       .slice(0, 5);
 
@@ -249,7 +289,8 @@ export class InsightsService {
 
     for (const invoice of invoices) {
       const dateStr = invoice.invoiceDate.toISOString().split('T')[0];
-      const amount = Math.round(this.toNumber(invoice.originalAmount) * 100) / 100;
+      const amount =
+        Math.round(this.toNumber(invoice.originalAmount) * 100) / 100;
       const key = `${invoice.vendorId}-${amount}-${dateStr}`;
 
       if (duplicateMap.has(key)) {
@@ -266,7 +307,9 @@ export class InsightsService {
           category: 'duplicate',
           invoiceIds: ids,
           vendor: invoice?.vendor?.name || 'Unassigned', // v2.0: vendor can be null
-          amount: invoice?.originalAmount ? this.toNumber(invoice.originalAmount) : 0,
+          amount: invoice?.originalAmount
+            ? this.toNumber(invoice.originalAmount)
+            : 0,
           action: 'Review for potential double-charge',
         });
       }
@@ -299,7 +342,10 @@ export class InsightsService {
     return { items: items.slice(0, 10) };
   }
 
-  private async generateNarrative(type: InsightType, metrics: any): Promise<string> {
+  private async generateNarrative(
+    type: InsightType,
+    metrics: any,
+  ): Promise<string> {
     const prompt = `You are a financial analyst. Given the following SQL-computed metrics, generate a brief narrative summary.
 DO NOT recalculate any numbers - use the exact values provided.
 
