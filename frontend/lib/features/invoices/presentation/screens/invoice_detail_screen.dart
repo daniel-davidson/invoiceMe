@@ -113,7 +113,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                   ),
                 ],
                 // Line Items Section
-                if (invoice.lineItems != null && invoice.lineItems!.isNotEmpty) ...[
+                if (invoice.items.isNotEmpty) ...[
                   const SizedBox(height: 32),
                   Text(
                     'Items Purchased',
@@ -170,14 +170,14 @@ class InvoiceDetailScreen extends ConsumerWidget {
                           ),
                         ),
                         // Items
-                        ...invoice.lineItems!.asMap().entries.map<Widget>((entry) {
+                        ...invoice.items.asMap().entries.map<Widget>((entry) {
                           final index = entry.key;
                           final item = entry.value;
                           return Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               border: Border(
-                                bottom: index < invoice.lineItems!.length - 1
+                                bottom: index < invoice.items.length - 1
                                     ? BorderSide(
                                         color: Theme.of(context).dividerColor,
                                       )
@@ -208,12 +208,10 @@ class InvoiceDetailScreen extends ConsumerWidget {
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    item.amount != null
-                                        ? CurrencyFormatter.format(
-                                            item.amount!,
-                                            invoice.originalCurrency,
-                                          )
-                                        : '-',
+                                    CurrencyFormatter.format(
+                                      item.total,
+                                      invoice.originalCurrency,
+                                    ),
                                     textAlign: TextAlign.right,
                                     style: Theme.of(context)
                                         .textTheme
