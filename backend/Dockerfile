@@ -36,10 +36,12 @@ RUN npm run build
 FROM node:18-alpine
 
 # Install runtime dependencies
+# - openssl1.1-compat: Required for Prisma on Alpine
 # - tesseract-ocr: For OCR processing
 # - tesseract-ocr-data-heb: Hebrew language pack
 # - tesseract-ocr-data-eng: English language pack
 RUN apk add --no-cache \
+    openssl1.1-compat \
     tesseract-ocr \
     tesseract-ocr-data-heb \
     tesseract-ocr-data-eng \
