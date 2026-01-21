@@ -72,7 +72,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         });
         return;
       }
-      
+
       // Show error snackbar for other errors
       if (next.error != null) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -84,11 +84,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         );
       }
-      
+
       // CRITICAL: Show post-upload assignment modal when upload completes (ALWAYS per FLOW_CONTRACT §4a)
-      if (next.uploadStage == UploadStage.complete && next.uploadResult != null) {
+      if (next.uploadStage == UploadStage.complete &&
+          next.uploadResult != null) {
         final result = next.uploadResult!;
-        
+
         // Show assignment modal (MANDATORY UX - always shown)
         showDialog(
           context: context,
@@ -120,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             );
           }
-          
+
           // Reset upload state
           ref.read(uploadStateProvider.notifier).state = const UploadState();
         });
@@ -184,11 +185,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // Filter vendors by search query (client-side)
                 final filteredVendors = _searchQuery.isEmpty
                     ? vendors
-                    : vendors.where((v) => v.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+                    : vendors
+                          .where(
+                            (v) => v.name.toLowerCase().contains(
+                              _searchQuery.toLowerCase(),
+                            ),
+                          )
+                          .toList();
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredVendors.length + 2, // +1 for header, +1 for search
+                  itemCount:
+                      filteredVendors.length +
+                      2, // +1 for header, +1 for search
                   itemBuilder: (context, index) {
                     // Search bar
                     if (index == 0) {
@@ -223,7 +232,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             const SizedBox(width: 8),
                             IconButton.filledTonal(
-                              onPressed: () => _showAddVendorDialog(context, ref),
+                              onPressed: () =>
+                                  _showAddVendorDialog(context, ref),
                               icon: const Icon(Icons.add),
                               tooltip: 'Add Business',
                             ),
@@ -245,7 +255,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              filteredVendors.isEmpty ? 'No businesses found' : 'Your Businesses',
+                              filteredVendors.isEmpty
+                                  ? 'No businesses found'
+                                  : 'Your Businesses',
                               style: Theme.of(context).textTheme.headlineMedium,
                             ),
                             TextButton.icon(
@@ -264,7 +276,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         padding: const EdgeInsets.all(32),
                         child: Column(
                           children: [
-                            Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                            Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'No businesses found',
@@ -458,7 +474,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         .deleteVendor(vendor.id);
                   }
                 },
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
               const Spacer(),
               TextButton(
