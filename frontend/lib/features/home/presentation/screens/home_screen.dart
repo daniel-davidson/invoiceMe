@@ -421,57 +421,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           controller: nameController,
           decoration: const InputDecoration(labelText: 'Business Name'),
         ),
+        actionsOverflowButtonSpacing: 8,
         actions: [
-          TextButton(
-            onPressed: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Delete Business?'),
-                  content: const Text(
-                    'This will also delete all related invoices.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+          Row(
+            children: [
+              TextButton(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Delete Business?'),
+                      content: const Text(
+                        'This will also delete all related invoices.',
                       ),
-                      onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text('Delete'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-              if (confirmed == true && context.mounted) {
-                // Close the edit dialog first
-                Navigator.pop(context);
-                // Then delete the vendor
-                await ref
-                    .read(vendorsProvider.notifier)
-                    .deleteVendor(vendor.id);
-              }
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty) {
-                await ref
-                    .read(vendorsProvider.notifier)
-                    .updateVendor(vendor.id, nameController.text);
-                if (context.mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
+                  );
+                  if (confirmed == true && context.mounted) {
+                    // Close the edit dialog first
+                    Navigator.pop(context);
+                    // Then delete the vendor
+                    await ref
+                        .read(vendorsProvider.notifier)
+                        .deleteVendor(vendor.id);
+                  }
+                },
+                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.isNotEmpty) {
+                    await ref
+                        .read(vendorsProvider.notifier)
+                        .updateVendor(vendor.id, nameController.text);
+                    if (context.mounted) Navigator.pop(context);
+                  }
+                },
+                child: const Text('Save'),
+              ),
+            ],
           ),
         ],
       ),
