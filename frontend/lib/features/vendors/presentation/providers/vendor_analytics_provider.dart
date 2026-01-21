@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/utils/export_utils.dart';
+import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class VendorKpis {
@@ -250,7 +252,29 @@ class VendorAnalyticsNotifier
   }
 
   Future<String> exportCsv() async {
-    // T072-ALT: Export feature deferred to future release
-    return 'Export feature coming soon';
+    try {
+      // Fetch invoices for this vendor
+      final response = await _apiClient.get('/invoices?vendorId=$_vendorId');
+      final data = response.data['data'] as List<dynamic>;
+      final invoices = data
+          .map((json) => Invoice.fromJson(json as Map<String, dynamic>))
+          .toList();
+      
+      if (invoices.isEmpty) {
+        return 'No invoices to export for this business';
+      }
+      
+      // Get vendor name from current state
+      final vendorName = state.asData?.value?.vendorName ?? 'business';
+      
+      // Generate and download CSV
+      final csvContent = ExportUtils.generateInvoicesCsv(invoices);
+      final filename = ExportUtils.generateFilename('invoices', businessName: vendorName);
+      ExportUtils.downloadCsv(csvContent, filename);
+      
+      return 'CSV exported successfully';
+    } catch (e) {
+      return 'Export failed: ${e.toString()}';
+    }
   }
 }

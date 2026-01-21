@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 import 'package:frontend/features/vendors/presentation/providers/vendor_analytics_provider.dart';
+import 'package:frontend/core/utils/export_utils.dart';
+import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
 
 class OverallKpis {
   final double totalSpend;
@@ -130,7 +132,26 @@ class OverallAnalyticsNotifier
   }
 
   Future<String> exportCsv() async {
-    // T073-ALT: Export feature deferred to future release
-    return 'Export feature coming soon';
+    try {
+      // Fetch all invoices
+      final response = await _apiClient.get('/invoices');
+      final data = response.data['data'] as List<dynamic>;
+      final invoices = data
+          .map((json) => Invoice.fromJson(json as Map<String, dynamic>))
+          .toList();
+      
+      if (invoices.isEmpty) {
+        return 'No invoices to export';
+      }
+      
+      // Generate and download CSV
+      final csvContent = ExportUtils.generateInvoicesCsv(invoices);
+      final filename = ExportUtils.generateFilename('all_invoices');
+      ExportUtils.downloadCsv(csvContent, filename);
+      
+      return 'CSV exported successfully';
+    } catch (e) {
+      return 'Export failed: ${e.toString()}';
+    }
   }
 }

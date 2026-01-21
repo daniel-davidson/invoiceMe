@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
+import 'package:frontend/core/utils/export_utils.dart';
 
 class LineItem {
   final String? id; // UUID for existing items, null for new items
@@ -247,10 +248,21 @@ class InvoicesNotifier extends StateNotifier<AsyncValue<List<Invoice>>> {
 
   Future<void> exportCsv() async {
     try {
+      // Get current invoices from state
+      final invoices = state.asData?.value ?? [];
+      if (invoices.isEmpty) {
+        throw Exception('No invoices to export');
+      }
+      
+      // Generate CSV
+      final csvContent = ExportUtils.generateInvoicesCsv(invoices);
+      final filename = ExportUtils.generateFilename('invoices');
+      
       // Download CSV
-      await _apiClient.download('/export/invoices');
+      ExportUtils.downloadCsv(csvContent, filename);
     } catch (e) {
-      // Handle error
+      // Re-throw to allow UI to handle
+      rethrow;
     }
   }
 }

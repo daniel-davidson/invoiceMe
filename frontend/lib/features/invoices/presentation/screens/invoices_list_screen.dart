@@ -47,7 +47,30 @@ class _InvoicesListScreenState extends ConsumerState<InvoicesListScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.download),
-            onPressed: () => ref.read(invoicesProvider.notifier).exportCsv(),
+            onPressed: () async {
+              try {
+                await ref.read(invoicesProvider.notifier).exportCsv();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('CSV exported successfully'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 5),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Export failed: ${e.toString()}'),
+                      backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
+                    ),
+                  );
+                }
+              }
+            },
             tooltip: 'Export CSV',
           ),
         ],
