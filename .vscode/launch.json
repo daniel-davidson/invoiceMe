@@ -5,57 +5,51 @@
       "name": "Flutter: Debug (Chrome)",
       "type": "dart",
       "request": "launch",
-      "program": "frontend/lib/main.dart",
-      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/frontend",
       "args": [
         "--web-renderer",
         "html",
         "-d",
-        "chrome"
-      ],
-      "env": {
-        "API_URL": "http://localhost:3000"
-      }
+        "chrome",
+        "--dart-define=API_URL=http://localhost:3000"
+      ]
     },
     {
       "name": "Flutter: Debug (Edge)",
       "type": "dart",
       "request": "launch",
-      "program": "frontend/lib/main.dart",
-      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/frontend",
       "args": [
         "--web-renderer",
         "html",
         "-d",
-        "edge"
-      ],
-      "env": {
-        "API_URL": "http://localhost:3000"
-      }
+        "edge",
+        "--dart-define=API_URL=http://localhost:3000"
+      ]
     },
     {
       "name": "Flutter: Profile Mode",
       "type": "dart",
       "request": "launch",
-      "program": "frontend/lib/main.dart",
-      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/frontend",
       "flutterMode": "profile",
       "args": [
         "--web-renderer",
         "html",
         "-d",
-        "chrome"
-      ],
-      "env": {
-        "API_URL": "http://localhost:3000"
-      }
+        "chrome",
+        "--dart-define=API_URL=http://localhost:3000"
+      ]
     },
     {
       "name": "Flutter: Release Mode (Local Backend)",
       "type": "dart",
       "request": "launch",
-      "program": "frontend/lib/main.dart",
-      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/frontend",
       "flutterMode": "release",
       "args": [
         "--web-renderer",
@@ -69,8 +63,8 @@
       "name": "Flutter: Release Mode (Production Backend)",
       "type": "dart",
       "request": "launch",
-      "program": "frontend/lib/main.dart",
-      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}/frontend",
       "flutterMode": "release",
       "args": [
         "--web-renderer",
@@ -122,7 +116,8 @@
       ],
       "presentation": {
         "order": 1
-      }
+      },
+      "stopAll": true
     },
     {
       "name": "Full Stack: Release",
@@ -132,7 +127,8 @@
       ],
       "presentation": {
         "order": 2
-      }
+      },
+      "stopAll": true
     }
   ]
 }
