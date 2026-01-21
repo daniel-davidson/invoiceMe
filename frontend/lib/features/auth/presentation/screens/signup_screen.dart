@@ -5,6 +5,7 @@ import 'package:currency_picker/currency_picker.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 import 'package:frontend/shared/widgets/loading_indicator.dart';
 import 'package:frontend/core/utils/responsive.dart';
+import 'package:frontend/core/constants/validation_constants.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -161,8 +162,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a password';
                       }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
+                      if (value.length < minPasswordLength) {
+                        return passwordRequirementMessage;
                       }
                       return null;
                     },
