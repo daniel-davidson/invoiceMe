@@ -230,9 +230,15 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
     }
   }
 
-  Future<void> updateVendor(String id, String name) async {
+  Future<void> updateVendor(String id, String name, {double? monthlyLimit}) async {
     try {
-      await _apiClient.patch('/vendors/$id', data: {'name': name});
+      await _apiClient.patch(
+        '/vendors/$id',
+        data: {
+          'name': name,
+          if (monthlyLimit != null) 'monthlyLimit': monthlyLimit,
+        },
+      );
       await loadVendors();
     } catch (e) {
       // Handle error

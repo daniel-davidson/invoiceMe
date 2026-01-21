@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/home/presentation/widgets/vendor_card.dart';
 import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
@@ -545,11 +544,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           );
                       if (context.mounted) Navigator.pop(context);
                     }
-                  }
-                },
-                        .read(vendorsProvider.notifier)
-                        .updateVendor(vendor.id, nameController.text);
-                    if (context.mounted) Navigator.pop(context);
                   }
                 },
                 child: const Text('Save'),
