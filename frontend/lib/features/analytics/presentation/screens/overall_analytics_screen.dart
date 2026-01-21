@@ -45,6 +45,28 @@ class OverallAnalyticsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Demo resources message (if no invoices)
+                if (analytics.kpis.invoiceCount == 0)
+                  Card(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade700),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Using demo resources - loading may be slower. Upload your first invoice to see real analytics.',
+                              style: TextStyle(color: Colors.blue.shade700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (analytics.kpis.invoiceCount == 0) const SizedBox(height: 16),
+                
                 // Balance Card
                 Card(
                   color: analytics.kpis.remainingBalance >= 0

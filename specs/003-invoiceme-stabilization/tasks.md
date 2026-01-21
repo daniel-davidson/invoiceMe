@@ -604,7 +604,7 @@ cd frontend && flutter analyze
 
 ### I17: Add Analytics Loading Message (Demo Resources)
 
-- [ ] **I17**: Show message explaining slow loading due to demo resources when analytics screen has 0 invoices
+- [x] **I17**: Show message explaining slow loading due to demo resources when analytics screen has 0 invoices
 
 **What to Change**:
 - In `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`:
