@@ -22,7 +22,7 @@ This task list contains EXACTLY 20 tasks (I01-I20) mapping 1:1 to the 20 scope i
 
 ### I01: Fix App Background Color
 
-- [ ] **I01**: Set Flutter theme to always use light mode regardless of system settings
+- [x] **I01**: Set Flutter theme to always use light mode regardless of system settings
 
 **What to Change**:
 - Update `frontend/lib/main.dart`
