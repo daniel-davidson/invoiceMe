@@ -652,7 +652,7 @@ cd frontend && flutter analyze
 
 ### I18: Add Loading Indicators to All Dialogs
 
-- [ ] **I18**: Show immediate loading feedback in all add/edit/delete dialogs during save operations
+- [x] **I18**: Show immediate loading feedback in all add/edit/delete dialogs during save operations
 
 **What to Change**:
 - For each dialog in the following files, wrap in `Consumer` widget and add loading states:
