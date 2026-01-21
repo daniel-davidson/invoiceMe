@@ -45,6 +45,43 @@ class OverallAnalyticsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Demo data banner (show when no invoices)
+                if (analytics.kpis.invoiceCount == 0)
+                  Card(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade700),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Using demo resources',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Colors.blue.shade700,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Upload your first invoice to see real analytics',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (analytics.kpis.invoiceCount == 0)
+                  const SizedBox(height: 16),
                 // Balance Card
                 Card(
                   color: analytics.kpis.remainingBalance >= 0
