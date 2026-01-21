@@ -714,7 +714,7 @@ cd frontend && flutter analyze
 
 ### I19: Improve AI Insights Copy (Plain Language)
 
-- [ ] **I19**: Make AI insights screen show 3-5 plain language sentences instead of JSON or technical language
+- [x] **I19**: Make AI insights screen show 3-5 plain language sentences instead of JSON or technical language
 
 **What to Change**:
 - Update `frontend/lib/features/insights/presentation/screens/insights_screen.dart`:
