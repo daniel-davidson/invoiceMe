@@ -432,7 +432,7 @@ cd frontend && flutter analyze
 
 ### I13: Implement CSV Export Functionality
 
-- [ ] **I13**: Implement working CSV export from invoices and analytics screens
+- [x] **I13**: Implement working CSV export from invoices and analytics screens
 
 **What to Change**:
 - Add to `frontend/pubspec.yaml`: `csv: ^6.0.0`
