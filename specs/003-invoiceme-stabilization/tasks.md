@@ -50,7 +50,7 @@ cd frontend && flutter build web
 
 ### I02: Fix Responsive Layout (Mobile)
 
-- [ ] **I02**: Make all UI elements responsive - no overflow on mobile, charts fit screen with visible axes
+- [x] **I02**: Make all UI elements responsive - no overflow on mobile, charts fit screen with visible axes
 
 **What to Change**:
 - Wrap all charts in `LayoutBuilder` for dynamic sizing
@@ -312,7 +312,7 @@ cd frontend && flutter analyze
 
 ### I10: Fix Line Items Edit Behavior
 
-- [ ] **I10**: Make line items edit consistent with other invoice field edit patterns
+- [x] **I10**: Make line items edit consistent with other invoice field edit patterns
 
 **What to Change**:
 - In `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`:
@@ -385,7 +385,7 @@ cd frontend && flutter analyze
 
 ### I12: Fix Mobile Dialog Positioning (Keyboard-Safe)
 
-- [ ] **I12**: Make dialogs keyboard-safe on mobile - stay accessible when keyboard appears
+- [x] **I12**: Make dialogs keyboard-safe on mobile - stay accessible when keyboard appears
 
 **What to Change**:
 - Update all dialogs to wrap content in `SingleChildScrollView`:
@@ -748,7 +748,7 @@ cd backend && npm run build  # If backend changed
 
 ### I20: Make Charts Responsive with Visible Axes
 
-- [ ] **I20**: Ensure all line charts are responsive with visible X and Y axes at all screen sizes
+- [x] **I20**: Ensure all line charts are responsive with visible X and Y axes at all screen sizes
 
 **What to Change**:
 - For all chart screens, wrap charts in `LayoutBuilder` and configure axes:
