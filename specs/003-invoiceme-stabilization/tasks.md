@@ -343,7 +343,7 @@ cd frontend && flutter analyze
 
 ### I11: Fix Profile Settings (Name + Currency)
 
-- [ ] **I11**: Fix profile settings functionality - make name and currency changes work end-to-end
+- [x] **I11**: Fix profile settings functionality - make name and currency changes work end-to-end
 
 **What to Change**:
 - Update `frontend/lib/features/settings/presentation/screens/settings_screen.dart`:
@@ -522,7 +522,7 @@ cd frontend && flutter analyze
 
 ### I15: Validate Currency Change Propagation
 
-- [ ] **I15**: Ensure currency changes immediately propagate to all displays (analytics, invoices, charts)
+- [x] **I15**: Ensure currency changes immediately propagate to all displays (analytics, invoices, charts)
 
 **What to Change**:
 - In `frontend/lib/features/settings/presentation/providers/settings_provider.dart`:
