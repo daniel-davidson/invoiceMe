@@ -129,29 +129,81 @@ class SettingsScreen extends ConsumerWidget {
 
   void _showEditNameDialog(BuildContext context, WidgetRef ref, String currentName) {
     final controller = TextEditingController(text: currentName);
+    final settingsState = ref.watch(settingsProvider);
+    final isLoading = settingsState.isLoading;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Name'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Full Name'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              ref.read(settingsProvider.notifier).updateName(controller.text);
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      barrierDismissible: !isLoading,
+      builder: (dialogContext) => Consumer(
+        builder: (context, ref, child) {
+          final settingsState = ref.watch(settingsProvider);
+          final isLoading = settingsState.isLoading;
+
+          // Listen for success/error
+          ref.listen(settingsProvider, (previous, next) {
+            next.whenOrNull(
+              data: (_) {
+                if (previous?.isLoading == true) {
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Name updated successfully'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 5),
+                    ),
+                  );
+                }
+              },
+              error: (error, _) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${error.toString()}'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 5),
+                    action: SnackBarAction(
+                      label: 'Retry',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        ref.read(settingsProvider.notifier).updateName(controller.text);
+                      },
+                    ),
+                  ),
+                );
+              },
+            );
+          });
+
+          return AlertDialog(
+            title: const Text('Edit Name'),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: 'Full Name'),
+              autofocus: true,
+              enabled: !isLoading,
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () {
+                        ref.read(settingsProvider.notifier).updateName(controller.text);
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -163,8 +215,36 @@ class SettingsScreen extends ConsumerWidget {
       showCurrencyName: true,
       showCurrencyCode: true,
       favorite: ['USD', 'EUR', 'ILS', 'GBP'],
-      onSelect: (Currency currency) {
-        ref.read(settingsProvider.notifier).updateCurrency(currency.code);
+      onSelect: (Currency currency) async {
+        try {
+          await ref.read(settingsProvider.notifier).updateCurrency(currency.code);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Currency updated successfully'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: ${e.toString()}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+                action: SnackBarAction(
+                  label: 'Retry',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    _showCurrencyPicker(context, ref);
+                  },
+                ),
+              ),
+            );
+          }
+        }
       },
     );
   }

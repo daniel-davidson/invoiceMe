@@ -23,6 +23,7 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow; // Re-throw to allow UI to handle
     }
   }
 
@@ -30,9 +31,12 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _apiClient.patch('/users/me', data: {'systemCurrency': currencyCode});
+      // Invalidate auth state to trigger a re-fetch of user data
+      _ref.invalidate(authStateProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow; // Re-throw to allow UI to handle
     }
   }
 }
