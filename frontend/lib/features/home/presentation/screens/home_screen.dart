@@ -339,13 +339,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           )
                         : const Icon(Icons.upload),
                     label: Text(
-                      uploadState.isUploading ? 'Uploading...' : 'Upload Invoice',
+                      uploadState.isUploading
+                          ? 'Uploading...'
+                          : 'Upload Invoice',
                     ),
                   )
                 : null,
             orElse: () => null,
           ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerFloat,
         ),
         // Upload overlay with stage-based progress
         if (uploadState.isUploading)
@@ -391,18 +394,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _showAddVendorDialog(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
+    final monthlyLimitController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add Business'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(
-            labelText: 'Business Name',
-            hintText: 'e.g. Google, IKEA, Cellcom',
-          ),
-          autofocus: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Business Name',
+                hintText: 'e.g. Google, IKEA, Cellcom',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: monthlyLimitController,
+              decoration: const InputDecoration(
+                labelText: 'Monthly Limit',
+                hintText: 'e.g. 5000',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -411,11 +429,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.isNotEmpty) {
-                await ref
-                    .read(vendorsProvider.notifier)
-                    .addVendor(nameController.text);
-                if (context.mounted) Navigator.pop(context);
+              if (nameController.text.isNotEmpty && 
+                  monthlyLimitController.text.isNotEmpty) {
+                final limit = double.tryParse(monthlyLimitController.text);
+                if (limit != null && limit > 0) {
+                  await ref
+                      .read(vendorsProvider.notifier)
+                      .addVendor(
+                        nameController.text,
+                        monthlyLimit: limit,
+                      );
+                  if (context.mounted) Navigator.pop(context);
+                }
               }
             },
             child: const Text('Add'),
@@ -431,14 +456,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     dynamic vendor,
   ) {
     final nameController = TextEditingController(text: vendor.name);
+    final monthlyLimitController = TextEditingController(
+      text: vendor.monthlyLimit?.toString() ?? '',
+    );
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Business'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(labelText: 'Business Name'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Business Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: monthlyLimitController,
+              decoration: const InputDecoration(
+                labelText: 'Monthly Limit',
+                hintText: 'e.g. 5000',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
         ),
         actionsOverflowButtonSpacing: 8,
         actions: [
@@ -490,8 +532,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () async {
-                  if (nameController.text.isNotEmpty) {
-                    await ref
+                  if (nameController.text.isNotEmpty &&
+                      monthlyLimitController.text.isNotEmpty) {
+                    final limit = double.tryParse(monthlyLimitController.text);
+                    if (limit != null && limit > 0) {
+                      await ref
+                          .read(vendorsProvider.notifier)
+                          .updateVendor(
+                            vendor.id,
+                            nameController.text,
+                            monthlyLimit: limit,
+                          );
+                      if (context.mounted) Navigator.pop(context);
+                    }
+                  }
+                },
                         .read(vendorsProvider.notifier)
                         .updateVendor(vendor.id, nameController.text);
                     if (context.mounted) Navigator.pop(context);

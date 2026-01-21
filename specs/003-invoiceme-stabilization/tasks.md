@@ -194,7 +194,7 @@ cd frontend && flutter analyze
 
 ### I06: Add Monthly Limit to Business Dialog
 
-- [ ] **I06**: Add monthly limit input field to add/edit business dialogs with validation
+- [x] **I06**: Add monthly limit input field to add/edit business dialogs with validation
 
 **What to Change**:
 - In `frontend/lib/features/home/presentation/screens/home_screen.dart`:
