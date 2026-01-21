@@ -1,1 +1,1 @@
-specs/002-invoiceme-mvp
+specs/003-invoiceme-stabilization
