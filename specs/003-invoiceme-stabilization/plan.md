@@ -1,565 +1,1137 @@
-# Implementation Plan: InvoiceMe Stabilization
+# Implementation Plan: 003-invoiceme-stabilization
 
-**Branch**: `003-invoiceme-stabilization` | **Date**: 2026-01-21 | **Spec**: [spec.md](./spec.md)  
-**Input**: Feature specification from `/specs/003-invoiceme-stabilization/spec.md`
+**Feature**: InvoiceMe Stabilization (20 Items)  
+**Branch**: `003-invoiceme-stabilization`  
+**Created**: 2026-01-21  
+**Type**: Bug Fixes & UX Improvements
 
-**Note**: This plan documents the stabilization work already completed. It serves as both implementation reference and historical record.
+---
 
-## Summary
+## Executive Summary
 
-This stabilization iteration addressed 9 critical issues blocking production deployment and developer productivity. The work focused on fixing widget layout errors, responsive web issues, Docker deployment failures, CI/CD pipeline problems, and developer tooling configuration. All fixes have been implemented, tested, and deployed successfully.
+This plan details the implementation strategy for fixing 20 specific issues in the InvoiceMe MVP. The work is organized into 3 priority phases (P0, P1, P2) with strict execution order to minimize regressions.
+
+**Critical Rule**: **DO NOT redesign the app**. Only adjust UI/UX to match SCOPE_LOCK.md. No flow changes, no new screens, no architectural changes.
+
+**Source of Truth**: [SCOPE_LOCK.md](./SCOPE_LOCK.md)
+
+---
 
 ## Technical Context
 
-**Languages/Versions**:
-- Flutter/Dart: 3.38.6 (Dart SDK 3.10.7+)
-- Node.js: 18.x
-- TypeScript: 5.x (strict mode)
+### Stack
+- **Frontend**: Flutter 3.10.7+ (Web + Mobile)
+- **State Management**: Riverpod (class-based notifiers)
+- **Backend**: NestJS + TypeScript
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Architecture**: Clean Architecture (presentation/domain/data)
 
-**Primary Dependencies**:
-- **Frontend**: Flutter Web, Riverpod, go_router, Supabase Flutter SDK
-- **Backend**: NestJS, Prisma, Tesseract.js, Groq SDK
-- **Infrastructure**: Docker, GitHub Actions, Render, Cloudflare Pages
-
-**Storage**: 
-- PostgreSQL (Supabase-hosted)
-- Local file system (uploads directory)
-
-**Testing**: 
-- Frontend: Flutter analyzer, manual testing
-- Backend: TypeScript compiler, Docker build validation
-- Integration: Production deployment testing
-
-**Target Platform**: 
-- Web (Chrome, Edge, Firefox, Safari)
-- Backend: Linux containers (Debian-based)
-
-**Project Type**: Web application (frontend + backend monorepo)
-
-**Performance Goals**:
-- Hot reload: < 2 seconds
-- App startup: < 10 seconds in debug mode
-- Deployment: 100% success rate for valid code
-
-**Constraints**:
-- No breaking changes to existing functionality
-- Must maintain compatibility with 002-invoiceme-mvp
-- All fixes must be production-safe
-
-**Scale/Scope**:
-- 9 specific bugs/issues
-- 5 user stories (P1-P3)
-- 6 files modified (frontend, backend, CI/CD)
-
-## Constitution Check
-
-*GATE: This is a stabilization/maintenance iteration, not new feature development*
-
-**Constitution Status**: N/A - Constitution template is placeholder-only
-
-**Note**: The project's constitution file (`.specify/memory/constitution.md`) contains only template placeholders and has not been customized for this project. For future feature development, the constitution should be populated with project-specific principles such as:
-- Multi-tenancy enforcement (all DB queries must filter by tenantId)
-- OCR quality standards
-- API contract stability
-- Testing requirements
-
-For this stabilization work:
-- ✅ No architectural changes introduced
-- ✅ All fixes maintain existing patterns
-- ✅ No new dependencies added
-- ✅ Backward compatible with 002-invoiceme-mvp
-
-## Project Structure
-
-### Documentation (this feature)
-
-```text
-specs/003-invoiceme-stabilization/
-├── spec.md              # Feature specification (user stories, requirements)
-├── PRD.md               # Product requirements document
-├── DECISIONS.md         # 10 technical decisions documented
-├── README.md            # Quick navigation and overview
-├── SUMMARY.md           # Executive summary
-├── checklists/
-│   └── requirements.md  # Specification quality checklist
-└── plan.md              # This file (implementation plan)
+### Existing Codebase Structure
 ```
-
-**Note**: Since all work is complete, `research.md`, `data-model.md`, `quickstart.md`, and `contracts/` are not needed. The stabilization work did not introduce new entities, APIs, or require technical research beyond debugging.
-
-### Source Code (repository root)
-
-```text
-backend/
-├── src/
-│   ├── extraction/
-│   │   └── llm/
-│   │       └── groq.service.ts        # Fixed: TypeScript null safety
-│   ├── [other NestJS modules]
-│   └── main.ts
-├── dist/
-│   └── src/
-│       └── main.js                     # Entry point (fixed path)
-├── Dockerfile                          # Fixed: base image, libssl, entry point
-├── package.json                        # Fixed: start:prod script
-└── prisma/
-
 frontend/
-├── lib/
-│   ├── features/
-│   │   └── home/
-│   │       └── presentation/
-│   │           └── screens/
-│   │               └── home_screen.dart  # Fixed: dialog layout
-│   ├── [other Flutter modules]
-│   └── main.dart
-├── web/
-│   └── index.html                      # Fixed: viewport meta tag
-├── pubspec.yaml
-└── test/
-
-.github/
-└── workflows/
-    └── deploy-frontend.yml             # Fixed: Flutter version, permissions
-
-.vscode/                                # Created then deleted by user
-└── [launch configurations]             # Fixed: paths, working directories
-
-specs/
-├── 001-invoiceme-mvp/
-├── 002-invoiceme-mvp/                  # Parent spec
-├── 003-invoiceme-stabilization/        # This spec
-└── ACTIVE_SPEC.txt                     # Points to 003
+  lib/
+    core/
+      constants/         # New: validation_constants.dart
+      utils/             # New: export_utils.dart
+      theme/
+    features/
+      auth/
+        presentation/
+          screens/       # signup_screen.dart, login_screen.dart
+      home/
+        presentation/
+          screens/       # home_screen.dart (main focus)
+          widgets/       # empty_state.dart
+          providers/     # home_provider.dart
+      invoices/
+        presentation/
+          screens/       # invoice_detail_screen.dart, invoices_list_screen.dart
+          providers/     # invoices_provider.dart
+      vendors/
+        presentation/
+          screens/       # vendor_analytics_screen.dart
+          providers/     # vendor_analytics_provider.dart
+      analytics/
+        presentation/
+          screens/       # overall_analytics_screen.dart
+          providers/     # overall_analytics_provider.dart
+      insights/
+        presentation/
+          screens/       # insights_screen.dart
+      settings/
+        presentation/
+          screens/       # settings_screen.dart
+          providers/     # settings_provider.dart
+    shared/
+      utils/             # New: snackbar_utils.dart
+    main.dart
 ```
 
-**Structure Decision**: Existing web application structure (backend + frontend) maintained. All fixes integrated into existing files without restructuring.
-
-## Complexity Tracking
-
-> **No complexity violations** - This is a maintenance iteration within existing architecture
-
-| Aspect | Status | Notes |
-|--------|--------|-------|
-| Architecture Changes | None | All fixes within existing patterns |
-| New Dependencies | None | Used existing tools and libraries |
-| Breaking Changes | None | All fixes backward compatible |
-| Scope Creep | Prevented | Strictly bug fixes, no new features |
+### Key Constraints
+- **No Backend Schema Changes**: All fixes must work with existing API contracts
+- **No Flow Changes**: Navigation stays identical
+- **No New Packages**: Except `csv: ^6.0.0` for export functionality
+- **Responsive Breakpoints**:
+  - Mobile: < 768px (test at 375px)
+  - Tablet: 768px - 1024px
+  - Desktop: > 1024px (test at 1440px)
 
 ---
 
-## Phase 0: Research & Analysis (Completed)
+## Item Classification
 
-**Purpose**: Identify root causes of each issue through debugging and investigation
+### Frontend-Only (15 items)
+- I01: App background color
+- I02: Responsive layout
+- I03: Password validation
+- I04: Snackbar auto-dismiss
+- I05: Home empty state
+- I07: Home with businesses
+- I08: App bar icons
+- I09: Remove view file button
+- I10: Line items edit
+- I12: Mobile dialog positioning
+- I13: Export functionality (CSV generation)
+- I14: Fix type error
+- I16: File size validation
+- I17: Analytics loading message
+- I20: Charts responsive
 
-### Issues Investigated
+### Full-Stack (5 items)
+- I06: Monthly limit field (requires backend if field missing)
+- I11: Profile settings (name + currency API calls)
+- I15: Currency validation (provider invalidation + API)
+- I18: Dialog loading (UI + API integration)
+- I19: AI insights (frontend display + backend prompt)
 
-1. **ParentDataWidget Error**
-   - **Investigation**: Examined Flutter widget tree error stack traces
-   - **Root Cause**: `Spacer` (which is `Expanded`) placed directly in `AlertDialog.actions`
-   - **Finding**: Dialog actions use `OverflowBar` which doesn't support `Flex` parent data
-   - **Solution**: Wrap actions in `Row` widget to provide proper parent
-
-2. **Responsive Layout Issues**
-   - **Investigation**: Compared development vs production rendering
-   - **Root Cause**: Missing viewport meta tag in `index.html`
-   - **Finding**: Flutter web uses physical pixels without viewport configuration
-   - **Solution**: Add standard viewport meta tag with device-width
-
-3. **Launch Configuration Failures**
-   - **Investigation**: Analyzed VS Code/Cursor debugger errors
-   - **Root Cause**: Incorrect relative paths and working directories
-   - **Finding**: Dart extension expects paths relative to `cwd`, not workspace root
-   - **Solution**: Fix paths and use `${workspaceFolder}` variables
-
-4. **Backend Deployment Failures**
-   - **Investigation**: Examined Render build logs and Prisma errors
-   - **Root Causes**: 
-     - Alpine Linux musl incompatibility with native modules
-     - Missing libssl library
-     - Incorrect entry point path
-   - **Solutions**:
-     - Switch to Debian-based image (`node:18-slim`)
-     - Install openssl via apt-get
-     - Fix paths in package.json and Dockerfile
-
-5. **Frontend Deployment Failures**
-   - **Investigation**: Reviewed GitHub Actions logs
-   - **Root Causes**:
-     - Flutter version mismatch (3.19.0 vs required 3.38.6)
-     - Missing GitHub permissions for deployments
-     - Cloudflare project not created
-   - **Solutions**:
-     - Update Flutter version in workflow
-     - Add explicit permissions
-     - Document Cloudflare project setup
-
-6. **TypeScript Errors**
-   - **Investigation**: Ran `tsc` with strict mode
-   - **Root Cause**: Potential undefined access in error handling
-   - **Solution**: Add explicit undefined checks
-
-**Research Output**: All root causes identified, solutions validated through testing
+### Backend-Only (0 items)
+- None
 
 ---
 
-## Phase 1: Implementation & Fixes (Completed)
+## Phase 0: Research & Prerequisites
 
-**Purpose**: Apply fixes to resolve all identified issues
+### 0.1 Technical Decisions
 
-### Fix 1: Dialog Layout (P1 - Critical)
+#### Decision 1: Snackbar Implementation Strategy
+**Choice**: Create `SnackbarUtils` singleton with standard methods
 
-**Files Modified**:
-- `frontend/lib/features/home/presentation/screens/home_screen.dart`
+**Rationale**:
+- Centralized snackbar behavior across all screens
+- Consistent 5-second auto-dismiss with manual dismiss options
+- Uses `SnackBarBehavior.floating` for tap-outside dismiss
+- Swipe gesture support built into Flutter SnackBar
 
-**Changes**:
+**Implementation**:
 ```dart
-// Before: Spacer directly in actions
-actions: [
-  TextButton(...),  // Delete
-  const Spacer(),   // ❌ Causes error
-  TextButton(...),  // Cancel
-  ElevatedButton(...), // Save
-]
+// frontend/lib/shared/utils/snackbar_utils.dart
+class SnackbarUtils {
+  static void showSuccess(BuildContext context, String message, {
+    Duration duration = const Duration(seconds: 5),
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: duration,
+        behavior: SnackBarBehavior.floating,
+        dismissDirection: DismissDirection.horizontal,
+        action: SnackBarAction(
+          label: 'Dismiss',
+          textColor: Colors.white,
+          onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+        ),
+      ),
+    );
+  }
+  // Similar for showError(), showInfo()
+}
+```
 
-// After: Wrap in Row
-actions: [
-  Row(
-    children: [
-      TextButton(...),     // Delete (left)
-      const Spacer(),      // ✅ Works in Row
-      TextButton(...),     // Cancel (right)
-      const SizedBox(width: 8),
-      ElevatedButton(...), // Save (right)
-    ],
+**Alternatives Considered**:
+- Custom overlay widget → Rejected (more complex, reinvents wheel)
+- Third-party package (flushbar) → Rejected (no new dependencies)
+
+---
+
+#### Decision 2: Mobile Dialog Positioning Strategy
+**Choice**: Wrap dialog content in `SingleChildScrollView` with `shrinkWrap: true`
+
+**Rationale**:
+- Dialogs remain accessible when keyboard appears
+- Content scrollable without dialog jumping too high
+- Native behavior preserved (keyboard dismisses on tap outside)
+
+**Implementation**:
+```dart
+AlertDialog(
+  title: const Text('Edit Business'),
+  content: SingleChildScrollView(
+    shrinkWrap: true,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(/* ... */),
+        // ... other fields
+      ],
+    ),
   ),
-]
+  actions: [/* buttons */],
+)
 ```
 
-**Validation**:
-- ✅ Dialog opens without ParentDataWidget error
-- ✅ Buttons positioned correctly
-- ✅ All buttons functional
+**Why It Works**:
+- `shrinkWrap: true` prevents dialog from expanding unnecessarily
+- `mainAxisSize: MainAxisSize.min` keeps content compact
+- Scrollable content ensures buttons always accessible via scroll
+
+**Alternatives Considered**:
+- `Positioned` widget → Rejected (doesn't work well with keyboard)
+- Custom dialog positioning → Rejected (too complex, non-standard)
 
 ---
 
-### Fix 2: Responsive Web Layout (P1 - Critical)
+#### Decision 3: Responsive Layout Strategy
+**Choice**: Combination of `LayoutBuilder` + `MediaQuery` + `Flexible`/`Expanded`
 
-**Files Modified**:
-- `frontend/web/index.html`
+**Breakpoints**:
+- Mobile: < 768px (test at 375px width)
+- Tablet: 768px - 1024px (test at 768px)
+- Desktop: > 1024px (test at 1440px)
 
-**Changes**:
-```html
-<!-- Added viewport meta tag -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-```
+**Layout Rules**:
+1. **Charts**: Wrap in `LayoutBuilder` to get parent constraints
+   ```dart
+   LayoutBuilder(
+     builder: (context, constraints) {
+       return SizedBox(
+         width: constraints.maxWidth - 32, // Minus padding
+         height: 300,
+         child: LineChart(/* ... */),
+       );
+     },
+   )
+   ```
 
-**Validation**:
-- ✅ Dialogs properly sized on production
-- ✅ Responsive on all device sizes
-- ✅ High-DPI displays render correctly
+2. **Button Rows**: Use `Expanded` or `Flexible` to prevent overflow
+   ```dart
+   Row(
+     children: [
+       Expanded(child: ElevatedButton(/* ... */)),
+       const SizedBox(width: 8),
+       Expanded(child: OutlinedButton(/* ... */)),
+     ],
+   )
+   ```
+
+3. **Long Content**: Wrap in `SingleChildScrollView` (vertical only, no horizontal)
+
+4. **Padding**: Consistent 16px on mobile, 24px on tablet/desktop
+
+**Validation**: Zero `RenderFlex overflowed` errors in console
 
 ---
 
-### Fix 3: Launch Configurations (P2 - Important)
+#### Decision 4: Chart Axes Configuration
+**Choice**: Configure `titlesData` with explicit `reservedSize`
 
-**Files Modified**:
-- `.vscode/launch.json` (created, later deleted by user)
-- `.vscode/settings.json` (created, later deleted by user)
+**Implementation**:
+```dart
+LineChartData(
+  titlesData: FlTitlesData(
+    leftTitles: AxisTitles(
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 40, // Space for Y-axis labels
+        getTitlesWidget: (value, meta) {
+          return Text(
+            '\$${value.toInt()}',
+            style: const TextStyle(fontSize: 10),
+          );
+        },
+      ),
+    ),
+    bottomTitles: AxisTitles(
+      sideTitles: SideTitles(
+        showTitles: true,
+        reservedSize: 30, // Space for X-axis labels
+        getTitlesWidget: (value, meta) {
+          return Text(
+            'Jan',
+            style: const TextStyle(fontSize: 10),
+          );
+        },
+      ),
+    ),
+    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+  ),
+)
+```
 
-**Changes**:
-```json
-{
-  "program": "lib/main.dart",  // Was: "frontend/lib/main.dart"
-  "cwd": "${workspaceFolder}/frontend",  // Was: "frontend"
-  "args": ["--dart-define=API_URL=http://localhost:3000"]  // Was in env
+**Responsive Sizing**:
+- Mobile: `reservedSize: 30` (left), `reservedSize: 25` (bottom)
+- Tablet/Desktop: `reservedSize: 40` (left), `reservedSize: 30` (bottom)
+
+---
+
+#### Decision 5: CSV Export Strategy
+**Choice**: `csv` package + `dart:html` Blob for web downloads
+
+**Rationale**:
+- `csv` package handles CSV formatting correctly
+- `dart:html` Blob API works on Flutter Web
+- No backend changes needed
+
+**Implementation**:
+```dart
+// frontend/lib/core/utils/export_utils.dart
+import 'dart:html' as html;
+import 'package:csv/csv.dart';
+
+class ExportUtils {
+  static String generateInvoicesCsv(List<Invoice> invoices) {
+    List<List<dynamic>> rows = [
+      ['Date', 'Business', 'Amount', 'Currency', 'Invoice #', 'Status']
+    ];
+    for (var invoice in invoices) {
+      rows.add([/* ... */]);
+    }
+    return const ListToCsvConverter().convert(rows);
+  }
+  
+  static void downloadCsv(String csvContent, String filename) {
+    final bytes = csvContent.codeUnits;
+    final blob = html.Blob([bytes], 'text/csv');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    html.AnchorElement(href: url)
+      ..setAttribute('download', filename)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
 }
 ```
 
-**Validation**:
-- ✅ F5 debugging works
-- ✅ Breakpoints functional
-- ✅ Hot reload operational
-
-**Note**: User deleted .vscode folder after testing. Configurations documented for future recreation if needed.
-
 ---
 
-### Fix 4: Backend Deployment (P2 - Important)
+#### Decision 6: Loading Indicators Strategy
+**Choice**: `Consumer` widget + `CircularProgressIndicator` in button
 
-**Files Modified**:
-- `backend/Dockerfile`
-- `backend/package.json`
-
-**Changes**:
-
-**Dockerfile**:
-```dockerfile
-# Changed runtime base image
-FROM node:18-slim  # Was: node:18-alpine
-
-# Install required libraries
-RUN apt-get update && apt-get install -y \
-    openssl \
-    tesseract-ocr \
-    tesseract-ocr-heb \
-    tesseract-ocr-eng
-
-# Set Prisma target
-ENV PRISMA_CLI_BINARY_TARGETS=debian-openssl-3.0.x
-
-# Fix entry point
-CMD ["node", "dist/src/main.js"]  # Was: "dist/main.js"
+**Implementation**:
+```dart
+Consumer(
+  builder: (context, ref, child) {
+    final isLoading = ref.watch(someProvider.select((s) => s.isLoading));
+    
+    return AlertDialog(
+      title: const Text('Add Business'),
+      content: TextField(enabled: !isLoading, /* ... */),
+      actions: [
+        TextButton(
+          onPressed: isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: isLoading ? null : () { /* save */ },
+          child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text('Save'),
+        ),
+      ],
+    );
+  },
+)
 ```
 
-**package.json**:
-```json
-{
-  "start:prod": "node dist/src/main.js"  // Was: "node dist/main"
-}
+**Also**: Set `barrierDismissible: !isLoading` to prevent dismissing during save
+
+---
+
+#### Decision 7: Analytics Loading Message
+**Choice**: Conditional info card at top of analytics screen
+
+**Implementation**:
+```dart
+if (analytics.kpis.invoiceCount == 0)
+  Card(
+    color: Colors.blue.withValues(alpha: 0.1),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: Colors.blue.shade700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Using demo resources - loading may be slower. Upload your first invoice to see real analytics.',
+              style: TextStyle(color: Colors.blue.shade700),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
 ```
 
-**Validation**:
-- ✅ Docker build succeeds
-- ✅ All native modules load
-- ✅ App starts successfully on Render
-- ✅ Health checks pass
+**Behavior**: Message visible only when `invoiceCount == 0`, disappears after first upload
 
 ---
 
-### Fix 5: Frontend Deployment (P2 - Important)
+## Phase 1: Implementation Execution Order
 
-**Files Modified**:
-- `.github/workflows/deploy-frontend.yml`
+### Execution Strategy: Sequential by Priority
+**Reason**: Minimizes regressions by fixing critical issues first, then UX, then polish
 
-**Changes**:
-```yaml
-# Updated Flutter version
-flutter-version: "3.38.6"  # Was: "3.19.0"
+---
 
-# Added permissions
-permissions:
-  contents: read
-  deployments: write
+### P0: Critical Correctness (MUST FIX FIRST)
+
+**Items**: I03, I11, I13, I14, I15  
+**Estimated Duration**: 2-3 days  
+**Goal**: Fix broken core functionality (auth, profile, export, type safety, currency)
+
+#### Task Group 1: Type Safety & Validation
+**Items**: I03 (password), I14 (type error)
+
+**I03: Password Validation (30 min)**
+- Create: `frontend/lib/core/constants/validation_constants.dart`
+- Update: `frontend/lib/features/auth/presentation/screens/signup_screen.dart`
+- Files: 2
+- Risk: Low (isolated change)
+
+**I14: Fix Type Error (45 min)**
+- Update: `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`
+- Add `_parseString()` helper for safe JSON parsing
+- Files: 1
+- Risk: Medium (affects invoice display)
+
+**Validation After Group 1**:
+```bash
+cd frontend
+flutter analyze  # Must pass
+flutter test     # If tests exist
+```
+**Manual Test**: Signup with 6/7/8 char passwords, view all invoices screen
+
+---
+
+#### Task Group 2: Profile Settings
+**Items**: I11 (profile), I15 (currency)
+
+**I11: Fix Profile Settings (2 hours)**
+- Update: `frontend/lib/features/settings/presentation/screens/settings_screen.dart`
+- Update: `frontend/lib/features/settings/presentation/providers/settings_provider.dart`
+- Add loading states to name/currency dialogs
+- Fix `updateName()` and `updateCurrency()` methods
+- Files: 2
+- Risk: High (affects user data)
+
+**I15: Currency Validation (1 hour)**
+- Update: `frontend/lib/features/settings/presentation/providers/settings_provider.dart`
+- Add provider invalidation: `overallAnalyticsProvider`, `invoicesProvider`
+- Files: 1 (same as I11, can combine)
+- Risk: Medium (affects analytics)
+
+**Validation After Group 2**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test**: Change name → Verify everywhere, change currency → Verify analytics refresh
+
+---
+
+#### Task Group 3: Export Functionality
+**Items**: I13 (export)
+
+**I13: CSV Export (3 hours)**
+- Add: `csv: ^6.0.0` to `frontend/pubspec.yaml`
+- Create: `frontend/lib/core/utils/export_utils.dart`
+- Update: `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`
+- Update: `frontend/lib/features/invoices/presentation/screens/invoices_list_screen.dart`
+- Update: `frontend/lib/features/vendors/presentation/providers/vendor_analytics_provider.dart`
+- Update: `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
+- Files: 6
+- Risk: Medium (new dependency)
+
+**Validation After Group 3**:
+```bash
+cd frontend
+flutter pub get  # Install csv package
+flutter analyze
+flutter build web  # Verify web build works
+```
+**Manual Test**: Export from all invoices, export from vendor analytics, verify CSV content
+
+---
+
+**P0 Phase Gate**:
+- [ ] All 5 P0 items implemented (I03, I11, I13, I14, I15)
+- [ ] `flutter analyze` passes (0 errors)
+- [ ] `flutter build web` succeeds
+- [ ] Manual tests pass on mobile (375px) + web (1440px)
+- [ ] No new console errors
+
+**If Gate Fails**: Stop and fix issues before proceeding to P1
+
+---
+
+### P1: UX Correctness
+
+**Items**: I04, I05, I06, I07, I08, I09, I10, I18  
+**Estimated Duration**: 3-4 days  
+**Goal**: Fix UX inconsistencies and improve user feedback
+
+#### Task Group 4: Snackbar Standardization
+**Items**: I04 (snackbar)
+
+**I04: Snackbar Auto-Dismiss (2 hours)**
+- Create: `frontend/lib/shared/utils/snackbar_utils.dart`
+- Update: All screens with snackbars (~10 files)
+- Files: 11
+- Risk: Medium (affects all user feedback)
+
+**Affected Screens**:
+- `home_screen.dart`, `settings_screen.dart`, `invoice_detail_screen.dart`, 
+- `invoices_list_screen.dart`, `vendor_analytics_screen.dart`, 
+- `overall_analytics_screen.dart`, `insights_screen.dart`, etc.
+
+**Validation After Group 4**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test**: Trigger any action → Wait 5 sec → Verify auto-dismiss, tap dismiss, swipe
+
+---
+
+#### Task Group 5: Home Screen Cleanup
+**Items**: I05 (empty state), I07 (with businesses), I08 (app bar icons)
+
+**I05: Home Empty State (45 min)**
+- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- Update: `frontend/lib/features/home/presentation/widgets/empty_state.dart`
+- Remove duplicate buttons in empty state
+- Files: 2
+- Risk: Low (UI only)
+
+**I07: Home With Businesses (30 min)**
+- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- Center floating upload button
+- Files: 1 (same as I05)
+- Risk: Low (UI only)
+
+**I08: App Bar Icons (30 min)**
+- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- Remove analytics icon, add business icon
+- Files: 1 (same as I05, I07)
+- Risk: Low (UI only)
+
+**Note**: Combine I05, I07, I08 into single `home_screen.dart` update
+
+**Validation After Group 5**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test**: Delete businesses → Verify 2 buttons, add business → Verify centered upload button
+
+---
+
+#### Task Group 6: Invoice Screens
+**Items**: I09 (remove button), I10 (line items)
+
+**I09: Remove View File Button (15 min)**
+- Update: `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`
+- Remove `OutlinedButton` with "View Original File"
+- Files: 1
+- Risk: Very Low (removal only)
+
+**I10: Line Items Edit (1.5 hours)**
+- Update: `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`
+- Standardize line items edit dialog pattern
+- Add loading indicators
+- Files: 1 (same as I09)
+- Risk: Medium (affects editing)
+
+**Validation After Group 6**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test**: Open invoice details → No view file button, edit line items → Verify consistent UX
+
+---
+
+#### Task Group 7: Monthly Limit Field
+**Items**: I06 (monthly limit)
+
+**I06: Add Monthly Limit (2 hours)**
+- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- Add monthly limit field to add/edit business dialogs
+- Add validation (required, positive number)
+- Backend check: Verify `Vendor.monthlyLimit` field exists
+- Files: 1 (possibly backend schema if missing)
+- Risk: Medium (requires backend coordination)
+
+**Backend Verification**:
+```bash
+cd backend
+grep -r "monthlyLimit" prisma/schema.prisma
+# If missing, add:
+# monthlyLimit Decimal?
 ```
 
-**Validation**:
-- ✅ GitHub Actions builds succeed
-- ✅ Cloudflare deployment completes
-- ✅ Production app functional
+**Validation After Group 7**:
+```bash
+cd frontend
+flutter analyze
+cd backend
+npx prisma validate  # If schema changed
+```
+**Manual Test**: Add business → Verify monthly limit field, enter value, save
 
 ---
 
-### Fix 6: TypeScript Null Safety (P3 - Quality)
+#### Task Group 8: Loading Indicators
+**Items**: I18 (dialog loading)
 
-**Files Modified**:
-- `backend/src/extraction/llm/groq.service.ts`
+**I18: Dialog Loading Indicators (3 hours)**
+- Update: All dialogs in:
+  - `home_screen.dart` (add/edit business)
+  - `settings_screen.dart` (edit name, currency)
+  - `invoice_detail_screen.dart` (edit invoice, line items)
+  - `vendor_analytics_screen.dart` (if applicable)
+- Wrap in `Consumer`, add loading states
+- Files: 4-6
+- Risk: Medium (affects all save/delete actions)
 
-**Changes**:
-```typescript
-// Before: Potential undefined access
-if (error.response?.status >= 500) { ... }
+**Validation After Group 8**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test**: Save any dialog → Verify immediate loading indicator, buttons disabled
 
-// After: Explicit undefined check
-const statusCode = error.response?.status;
-if (statusCode !== undefined && statusCode >= 500) { ... }
+---
+
+**P1 Phase Gate**:
+- [ ] All 8 P1 items implemented (I04-I10, I18)
+- [ ] `flutter analyze` passes
+- [ ] `flutter build web` succeeds
+- [ ] Manual tests pass on mobile + web
+- [ ] No regressions from P0 items
+
+**If Gate Fails**: Fix issues before proceeding to P2
+
+---
+
+### P2: Responsiveness & Polish
+
+**Items**: I01, I02, I12, I16, I17, I19, I20  
+**Estimated Duration**: 2-3 days  
+**Goal**: Ensure responsive design and add polish touches
+
+#### Task Group 9: Theme & Basic Responsiveness
+**Items**: I01 (background), I02 (responsive layout)
+
+**I01: Fix Background Color (5 min)**
+- Update: `frontend/lib/main.dart`
+- Change `themeMode: ThemeMode.system` to `themeMode: ThemeMode.light`
+- Files: 1
+- Risk: Very Low
+
+**I02: Responsive Layout (4 hours)**
+- Update: All screens with charts and button rows (~8 files)
+- Wrap charts in `LayoutBuilder`
+- Use `Expanded`/`Flexible` for buttons
+- Add `SingleChildScrollView` where needed
+- Files: 8-10
+- Risk: Medium (affects all screens)
+
+**Affected Screens**:
+- `overall_analytics_screen.dart`, `vendor_analytics_screen.dart`,
+- `invoices_list_screen.dart`, `home_screen.dart`, etc.
+
+**Validation After Group 9**:
+```bash
+cd frontend
+flutter analyze
+flutter build web
+# Test at 375px, 768px, 1440px
+```
+**Manual Test**: View all screens at 375px → No overflow, 1440px → Proper layout
+
+---
+
+#### Task Group 10: Mobile Dialog Fixes
+**Items**: I12 (dialog positioning)
+
+**I12: Mobile Dialog Positioning (2 hours)**
+- Update: All dialogs (~6 files)
+- Wrap content in `SingleChildScrollView` with `shrinkWrap: true`
+- Files: 6
+- Risk: Low (improves existing behavior)
+
+**Validation After Group 10**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test (actual device)**: Open dialog → Type → Keyboard appears → Verify scrollable
+
+---
+
+#### Task Group 11: Upload & Analytics Feedback
+**Items**: I16 (file size), I17 (analytics message)
+
+**I16: File Size Validation (1 hour)**
+- Update: `frontend/lib/features/home/presentation/providers/home_provider.dart`
+- Add size check before upload (max 10MB)
+- Files: 1
+- Risk: Low (validation only)
+
+**I17: Analytics Loading Message (30 min)**
+- Update: `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
+- Add conditional info card for demo resources
+- Files: 1
+- Risk: Very Low (additive change)
+
+**Validation After Group 11**:
+```bash
+cd frontend
+flutter analyze
+```
+**Manual Test**: Upload 15MB image → Verify error, analytics with 0 invoices → Verify message
+
+---
+
+#### Task Group 12: AI Insights & Charts
+**Items**: I19 (AI insights), I20 (charts)
+
+**I19: AI Insights Copy (1.5 hours)**
+- Update: `frontend/lib/features/insights/presentation/screens/insights_screen.dart`
+- Update: Backend prompt (if needed)
+- Parse as plain text, display 3-5 sentences
+- Files: 1-2
+- Risk: Low (display only)
+
+**I20: Charts Responsive with Axes (2 hours)**
+- Update: All chart screens (~4 files)
+- Configure `titlesData` with `reservedSize`
+- Wrap in `LayoutBuilder`
+- Files: 4
+- Risk: Medium (affects analytics display)
+
+**Affected Screens**:
+- `overall_analytics_screen.dart`, `vendor_analytics_screen.dart`
+
+**Validation After Group 12**:
+```bash
+cd frontend
+flutter analyze
+flutter build web
+```
+**Manual Test**: View insights → Plain language, view charts at 375px/768px/1440px → Axes visible
+
+---
+
+**P2 Phase Gate**:
+- [ ] All 7 P2 items implemented (I01, I02, I12, I16, I17, I19, I20)
+- [ ] `flutter analyze` passes
+- [ ] `flutter build web` succeeds
+- [ ] Manual tests pass on all breakpoints
+- [ ] No regressions from P0/P1 items
+
+---
+
+## Phase 2: Final Validation
+
+### Full Regression Suite
+**Duration**: 2-3 hours
+
+#### Automated Validation
+```bash
+# Frontend
+cd frontend
+flutter analyze        # MUST: 0 errors (info/warnings ok)
+flutter build web      # MUST: Success
+dart format --set-exit-if-changed lib/  # MUST: Formatted
+
+# Backend (if touched)
+cd backend
+npm run build          # MUST: Success
+npx prisma validate    # MUST: Success (if schema changed)
+npm run lint           # SHOULD: Pass
 ```
 
-**Validation**:
-- ✅ TypeScript compilation succeeds
-- ✅ Error handling works correctly
-- ✅ No runtime errors
+#### Manual Smoke Tests
+
+**Test Checklist**: Run through all 20 items
+
+| Item | Mobile (375px) | Web (1440px) | Pass/Fail |
+|------|----------------|--------------|-----------|
+| I01 | Dark mode → Light BG | Same | ⬜ |
+| I02 | No overflow, charts fit | Proper layout | ⬜ |
+| I03 | 7-char rejected, 8-char ok | Same | ⬜ |
+| I04 | Auto-dismiss 5s | Same | ⬜ |
+| I05 | 2 centered buttons | Same | ⬜ |
+| I06 | Monthly limit present | Same | ⬜ |
+| I07 | Centered upload button | Same | ⬜ |
+| I08 | No analytics icon, business icon | Same | ⬜ |
+| I09 | No view file button | Same | ⬜ |
+| I10 | Consistent edit UX | Same | ⬜ |
+| I11 | Name saves, currency saves | Same | ⬜ |
+| I12 | Keyboard → scrollable | N/A | ⬜ |
+| I13 | CSV downloads | CSV downloads | ⬜ |
+| I14 | No type errors | No type errors | ⬜ |
+| I15 | Currency updates analytics | Same | ⬜ |
+| I16 | 15MB rejected | Same | ⬜ |
+| I17 | Demo message shows | Same | ⬜ |
+| I18 | Loading indicators | Same | ⬜ |
+| I19 | Plain language | Same | ⬜ |
+| I20 | Axes visible | Axes visible | ⬜ |
+
+**Critical Flows** (No Regressions):
+- [ ] Signup → Login → Dashboard
+- [ ] Add business → View business
+- [ ] Upload invoice → View invoice
+- [ ] View analytics → Export CSV
+- [ ] Edit profile → Settings update
+
+**Console Check**:
+- [ ] Chrome DevTools: 0 errors during normal usage
+- [ ] Mobile simulator: 0 errors during normal usage
 
 ---
 
-### Fix 7: Code Formatting (P3 - Quality)
+### Cross-Browser Testing
 
-**Files Modified**:
-- `frontend/lib/features/home/presentation/screens/home_screen.dart`
+**Browsers** (Web only):
+- [ ] Chrome Desktop (primary)
+- [ ] Safari Desktop
+- [ ] Firefox Desktop
 
-**Changes**:
-- Applied auto-formatting per editor settings
-- Consistent line breaks and indentation
-- Improved readability
-
-**Validation**:
-- ✅ No linter errors
-- ✅ Consistent formatting
-- ✅ Maintainable code
+**Devices** (Mobile):
+- [ ] iOS Simulator (Safari)
+- [ ] Android Emulator (Chrome)
+- [ ] Actual device (ideal for keyboard tests)
 
 ---
 
-## Phase 2: Testing & Validation (Completed)
+## Definition of Done (Per Item)
 
-**Purpose**: Verify all fixes work in development and production
+Each of the 20 items must meet:
 
-### Manual Testing
+### Implementation Complete
+- [ ] Code changes committed to branch `003-invoiceme-stabilization`
+- [ ] All files modified as specified in tasks.md
+- [ ] No debugging code left (console.log, print statements)
 
-| Test | Environment | Status | Notes |
-|------|-------------|--------|-------|
-| Edit dialog opens | Development | ✅ Pass | No widget tree errors |
-| Edit dialog buttons work | Development | ✅ Pass | All buttons functional |
-| Dialog sizes correct | Production | ✅ Pass | Proper viewport rendering |
-| Mobile web responsive | Production | ✅ Pass | Works on all devices |
-| F5 debugging | VS Code | ✅ Pass | Starts without errors |
-| Breakpoints | VS Code | ✅ Pass | Debugger pauses correctly |
-| Hot reload | VS Code | ✅ Pass | Changes apply instantly |
-| Backend Docker build | Render | ✅ Pass | Builds successfully |
-| Backend starts | Render | ✅ Pass | No library errors |
-| Frontend CI/CD | GitHub Actions | ✅ Pass | Deploys successfully |
-| Cloudflare deployment | Production | ✅ Pass | App loads correctly |
-| TypeScript compilation | Local | ✅ Pass | No type errors |
-| Flutter analyze | Local | ✅ Pass | 0 errors |
+### Acceptance Criteria Met
+- [ ] All acceptance criteria from spec.md checked
+- [ ] Item behaves exactly as described in SCOPE_LOCK.md
+- [ ] No deviation from specification
+
+### Manual Tests Passed
+- [ ] Tested on mobile (375px) - passed
+- [ ] Tested on web (1440px) - passed
+- [ ] Tested on tablet (768px) - passed (if applicable)
+- [ ] Actual device test passed (for I12 keyboard behavior)
+
+### No New Errors
+- [ ] `flutter analyze` passes (0 errors)
+- [ ] `flutter build web` succeeds
+- [ ] No runtime exceptions in console
+- [ ] No `RenderFlex overflowed` errors (for I02, I20)
+
+### Quality Standards
+- [ ] Code follows existing patterns (Riverpod, Clean Architecture)
+- [ ] No duplicate code (use utils for shared logic)
+- [ ] Responsive at all breakpoints
+- [ ] Loading states where applicable
+- [ ] Error handling with user-friendly messages
+
+---
+
+## Definition of Done (Overall)
+
+### All Items Complete
+- [ ] 20/20 items implemented and tested
+- [ ] VERIFICATION_MATRIX.md fully checked (all items marked PASS)
+- [ ] No outstanding bugs or issues
 
 ### Automated Validation
+- [ ] `flutter analyze` passes (0 errors)
+- [ ] `flutter build web` succeeds
+- [ ] Backend builds successfully (if touched)
+- [ ] Prisma schema valid (if changed)
 
-- ✅ GitHub Actions runs on every push
-- ✅ Docker builds validated in CI
-- ✅ TypeScript compilation checked
-- ✅ Flutter analyze runs in workflow
+### Manual Validation
+- [ ] Full regression suite passed (20 items + critical flows)
+- [ ] Cross-browser testing passed (Chrome, Safari, Firefox)
+- [ ] Mobile device testing passed (actual device for I12)
+- [ ] No console errors during normal usage
 
-### Regression Testing
+### Documentation
+- [ ] VERIFICATION_MATRIX.md updated with results
+- [ ] Any issues documented in DECISIONS.md
+- [ ] README updated if needed (e.g., new csv package)
 
-- ✅ All existing functionality still works
-- ✅ No breaking changes introduced
-- ✅ User flows unchanged
-- ✅ API contracts unchanged
-
----
-
-## Phase 3: Documentation (Completed)
-
-**Purpose**: Document all fixes for future reference
-
-### Documentation Created
-
-1. **Specification (spec.md)**
-   - 5 user stories with priorities
-   - 10 functional requirements
-   - 7 success criteria
-   - 9 issues documented
-
-2. **PRD (PRD.md)**
-   - Executive summary
-   - Implementation details
-   - Success metrics
-   - Risks and mitigations
-
-3. **Decisions (DECISIONS.md)**
-   - 10 technical decisions
-   - Options considered
-   - Rationale for each
-   - Lessons learned
-
-4. **Deployment Guides**
-   - DEPLOYMENT_GUIDE.md (comprehensive)
-   - DEPLOYMENT_CHECKLIST.md (step-by-step)
-   - DEPLOYMENT_FIXES_SUMMARY.md (issues resolved)
-   - Various other guides created
-
-5. **Commit Messages**
-   - Each fix has detailed commit message
-   - Explains problem, solution, impact
-   - References related issues
-
-6. **Code Comments**
-   - Added comments in fixed files
-   - Explains why fix needed
-   - Documents patterns to follow
+### Ready for Production
+- [ ] All stakeholder acceptance criteria met
+- [ ] Code reviewed (if applicable)
+- [ ] Ready to merge into main branch
 
 ---
 
-## Implementation Summary
+## Risk Mitigation
 
-### Timeline
+### High-Risk Items
+1. **I11 (Profile Settings)**: Affects user data
+   - **Mitigation**: Test thoroughly, add error handling, backup before testing
+2. **I02 (Responsive Layout)**: Affects all screens
+   - **Mitigation**: Test at each breakpoint, use Flutter DevTools to debug overflow
+3. **I18 (Loading Indicators)**: Affects all dialogs
+   - **Mitigation**: Test each dialog individually, verify loading/success/error states
 
-- **Start**: 2026-01-20
-- **End**: 2026-01-21
-- **Duration**: ~2 days
+### Medium-Risk Items
+1. **I13 (Export)**: New dependency
+   - **Mitigation**: Verify csv package compatibility, test web download API
+2. **I14 (Type Error)**: Affects invoice display
+   - **Mitigation**: Add fallback values, log warnings for debugging
+3. **I06 (Monthly Limit)**: May require backend change
+   - **Mitigation**: Check schema first, coordinate with backend if needed
 
-### Issues Resolved
-
-| # | Issue | Priority | Status |
-|---|-------|----------|--------|
-| 1 | ParentDataWidget error | P1 | ✅ Fixed |
-| 2 | Responsive layout | P1 | ✅ Fixed |
-| 3 | Launch configurations | P2 | ✅ Fixed |
-| 4 | Backend deployment | P2 | ✅ Fixed |
-| 5 | Frontend deployment | P2 | ✅ Fixed |
-| 6 | TypeScript null safety | P3 | ✅ Fixed |
-| 7 | Code formatting | P3 | ✅ Fixed |
-| 8 | Docker libssl | P2 | ✅ Fixed |
-| 9 | Entry point path | P2 | ✅ Fixed |
-
-### Metrics
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| UI Errors | Multiple | 0 | 100% |
-| Deployment Success | ~50% | 100% | +50% |
-| Developer Setup Time | Manual | < 2 min | 80% faster |
-| Linter Errors | 3 | 0 | 100% |
-| Production Uptime | Unstable | Stable | - |
-
-### Files Modified
-
-- **Frontend**: 2 files (home_screen.dart, index.html)
-- **Backend**: 3 files (Dockerfile, package.json, groq.service.ts)
-- **CI/CD**: 1 file (deploy-frontend.yml)
-- **Tooling**: 2 files (launch.json, settings.json - later deleted)
+### Rollback Plan
+If critical issue discovered after deployment:
+1. **Identify affected items**: Check VERIFICATION_MATRIX.md
+2. **Revert specific commits**: Use `git revert` for isolated changes
+3. **Hotfix branch**: Create `hotfix/003-stabilization-fix` if needed
+4. **Re-test**: Run validation suite before re-deploying
 
 ---
 
-## Lessons Learned
+## Validation Strategy Per Item
 
-### Flutter Web
+### I01: App Background Color
+- **Test**: Enable OS dark mode → Open app
+- **Expected**: Light background
+- **Pass Criteria**: Background color consistent across all screens
 
-1. **Always include viewport meta tag** - Required for responsive rendering
-2. **Know parent widget constraints** - OverflowBar doesn't support Expanded/Spacer
-3. **Test on production** - Development mode may mask issues
+### I02: Responsive Layout
+- **Test**: View all screens at 375px, 768px, 1440px
+- **Expected**: No horizontal scroll, all content fits, charts visible
+- **Pass Criteria**: 0 `RenderFlex overflowed` errors in console
 
-### Docker & Deployment
+### I03: Password Validation
+- **Test**: Signup with 6, 7, 8 character passwords
+- **Expected**: 6, 7 rejected with clear message; 8 accepted
+- **Pass Criteria**: Consistent error message across all auth screens
 
-1. **Prefer Debian over Alpine** - Better compatibility with native modules
-2. **Verify entry points** - Match actual build output structure
-3. **Test builds locally** - Catch issues before deployment
+### I04: Snackbar Auto-Dismiss
+- **Test**: Trigger action → Wait 5 sec, tap dismiss, swipe
+- **Expected**: Auto-dismiss after 5s, manual dismiss works
+- **Pass Criteria**: All dismiss methods work on mobile + web
 
-### CI/CD
+### I05: Home Empty State
+- **Test**: Delete all businesses
+- **Expected**: Exactly 2 centered buttons, no app bar icon, no floating button
+- **Pass Criteria**: Visual match to spec
 
-1. **Match versions everywhere** - Local, CI, production must align
-2. **Set explicit permissions** - Don't rely on defaults
-3. **Create infrastructure first** - Projects/resources before deployment
+### I06: Monthly Limit Field
+- **Test**: Add/edit business → Verify field, enter value, save
+- **Expected**: Field present, required, positive numbers only
+- **Pass Criteria**: Saves successfully, backend receives value
 
-### Developer Experience
+### I07: Home With Businesses
+- **Test**: Add business → Check home
+- **Expected**: Single centered floating "Upload Invoice" button
+- **Pass Criteria**: No duplicate buttons
 
-1. **Working tooling is critical** - Launch configs save significant time
-2. **Document patterns** - Prevent repeating same errors
-3. **Fix issues immediately** - Don't accumulate technical debt
+### I08: App Bar Icons
+- **Test**: Check home app bar
+- **Expected**: No analytics icon, business icon present
+- **Pass Criteria**: Clicking business icon opens add business dialog
+
+### I09: Remove View File Button
+- **Test**: Open invoice details
+- **Expected**: No "View Original File" button
+- **Pass Criteria**: Only edit and delete buttons visible
+
+### I10: Line Items Edit
+- **Test**: Edit line items
+- **Expected**: Same dialog pattern as invoice field edits
+- **Pass Criteria**: Loading indicator, success snackbar, validation works
+
+### I11: Profile Settings
+- **Test**: Change name → Check display, change currency → Check analytics
+- **Expected**: Name saves everywhere, currency updates analytics < 2 sec
+- **Pass Criteria**: All updates propagate correctly
+
+### I12: Mobile Dialog Positioning
+- **Test (actual device)**: Open dialog → Tap field → Keyboard appears
+- **Expected**: Dialog scrollable, buttons accessible
+- **Pass Criteria**: Keyboard doesn't obscure content
+
+### I13: Export Functionality
+- **Test**: Click export on all invoices, vendor analytics
+- **Expected**: CSV downloads with correct data
+- **Pass Criteria**: CSV opens in Excel/Sheets with proper formatting
+
+### I14: Fix Type Error
+- **Test**: Open all invoices screen → Check console
+- **Expected**: Screen loads, 0 type errors in console
+- **Pass Criteria**: All invoices display correctly
+
+### I15: Currency Validation
+- **Test**: Change USD to EUR → Check analytics, invoices, charts
+- **Expected**: All displays update within 2 seconds
+- **Pass Criteria**: Currency symbol correct everywhere
+
+### I16: File Size Validation
+- **Test**: Upload 15MB image
+- **Expected**: Error message with actual file size
+- **Pass Criteria**: Can select different file after rejection
+
+### I17: Analytics Loading Message
+- **Test**: With 0 invoices → Open analytics
+- **Expected**: Demo resources message visible
+- **Pass Criteria**: Message disappears after uploading invoice
+
+### I18: Dialog Loading Indicators
+- **Test**: Save any dialog
+- **Expected**: Immediate loading indicator, buttons disabled
+- **Pass Criteria**: Dialog not dismissible during loading
+
+### I19: AI Insights
+- **Test**: Open insights screen
+- **Expected**: 3-5 plain language sentences, no JSON
+- **Pass Criteria**: Non-technical user can understand
+
+### I20: Charts Responsive
+- **Test**: View charts at 375px, 768px, 1440px
+- **Expected**: X and Y axes visible at all sizes
+- **Pass Criteria**: No axis label overlap
+
+---
+
+## Key Metrics
+
+### Success Metrics
+- **Implementation Speed**: 7-10 days total
+- **Code Quality**: 0 errors in `flutter analyze`
+- **Test Coverage**: 100% of 20 items manually tested
+- **Regression Rate**: 0 regressions in critical flows
+
+### Performance Metrics
+- **Build Time**: `flutter build web` < 3 minutes
+- **Analytics Load**: With message, < 5 seconds perceived load
+- **Export Speed**: CSV generation < 1 second for 100 invoices
+
+---
+
+## Project Structure Impact
+
+### New Files Created
+```
+frontend/lib/
+  core/
+    constants/
+      validation_constants.dart        # I03
+    utils/
+      export_utils.dart                 # I13
+  shared/
+    utils/
+      snackbar_utils.dart               # I04
+```
+
+### Modified Files (High Impact)
+```
+frontend/lib/
+  main.dart                             # I01 (theme)
+  features/
+    home/
+      presentation/
+        screens/home_screen.dart        # I05, I06, I07, I08, I18
+    settings/
+      presentation/
+        screens/settings_screen.dart    # I11, I18
+        providers/settings_provider.dart # I11, I15
+    invoices/
+      presentation/
+        screens/invoice_detail_screen.dart # I09, I10, I18
+        providers/invoices_provider.dart   # I14
+    analytics/
+      presentation/
+        screens/overall_analytics_screen.dart # I17, I20
+```
+
+### Dependency Changes
+```yaml
+# frontend/pubspec.yaml
+dependencies:
+  csv: ^6.0.0  # New for I13
+```
+
+---
+
+## Coordination Notes
+
+### Frontend Team
+- Focus on UI/UX changes
+- Test at all breakpoints (375px, 768px, 1440px)
+- Use Flutter DevTools to debug overflow/performance
+
+### Backend Team
+- Verify `Vendor.monthlyLimit` field exists (I06)
+- Check AI insights prompt (I19, if backend change needed)
+- No other backend changes required
+
+### QA Team
+- Use TEST_PLAN.md for manual testing
+- Use VERIFICATION_MATRIX.md to track progress
+- Prioritize testing on actual mobile devices (keyboard behavior)
+
+---
+
+## Timeline Summary
+
+| Phase | Duration | Items | Completion Criteria |
+|-------|----------|-------|---------------------|
+| P0 | 2-3 days | 5 items (I03, I11, I13, I14, I15) | Critical bugs fixed |
+| P1 | 3-4 days | 8 items (I04-I10, I18) | UX polished |
+| P2 | 2-3 days | 7 items (I01, I02, I12, I16, I17, I19, I20) | Fully responsive |
+| Validation | 0.5 day | Full suite | All 20 items verified |
+| **Total** | **7-10 days** | **20 items** | **Ready for production** |
+
+---
+
+## References
+
+- **SCOPE_LOCK.md**: Source of truth for 20 items
+- **spec.md**: Detailed requirements for each item
+- **tasks.md**: Task-by-task implementation guide (T001-T020)
+- **TEST_PLAN.md**: Manual test procedures
+- **VERIFICATION_MATRIX.md**: Tracking sheet with checkboxes
+- **UI_STATES.md**: Snackbar, dialog, loading state definitions
 
 ---
 
 ## Next Steps
 
-With stabilization complete, the project is ready for:
+1. **Review this plan** with stakeholders
+2. **Confirm priority order** (P0 → P1 → P2)
+3. **Begin P0 implementation** (start with I03, I14)
+4. **Use tasks.md** for step-by-step guidance
+5. **Track progress** in VERIFICATION_MATRIX.md
 
-1. **New Feature Development** - Stable foundation for building
-2. **Performance Optimization** - Can now focus on speed
-3. **User Acceptance Testing** - Ready for user feedback
-4. **Production Release** - All blockers resolved
-
----
-
-## Status
-
-**Plan Status**: ✅ **COMPLETE**
-
-All planned fixes implemented, tested, and deployed successfully. The stabilization iteration achieved 100% of its objectives and the codebase is now production-ready.
-
-**Branch**: `003-invoiceme-stabilization`  
-**Parent**: `002-invoiceme-mvp`  
-**Spec**: [spec.md](./spec.md)
-
----
-
-**Plan Created**: 2026-01-21  
-**Implementation**: 2026-01-20 to 2026-01-21  
-**Status**: Complete ✅
+**Ready to implement!** 🚀
