@@ -321,16 +321,6 @@ class InvoiceDetailScreen extends ConsumerWidget {
                   ),
                 ],
                 const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      // Open file
-                    },
-                    icon: const Icon(Icons.file_open),
-                    label: const Text('View Original File'),
-                  ),
-                ),
               ],
             ),
           );

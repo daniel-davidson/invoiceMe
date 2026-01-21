@@ -285,7 +285,7 @@ cd frontend && flutter analyze
 
 ### I09: Remove View Original File Button
 
-- [ ] **I09**: Remove non-functional "View Original File" button from invoice details screen
+- [x] **I09**: Remove non-functional "View Original File" button from invoice details screen
 
 **What to Change**:
 - In `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`:
