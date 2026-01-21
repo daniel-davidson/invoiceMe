@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/features/home/presentation/widgets/vendor_card.dart';
 import 'package:frontend/features/home/presentation/widgets/empty_state.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
@@ -135,14 +134,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             title: const Text('InvoiceMe'),
             actions: [
               IconButton(
+                icon: const Icon(Icons.business),
+                onPressed: () => _showAddVendorDialog(context, ref),
+                tooltip: 'Add Business',
+              ),
+              IconButton(
                 icon: const Icon(Icons.insights),
                 onPressed: () => context.push('/insights'),
                 tooltip: 'AI Insights',
-              ),
-              IconButton(
-                icon: const Icon(Icons.analytics_outlined),
-                onPressed: () => context.push('/analytics'),
-                tooltip: 'Analytics',
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
@@ -312,17 +311,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
           ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'add_vendor',
-                onPressed: () => _showAddVendorDialog(context, ref),
-                backgroundColor: AppTheme.secondaryColor,
-                child: const Icon(Icons.business),
-              ),
-              const SizedBox(height: 12),
-              FloatingActionButton.extended(
+          floatingActionButton: vendorsState.when(
+            data: (vendors) {
+              if (vendors.isEmpty) {
+                // Empty state: no floating buttons (buttons are in EmptyState widget)
+                return null;
+              }
+              // Has vendors: show only centered upload button
+              return FloatingActionButton.extended(
                 heroTag: 'upload',
                 onPressed: uploadState.isUploading
                     ? null
@@ -340,9 +336,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 label: Text(
                   uploadState.isUploading ? 'Uploading...' : 'Upload Invoice',
                 ),
-              ),
-            ],
+              );
+            },
+            loading: () => null,
+            error: (_, __) => null,
           ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         ),
         // Upload overlay with stage-based progress
         if (uploadState.isUploading)
