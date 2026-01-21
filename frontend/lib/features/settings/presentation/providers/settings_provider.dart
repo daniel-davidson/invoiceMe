@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/core/network/api_client.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
+import 'package:frontend/features/analytics/presentation/providers/overall_analytics_provider.dart';
+import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
 
 final settingsProvider =
     StateNotifierProvider<SettingsNotifier, AsyncValue<void>>((ref) {
@@ -33,6 +35,10 @@ class SettingsNotifier extends StateNotifier<AsyncValue<void>> {
       await _apiClient.patch('/users/me', data: {'systemCurrency': currencyCode});
       // Invalidate auth state to trigger a re-fetch of user data
       _ref.invalidate(authStateProvider);
+      // Invalidate analytics to refresh with new currency
+      _ref.invalidate(overallAnalyticsProvider);
+      // Invalidate invoices to refresh amounts
+      _ref.invalidate(invoicesProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

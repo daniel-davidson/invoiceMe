@@ -261,6 +261,13 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
           withData: true, // Get bytes on web
         );
         if (result != null && result.files.single.bytes != null) {
+          final file = result.files.single;
+          // Check file size (10MB = 10 * 1024 * 1024 bytes)
+          const maxSizeBytes = 10 * 1024 * 1024;
+          if (file.size > maxSizeBytes) {
+            _setError('File too large (max 10MB). Selected file: ${(file.size / 1024 / 1024).toStringAsFixed(1)}MB');
+            return;
+          }
           await _uploadFileFromBytes(
             result.files.single.bytes!,
             result.files.single.name,
@@ -271,6 +278,13 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
           source: ImageSource.gallery,
         );
         if (image != null) {
+          // Check file size
+          final bytes = await image.readAsBytes();
+          const maxSizeBytes = 10 * 1024 * 1024;
+          if (bytes.length > maxSizeBytes) {
+            _setError('File too large (max 10MB). Selected file: ${(bytes.length / 1024 / 1024).toStringAsFixed(1)}MB');
+            return;
+          }
           await _uploadFileFromPath(image.path, image.name);
         }
       }
@@ -292,6 +306,13 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
 
       if (result != null) {
         final file = result.files.single;
+        // Check file size (10MB = 10 * 1024 * 1024 bytes)
+        const maxSizeBytes = 10 * 1024 * 1024;
+        if (file.size > maxSizeBytes) {
+          _setError('File too large (max 10MB). Selected file: ${(file.size / 1024 / 1024).toStringAsFixed(1)}MB');
+          return;
+        }
+        
         if (kIsWeb) {
           // On web, use bytes
           if (file.bytes != null) {
