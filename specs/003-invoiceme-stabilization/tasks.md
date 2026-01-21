@@ -2,1197 +2,982 @@
 
 **Feature**: 003-invoiceme-stabilization  
 **Date**: 2026-01-21  
-**Status**: Active Implementation (NOT retrospective)
+**Status**: Active Implementation
 
-**Organization**: Tasks map 1:1 to the 20 specification items (I01-I20), organized by priority phase.
-
----
-
-## Scope Mapping: I01-I20
-
-| Item | Description | Task ID | Priority | Files |
-|------|-------------|---------|----------|-------|
-| I01 | App background color fixed | T001 | P2 | `main.dart` |
-| I02 | Responsive layout mobile | T002 | P2 | All screens, charts |
-| I03 | Password validation 8 chars | T003 | P0 | `signup_screen.dart`, `validation_constants.dart` |
-| I04 | Snackbar auto-dismiss | T004 | P1 | `snackbar_utils.dart`, all action screens |
-| I05 | Home empty state fix | T005 | P1 | `home_screen.dart`, `empty_state.dart` |
-| I06 | Monthly limit field | T006 | P1 | `home_screen.dart` |
-| I07 | Home with businesses fix | T007 | P1 | `home_screen.dart` |
-| I08 | App bar icons update | T008 | P1 | `home_screen.dart` |
-| I09 | Remove view file button | T009 | P1 | `invoice_detail_screen.dart` |
-| I10 | Line items edit consistency | T010 | P1 | `invoice_detail_screen.dart` |
-| I11 | Profile settings working | T011 | P0 | `settings_screen.dart`, `settings_provider.dart` |
-| I12 | Mobile dialogs keyboard-safe | T012 | P2 | All dialogs |
-| I13 | Export functionality | T013 | P0 | `export_utils.dart`, export screens |
-| I14 | Fix type error | T014 | P0 | `invoices_provider.dart` |
-| I15 | Currency validation | T015 | P0 | `settings_provider.dart` |
-| I16 | File size validation | T016 | P2 | `home_provider.dart` |
-| I17 | Analytics loading message | T017 | P2 | `overall_analytics_screen.dart` |
-| I18 | Dialog loading indicators | T018 | P1 | All dialogs |
-| I19 | AI insights human-friendly | T019 | P2 | `insights_screen.dart` |
-| I20 | Charts responsive axes | T020 | P2 | All chart screens |
-
-**Total**: 20 implementation tasks + validation tasks
+**Source of Truth**: [SCOPE_LOCK.md](./SCOPE_LOCK.md)
 
 ---
 
-## Phase P0: Critical Correctness (MUST FIX FIRST)
+## Overview
 
-**Items**: I03, I11, I13, I14, I15
+This task list contains EXACTLY 20 tasks (I01-I20) mapping 1:1 to the 20 scope items defined in SCOPE_LOCK.md. Each task must be implemented and verified before marking complete.
+
+**Total Tasks**: 20  
+**Format**: I01..I20 (item-based, not phased)  
+**All Tasks Unchecked**: Ready for implementation
 
 ---
 
-### T003: [I03] Password Validation 8-Character Minimum
+## The 20 Tasks
 
-**Goal**: Fix password validation mismatch (currently says 6 but requires 8)
+### I01: Fix App Background Color
 
-**Files to Change**:
-- Create: `frontend/lib/core/constants/validation_constants.dart`
-- Update: `frontend/lib/features/auth/presentation/screens/signup_screen.dart`
-- Update: `frontend/lib/features/auth/presentation/screens/login_screen.dart` (consistency)
+- [ ] **I01**: Set Flutter theme to always use light mode regardless of system settings
 
-**Implementation Steps**:
-1. Create `validation_constants.dart`:
-   ```dart
-   const int minPasswordLength = 8;
-   const String passwordRequirementMessage = 'Password must be at least 8 characters';
-   ```
+**What to Change**:
+- Update `frontend/lib/main.dart`
+- Change `themeMode: ThemeMode.system` to `themeMode: ThemeMode.light`
 
-2. Update `signup_screen.dart` validator:
-   ```dart
-   import 'package:frontend/core/constants/validation_constants.dart';
-   
-   validator: (value) {
-     if (value == null || value.isEmpty) {
-       return 'Please enter a password';
-     }
-     if (value.length < minPasswordLength) {
-       return passwordRequirementMessage;
-     }
-     return null;
-   }
-   ```
+**Files**:
+- `frontend/lib/main.dart`
+
+**Acceptance Criteria**:
+- [ ] App background is light even with browser dark mode enabled
+- [ ] App background is light even with OS dark mode enabled
+- [ ] Theme is consistent across all pages
+
+**Test Steps**:
+- **Mobile**: Enable iOS dark mode → Open app → Verify light background
+- **Web**: Enable browser dark mode (Chrome, Safari, Firefox) → Open app → Verify light background
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+cd frontend && flutter build web
+```
+
+---
+
+### I02: Fix Responsive Layout (Mobile)
+
+- [ ] **I02**: Make all UI elements responsive - no overflow on mobile, charts fit screen with visible axes
+
+**What to Change**:
+- Wrap all charts in `LayoutBuilder` for dynamic sizing
+- Use `Expanded`/`Flexible` for button rows to prevent overflow
+- Add `SingleChildScrollView` where needed (vertical only)
+- Test at 375px, 768px, 1440px
+
+**Files**:
+- `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
+- `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
+- `frontend/lib/features/invoices/presentation/screens/invoices_list_screen.dart`
+- `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- Any other screens with charts or button rows
+
+**Acceptance Criteria**:
+- [ ] No horizontal scrolling on any screen at 375px width
+- [ ] All buttons visible and tappable on mobile
+- [ ] Charts fit within screen with visible axes
+- [ ] Console shows 0 `RenderFlex overflowed` errors
+
+**Test Steps**:
+- **Mobile (375px)**: Navigate to every screen → Verify no overflow → View analytics → Charts fit with axes visible → Click all buttons → All tappable
+- **Tablet (768px)**: Same verification
+- **Web (1440px)**: Verify no layout regressions → Resize window → Content reflows properly
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze  # Must show 0 overflow errors
+cd frontend && flutter build web
+```
+
+---
+
+### I03: Fix Password Validation Mismatch
+
+- [ ] **I03**: Align password validation to 8 characters minimum with consistent error messaging
+
+**What to Change**:
+- Create `frontend/lib/core/constants/validation_constants.dart` with:
+  ```dart
+  const int minPasswordLength = 8;
+  const String passwordRequirementMessage = 'Password must be at least 8 characters';
+  ```
+- Update `frontend/lib/features/auth/presentation/screens/signup_screen.dart` validator to use constant
+- Update any password-related messaging to reference constant
+
+**Files**:
+- `frontend/lib/core/constants/validation_constants.dart` (NEW)
+- `frontend/lib/features/auth/presentation/screens/signup_screen.dart`
 
 **Acceptance Criteria**:
 - [ ] 7-char password shows error: "Password must be at least 8 characters"
 - [ ] 8-char password is accepted
-- [ ] Error message consistent across all auth screens
+- [ ] Consistent messaging across all auth screens
 
-**Manual Test - Mobile (375px)**:
-1. Navigate to signup screen
-2. Enter 6-char password → Verify error shows
-3. Enter 7-char password → Verify error shows
-4. Enter 8-char password → Verify no error
+**Test Steps**:
+- **Mobile**: Signup with 6-char password → Verify error → Signup with 7-char → Verify error → Signup with 8-char → Verify no error, form submits
+- **Web**: Same test on desktop Chrome
 
-**Manual Test - Web (1440px)**:
-1. Repeat all mobile tests on desktop Chrome
-2. Verify error messages display correctly
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes for modified files
-- [ ] All manual tests pass
-- [ ] Consistent validation across auth screens
-
----
-
-### T011: [I11] Fix Profile Settings (Name + Currency)
-
-**Goal**: Make profile settings actually work (currently broken)
-
-**Files to Change**:
-- Update: `frontend/lib/features/settings/presentation/screens/settings_screen.dart`
-- Update: `frontend/lib/features/settings/presentation/providers/settings_provider.dart`
-
-**Implementation Steps**:
-1. Update `settings_screen.dart` - Edit name dialog:
-   - Wrap in `Consumer` widget
-   - Add `barrierDismissible: !isLoading`
-   - Show `CircularProgressIndicator` in save button during loading
-   - Add `ref.listen` for success/error snackbars
-   - Disable TextField and buttons during loading
-
-2. Update `settings_screen.dart` - Currency picker:
-   - Wrap `onSelect` in try-catch
-   - Show success snackbar (green)
-   - Show error snackbar (red) with "Retry"
-
-3. Update `settings_provider.dart`:
-   - In `updateName()`: add `rethrow` to propagate errors to UI
-   - In `updateCurrency()`: add `rethrow` and provider invalidation:
-     ```dart
-     await _apiClient.patch('/users/me', data: {'systemCurrency': currencyCode});
-     _ref.invalidate(authStateProvider);
-     _ref.invalidate(overallAnalyticsProvider);
-     _ref.invalidate(invoicesProvider);
-     ```
-
-**Acceptance Criteria**:
-- [ ] Edit name dialog shows loading states
-- [ ] Name change shows success snackbar and updates everywhere
-- [ ] Currency change shows loading states
-- [ ] Currency change triggers analytics refresh (< 2 seconds)
-- [ ] Error handling works with retry option
-
-**Manual Test - Mobile (375px)**:
-1. Settings → Edit name → Enter new name → Save
-2. Verify loading indicator appears
-3. Verify success snackbar: "Name updated successfully"
-4. Settings → Edit currency → Change to EUR → Save
-5. Navigate to analytics → Verify EUR appears < 2 sec
-6. Test error: Disconnect network → Try save → Verify error with "Retry"
-
-**Manual Test - Web (1440px)**:
-1. Repeat all mobile tests
-2. Verify dialogs properly sized on desktop
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Name change works end-to-end
-- [ ] Currency change works end-to-end
-- [ ] Analytics refresh after currency change
-- [ ] All manual tests pass
-
----
-
-### T013: [I13] Implement CSV Export End-to-End
-
-**Goal**: Make download/share export functionality work
-
-**Files to Change**:
-- Add dependency: `frontend/pubspec.yaml` (add `csv: ^6.0.0`)
-- Create: `frontend/lib/core/utils/export_utils.dart`
-- Update: `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`
-- Update: `frontend/lib/features/invoices/presentation/screens/invoices_list_screen.dart`
-- Update: `frontend/lib/features/vendors/presentation/providers/vendor_analytics_provider.dart`
-- Update: `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
-- Update: `frontend/lib/features/analytics/presentation/providers/overall_analytics_provider.dart`
-
-**Implementation Steps**:
-1. Add to `pubspec.yaml`:
-   ```yaml
-   dependencies:
-     csv: ^6.0.0
-   ```
-
-2. Create `export_utils.dart`:
-   ```dart
-   import 'dart:html' as html;
-   import 'package:csv/csv.dart';
-   import 'package:intl/intl.dart';
-   
-   class ExportUtils {
-     static String generateInvoicesCsv(List<Invoice> invoices) {
-       List<List<dynamic>> rows = [
-         ['Date', 'Business', 'Amount', 'Currency', 'Invoice #', 'Status']
-       ];
-       for (var invoice in invoices) {
-         rows.add([
-           DateFormat('yyyy-MM-dd').format(invoice.invoiceDate),
-           invoice.vendorName,
-           invoice.originalAmount.toStringAsFixed(2),
-           invoice.originalCurrency,
-           invoice.invoiceNumber ?? 'N/A',
-           invoice.needsReview ? 'Needs Review' : 'Complete',
-         ]);
-       }
-       return const ListToCsvConverter().convert(rows);
-     }
-     
-     static void downloadCsv(String csvContent, String filename) {
-       final bytes = csvContent.codeUnits;
-       final blob = html.Blob([bytes], 'text/csv');
-       final url = html.Url.createObjectUrlFromBlob(blob);
-       html.AnchorElement(href: url)
-         ..setAttribute('download', filename)
-         ..click();
-       html.Url.revokeObjectUrl(url);
-     }
-     
-     static String generateFilename(String prefix, {String? businessName}) {
-       final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-       if (businessName != null) {
-         final sanitized = businessName
-           .replaceAll(RegExp(r'[^\w\s-]'), '')
-           .replaceAll(RegExp(r'\s+'), '_');
-         return '${prefix}_${sanitized}_$date.csv';
-       }
-       return '${prefix}_$date.csv';
-     }
-   }
-   ```
-
-3. Implement `exportCsv()` in each provider using `ExportUtils`
-
-4. Add export button handlers with try-catch and snackbars
-
-**Acceptance Criteria**:
-- [ ] Export from all invoices downloads CSV file
-- [ ] CSV contains correct headers and data
-- [ ] Export from vendor analytics downloads vendor-specific CSV
-- [ ] Success snackbar after download
-- [ ] Error message if no data: "No invoices to export"
-
-**Manual Test - Mobile (375px)**:
-1. All invoices screen → Click export → Verify CSV downloads
-2. Open CSV → Verify headers: Date, Business, Amount, Currency, Invoice #, Status
-3. Verify data matches UI display
-4. Vendor analytics → Click export → Verify vendor-specific CSV
-5. With 0 invoices → Click export → Verify error message
-
-**Manual Test - Web (1440px)**:
-1. Repeat all mobile tests
-2. Check Downloads folder for CSV files
-3. Open CSV in Excel/Sheets → Verify formatting
-
-**Definition of Done**:
-- [ ] `flutter pub get` succeeds with csv package
-- [ ] `flutter analyze` passes
-- [ ] Export works from all locations
-- [ ] All manual tests pass
-
----
-
-### T014: [I14] Fix Type Error in All Invoices Screen
-
-**Goal**: Fix runtime error: type 'minified:y0' is not a subtype of type 'String'
-
-**Files to Change**:
-- Update: `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`
-
-**Implementation Steps**:
-1. Add `_parseString()` static helper to `Invoice` class:
-   ```dart
-   static String _parseString(dynamic value, String? defaultValue) {
-     if (value == null) return defaultValue ?? '';
-     if (value is String) return value;
-     return value.toString();
-   }
-   ```
-
-2. Update `Invoice.fromJson()` to use safe parsing:
-   ```dart
-   factory Invoice.fromJson(Map<String, dynamic> json) {
-     return Invoice(
-       id: _parseString(json['id'], 'unknown-id'),
-       vendorName: _parseString(json['vendor']?['name'], 'Unknown'),
-       originalCurrency: _parseString(json['originalCurrency'], 'USD'),
-       invoiceNumber: json['invoiceNumber'] != null 
-         ? _parseString(json['invoiceNumber'], null) 
-         : null,
-       // ... other fields with safe parsing
-     );
-   }
-   ```
-
-**Acceptance Criteria**:
-- [ ] All invoices screen loads without errors
-- [ ] Console shows 0 type errors
-- [ ] All invoice fields display correctly
-- [ ] Fields with unexpected types show fallback values
-
-**Manual Test - Mobile (375px)**:
-1. Open Chrome DevTools console (F12)
-2. Navigate to "All Invoices" screen
-3. Verify console shows 0 errors
-4. Scroll through invoice list
-5. Click on invoices → Details open without errors
-
-**Manual Test - Web (1440px)**:
-1. Open DevTools console
-2. Navigate to all invoices
-3. Verify 0 errors in console
-4. Test with various invoices
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] 0 runtime type errors in console
-- [ ] All invoices display correctly
-
----
-
-### T015: [I15] Validate Currency Change Propagation
-
-**Goal**: Ensure currency changes immediately affect all displays
-
-**Files to Change**:
-- Update: `frontend/lib/features/settings/presentation/providers/settings_provider.dart`
-- Add imports: `overall_analytics_provider.dart`, `invoices_provider.dart`
-
-**Implementation Steps**:
-1. In `updateCurrency()` method, after successful API call:
-   ```dart
-   await _apiClient.patch('/users/me', data: {'systemCurrency': currencyCode});
-   _ref.invalidate(authStateProvider);
-   _ref.invalidate(overallAnalyticsProvider);  // Add this
-   _ref.invalidate(invoicesProvider);          // Add this
-   state = const AsyncValue.data(null);
-   ```
-
-2. Add necessary imports at top of file
-
-**Acceptance Criteria**:
-- [ ] Currency change in settings triggers analytics refresh
-- [ ] Analytics KPIs show new currency within 2 seconds
-- [ ] Invoice list shows updated normalized amounts
-- [ ] Chart Y-axis labels show correct currency symbol (e.g., $, €, ₪)
-
-**Manual Test - Mobile (375px)**:
-1. Note current currency (e.g., USD)
-2. Navigate to analytics → Note KPI values
-3. Settings → Change currency to EUR → Save
-4. Navigate back to analytics
-5. Verify values updated to EUR < 2 seconds
-6. Navigate to invoices → Verify amounts show EUR
-7. View charts → Verify € symbol on Y-axis
-8. Change back to USD → Verify all update again
-
-**Manual Test - Web (1440px)**:
-1. Repeat all mobile tests
-2. Verify immediate propagation
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Currency change triggers immediate refresh
-- [ ] All displays update (analytics, invoices, charts)
-
----
-
-**Phase P0 Validation Checkpoint**:
+**Automated Validation**:
 ```bash
-cd frontend
-flutter analyze        # Must pass: 0 errors
-flutter build web      # Must succeed
+cd frontend && flutter analyze
 ```
-- [ ] All 5 P0 items complete (I03, I11, I13, I14, I15)
-- [ ] Manual tests pass on mobile + web
-- [ ] No console errors
 
 ---
 
-## Phase P1: UX Correctness
+### I04: Snackbar Auto-Dismiss + Manual Dismiss
 
-**Items**: I04, I05, I06, I07, I08, I09, I10, I18
+- [ ] **I04**: Implement standard snackbar behavior - auto-dismiss after 5 seconds with manual dismiss options
 
----
+**What to Change**:
+- Create `frontend/lib/shared/utils/snackbar_utils.dart` with:
+  - `showSuccess()` method (green, 5s duration, "Dismiss" button, floating, swipeable)
+  - `showError()` method (red, 5s duration, "Dismiss" or "Retry" button, floating, swipeable)
+  - `showInfo()` method (blue, 5s duration, "Dismiss" button, floating, swipeable)
+- Replace all existing snackbar code in screens with `SnackbarUtils` calls
+- Set `behavior: SnackBarBehavior.floating` and `dismissDirection: DismissDirection.horizontal`
 
-### T004: [I04] Snackbar Auto-Dismiss + Manual Dismiss
-
-**Goal**: Make snackbars auto-dismiss after 5 seconds with manual dismiss options
-
-**Files to Change**:
-- Create: `frontend/lib/shared/utils/snackbar_utils.dart`
-- Update: All screens with snackbars (settings, home, invoices, vendors, analytics)
-
-**Implementation Steps**:
-1. Create `snackbar_utils.dart`:
-   ```dart
-   import 'package:flutter/material.dart';
-   
-   class SnackbarUtils {
-     static void showSuccess(
-       BuildContext context,
-       String message, {
-       Duration duration = const Duration(seconds: 5),
-     }) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text(message),
-           backgroundColor: Colors.green,
-           duration: duration,
-           behavior: SnackBarBehavior.floating,
-           dismissDirection: DismissDirection.horizontal,
-           action: SnackBarAction(
-             label: 'Dismiss',
-             textColor: Colors.white,
-             onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-           ),
-         ),
-       );
-     }
-     
-     static void showError(
-       BuildContext context,
-       String message, {
-       Duration duration = const Duration(seconds: 5),
-       VoidCallback? onRetry,
-     }) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text(message),
-           backgroundColor: Colors.red,
-           duration: duration,
-           behavior: SnackBarBehavior.floating,
-           dismissDirection: DismissDirection.horizontal,
-           action: onRetry != null
-               ? SnackBarAction(
-                   label: 'Retry',
-                   textColor: Colors.white,
-                   onPressed: () {
-                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                     onRetry();
-                   },
-                 )
-               : SnackBarAction(
-                   label: 'Dismiss',
-                   textColor: Colors.white,
-                   onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-                 ),
-         ),
-       );
-     }
-     
-     static void showInfo(
-       BuildContext context,
-       String message, {
-       Duration duration = const Duration(seconds: 5),
-     }) {
-       ScaffoldMessenger.of(context).showSnackBar(
-         SnackBar(
-           content: Text(message),
-           backgroundColor: Colors.blue.shade700,
-           duration: duration,
-           behavior: SnackBarBehavior.floating,
-           dismissDirection: DismissDirection.horizontal,
-           action: SnackBarAction(
-             label: 'Dismiss',
-             textColor: Colors.white,
-             onPressed: () => ScaffoldMessenger.of(context).hideCurrentSnackBar(),
-           ),
-         ),
-       );
-     }
-   }
-   ```
-
-2. Replace all existing snackbar code in screens with `SnackbarUtils` calls
+**Files**:
+- `frontend/lib/shared/utils/snackbar_utils.dart` (NEW)
+- `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- `frontend/lib/features/settings/presentation/screens/settings_screen.dart`
+- `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`
+- `frontend/lib/features/invoices/presentation/screens/invoices_list_screen.dart`
+- `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
+- `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
+- Any other screens with snackbars
 
 **Acceptance Criteria**:
 - [ ] Snackbars auto-dismiss after 5 seconds
 - [ ] "Dismiss" button immediately closes snackbar
-- [ ] Tap outside dismisses snackbar
-- [ ] Swipe gesture dismisses
+- [ ] Tap outside snackbar dismisses it
+- [ ] Swipe gesture dismisses snackbar
 - [ ] Success = green, Error = red, Info = blue
 
-**Manual Test - Mobile (375px)**:
-1. Save business → Green snackbar → Wait 5 sec → Auto-dismisses
-2. Save again → Tap "Dismiss" → Immediately closes
-3. Perform action → Snackbar shows → Tap outside → Dismisses
-4. Perform action → Snackbar shows → Swipe → Dismisses
+**Test Steps**:
+- **Mobile**: Save business → Green snackbar appears → Wait 5 sec → Auto-dismisses
+- **Mobile**: Save again → Tap "Dismiss" → Immediately closes
+- **Mobile**: Perform action → Snackbar shows → Tap outside → Dismisses
+- **Mobile**: Perform action → Snackbar shows → Swipe → Dismisses
+- **Web**: Repeat all tests on desktop
 
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-2. Verify snackbar position correct (bottom)
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] All snackbars use `SnackbarUtils`
-- [ ] All manual tests pass
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-### T005: [I05] Fix Home Empty State
+### I05: Fix Home Empty State
 
-**Goal**: Remove duplicate buttons, keep only 2 centered buttons
+- [ ] **I05**: Clean up home screen empty state - show exactly 2 centered buttons, remove duplicates
 
-**Files to Change**:
-- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
-- Verify: `frontend/lib/features/home/presentation/widgets/empty_state.dart`
+**What to Change**:
+- In `frontend/lib/features/home/presentation/screens/home_screen.dart`, when `vendors.isEmpty`:
+  - Set `floatingActionButton: null` (no floating button in empty state)
+  - Remove add business icon from app bar in empty state
+- Verify `frontend/lib/features/home/presentation/widgets/empty_state.dart` shows exactly 2 centered buttons:
+  - "Add Business" (primary style)
+  - "Upload Invoice" (secondary or outlined style)
 
-**Implementation Steps**:
-1. In `home_screen.dart`, when `vendors.isEmpty`:
-   - Set `floatingActionButton: null`
-   - Remove add business icon from app bar in empty state
-
-2. Verify `empty_state.dart` shows exactly 2 centered buttons:
-   - "Add Business"
-   - "Upload Invoice"
+**Files**:
+- `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- `frontend/lib/features/home/presentation/widgets/empty_state.dart` (verify only)
 
 **Acceptance Criteria**:
-- [ ] Empty state shows exactly 2 centered buttons
-- [ ] No add business icon in app bar
-- [ ] No floating button at bottom
+- [ ] Empty state shows exactly 2 centered buttons (vertically stacked)
+- [ ] No add business icon in app bar when empty
+- [ ] No floating button at bottom when empty
 
-**Manual Test - Mobile (375px)**:
-1. Delete all businesses
-2. Home screen → Count buttons → Should be exactly 2
-3. Verify buttons centered
-4. Check app bar → No add business icon
-5. Check bottom → No floating button
+**Test Steps**:
+- **Mobile**: Delete all businesses → Home screen → Count buttons → Should be exactly 2 → Verify buttons centered → Check app bar → No add business icon → Check bottom → No floating button
+- **Web**: Repeat test on desktop
 
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-2. Verify buttons properly sized on desktop
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Exactly 2 buttons in empty state
-- [ ] Manual tests pass
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-### T006: [I06] Add Monthly Limit to Business Dialog
+### I06: Add Monthly Limit to Business Dialog
 
-**Goal**: Add monthly limit input field to add/edit business dialogs
+- [ ] **I06**: Add monthly limit input field to add/edit business dialogs with validation
 
-**Files to Change**:
-- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart` (`_showAddVendorDialog`, `_showEditVendorDialog`)
-- Backend (if needed): `backend/prisma/schema.prisma` (check if `monthlyLimit` field exists)
+**What to Change**:
+- In `frontend/lib/features/home/presentation/screens/home_screen.dart`:
+  - In `_showAddVendorDialog()`: Add `TextEditingController` for monthly limit, add `TextField` with `keyboardType: TextInputType.number`, add validator (required, positive number), update `addVendor()` call to include `monthlyLimit`
+  - In `_showEditVendorDialog()`: Pre-fill monthly limit from vendor data, same validation, update `updateVendor()` call
+- Check backend: Verify `backend/prisma/schema.prisma` has `Vendor.monthlyLimit` field (add if missing: `monthlyLimit Decimal?`)
 
-**Implementation Steps**:
-1. In `_showAddVendorDialog`:
-   - Add `TextEditingController` for monthly limit
-   - Add `TextField` with `keyboardType: TextInputType.number`
-   - Add validator: required, positive number
-   - Update `addVendor()` call to include `monthlyLimit`
-
-2. In `_showEditVendorDialog`:
-   - Pre-fill monthly limit from vendor data
-   - Same validation
-   - Update `updateVendor()` call
-
-3. If backend doesn't have field, add to Prisma schema:
-   ```prisma
-   model Vendor {
-     // ... existing fields
-     monthlyLimit Decimal?
-   }
-   ```
+**Files**:
+- `frontend/lib/features/home/presentation/screens/home_screen.dart`
+- `backend/prisma/schema.prisma` (check only, add field if missing)
 
 **Acceptance Criteria**:
 - [ ] Add business dialog has "Monthly Limit" field
 - [ ] Field is required (blocks save if empty)
 - [ ] Field accepts only positive numbers
 - [ ] Edit dialog pre-fills existing limit
-- [ ] Limit saves successfully
+- [ ] Limit saves successfully to backend
 
-**Manual Test - Mobile (375px)**:
-1. Add business → Verify monthly limit field present
-2. Try save without limit → Verify validation error
-3. Enter -100 → Verify error
-4. Enter 5000 → Save succeeds
-5. Edit business → Verify limit pre-filled
-6. Update limit → Save succeeds
+**Test Steps**:
+- **Mobile**: Add business → Verify monthly limit field present → Try save without limit → Verify validation error → Enter -100 → Verify error → Enter 5000 → Save succeeds
+- **Mobile**: Edit business → Verify limit pre-filled → Update limit → Save succeeds
+- **Web**: Repeat all tests on desktop
 
-**Manual Test - Web (1440px)**:
-1. Repeat all mobile tests
-2. Verify number keyboard on mobile
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Field present in both dialogs
-- [ ] All validation works
-- [ ] Manual tests pass
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+cd backend && npx prisma validate  # If schema changed
+```
 
 ---
 
-### T007: [I07] Fix Home With Businesses
+### I07: Fix Home Screen With Businesses
 
-**Goal**: Center upload button, remove duplicate add business icon
+- [ ] **I07**: Center the floating upload invoice button, remove duplicate add business icon
 
-**Files to Change**:
-- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
+**What to Change**:
+- In `frontend/lib/features/home/presentation/screens/home_screen.dart`, when `vendors.isNotEmpty`:
+  - Set `floatingActionButton: FloatingActionButton.extended` with label "Upload Invoice"
+  - Set `floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat`
+  - Remove any separate add business floating button
 
-**Implementation Steps**:
-1. When `vendors.isNotEmpty`:
-   - Set `floatingActionButton: FloatingActionButton.extended` with label "Upload Invoice"
-   - Set `floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat`
-   - Remove any separate add business floating button
+**Files**:
+- `frontend/lib/features/home/presentation/screens/home_screen.dart`
 
 **Acceptance Criteria**:
-- [ ] Single centered "Upload Invoice" floating button
-- [ ] No separate add business floating button
-- [ ] Button at bottom center
+- [ ] No add business icon button when businesses exist
+- [ ] Single centered "Upload Invoice" floating button at bottom center
+- [ ] Button is properly centered (not full width)
 
-**Manual Test - Mobile (375px)**:
-1. Add business
-2. Home → Verify single "Upload Invoice" button centered at bottom
-3. Verify no duplicate add business button
+**Test Steps**:
+- **Mobile**: Add business → Home → Verify single "Upload Invoice" button centered at bottom → Verify no duplicate add business button
+- **Web**: Same verification on desktop
 
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-2. Verify button centered, not full width
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Single centered button
-- [ ] Manual tests pass
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-### T008: [I08] Update App Bar Icons
+### I08: Update App Bar Icons
 
-**Goal**: Remove analytics icon, add business icon on home
+- [ ] **I08**: Remove analytics icon from app bar, add business icon on home screen
 
-**Files to Change**:
-- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart`
+**What to Change**:
+- In `frontend/lib/features/home/presentation/screens/home_screen.dart`:
+  - Remove `IconButton(Icons.analytics_outlined)` from app bar (analytics already exists near search)
+  - Add `IconButton(Icons.business)` to app bar that calls `_showAddVendorDialog`
 
-**Implementation Steps**:
-1. Remove `IconButton(Icons.analytics_outlined)` from app bar
-2. Add `IconButton(Icons.business)` to app bar that calls `_showAddVendorDialog`
+**Files**:
+- `frontend/lib/features/home/presentation/screens/home_screen.dart`
 
 **Acceptance Criteria**:
-- [ ] No analytics icon in app bar
-- [ ] Business icon present in app bar
+- [ ] No analytics icon in app bar on home screen
+- [ ] Business icon present in app bar on home screen
 - [ ] Clicking business icon opens add business dialog
 
-**Manual Test - Mobile (375px)**:
-1. Home → Check app bar icons
-2. Verify no analytics icon
-3. Verify business icon present
-4. Tap business icon → Add business dialog opens
+**Test Steps**:
+- **Mobile**: Home → Check app bar icons → Verify no analytics icon → Verify business icon present → Tap business icon → Add business dialog opens
+- **Web**: Repeat test on desktop
 
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Icons updated correctly
-- [ ] Manual tests pass
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-### T009: [I09] Remove View Original File Button
+### I09: Remove View Original File Button
 
-**Goal**: Remove non-functional button from invoice details
+- [ ] **I09**: Remove non-functional "View Original File" button from invoice details screen
 
-**Files to Change**:
-- Update: `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`
+**What to Change**:
+- In `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`:
+  - Locate `OutlinedButton` with "View Original File" text (around lines 324-333)
+  - Remove entire button widget
 
-**Implementation Steps**:
-1. Locate `OutlinedButton` with "View Original File" text (around lines 324-333)
-2. Remove entire button widget
+**Files**:
+- `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`
 
 **Acceptance Criteria**:
-- [ ] Invoice details has no "View Original File" button
+- [ ] Invoice details screen has no "View Original File" button
 - [ ] Only edit and delete buttons remain
 
-**Manual Test - Mobile (375px)**:
-1. Open invoice details
-2. Verify no "View Original File" button
-3. Verify edit and delete work
+**Test Steps**:
+- **Mobile**: Open invoice details → Verify no "View Original File" button → Verify edit and delete buttons work
+- **Web**: Repeat test on desktop
 
-**Manual Test - Web (1440px)**:
-1. Repeat mobile test
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Button removed
-- [ ] Manual tests pass
-
----
-
-### T010: [I10] Fix Line Items Edit Behavior
-
-**Goal**: Make line items edit match invoice field edit pattern
-
-**Files to Change**:
-- Update: `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart` (or separate edit screen)
-
-**Implementation Steps**:
-1. Ensure line items edit uses same dialog pattern as invoice name/number/date
-2. Add loading indicator to save button
-3. Show success/error snackbar after save
-4. Add validation
-
-**Acceptance Criteria**:
-- [ ] Line items edit dialog matches other edit patterns
-- [ ] Save shows loading indicator
-- [ ] Success snackbar after save
-- [ ] Validation errors clear
-
-**Manual Test - Mobile (375px)**:
-1. Edit line items → Verify dialog pattern consistent
-2. Save → Verify loading indicator
-3. Verify success snackbar
-
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Consistent edit UX
-- [ ] Manual tests pass
-
----
-
-### T018: [I18] Add Loading Indicators to All Dialogs
-
-**Goal**: Show immediate loading feedback in all add/edit/delete dialogs
-
-**Files to Change**:
-- Update: `frontend/lib/features/home/presentation/screens/home_screen.dart` (add/edit business dialogs)
-- Update: `frontend/lib/features/settings/presentation/screens/settings_screen.dart` (edit name dialog)
-- Update: All other dialogs with save/delete actions
-
-**Implementation Steps**:
-1. For each dialog:
-   - Wrap in `Consumer` widget
-   - Add `barrierDismissible: !isLoading`
-   - Show `CircularProgressIndicator` in action buttons during loading:
-     ```dart
-     ElevatedButton(
-       onPressed: isLoading ? null : () => { /* save */ },
-       child: isLoading
-           ? const SizedBox(
-               width: 20,
-               height: 20,
-               child: CircularProgressIndicator(
-                 strokeWidth: 2,
-                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-               ),
-             )
-           : const Text('Save'),
-     )
-     ```
-   - Disable all buttons during loading
-
-**Acceptance Criteria**:
-- [ ] All save buttons show loading indicator immediately
-- [ ] Delete buttons show loading indicator
-- [ ] Buttons disabled during loading
-- [ ] Dialog not dismissible during loading
-
-**Manual Test - Mobile (375px)**:
-1. Add business → Save → Verify immediate loading
-2. Edit business → Save → Verify loading
-3. Delete business → Confirm → Verify loading on delete
-4. Try tap outside during loading → Dialog stays open
-5. Try tap save again → Button disabled
-
-**Manual Test - Web (1440px)**:
-1. Repeat all mobile tests
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] All dialogs show loading
-- [ ] Manual tests pass
-
----
-
-**Phase P1 Validation Checkpoint**:
+**Automated Validation**:
 ```bash
-cd frontend
-flutter analyze        # Must pass: 0 errors
-flutter build web      # Must succeed
+cd frontend && flutter analyze
 ```
-- [ ] All 8 P1 items complete (I04-I10, I18)
-- [ ] Manual tests pass on mobile + web
 
 ---
 
-## Phase P2: Responsiveness & Polish
+### I10: Fix Line Items Edit Behavior
 
-**Items**: I01, I02, I12, I16, I17, I19, I20
+- [ ] **I10**: Make line items edit consistent with other invoice field edit patterns
 
----
+**What to Change**:
+- In `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`:
+  - Ensure line items edit uses same dialog pattern as invoice name/number/date edits
+  - Add loading indicator to save button (using `CircularProgressIndicator`)
+  - Show success/error snackbar after save (using `SnackbarUtils`)
+  - Add validation for line item fields
 
-### T001: [I01] Fix App Background Color
-
-**Goal**: Make app background independent of browser/OS dark mode
-
-**Files to Change**:
-- Update: `frontend/lib/main.dart`
-
-**Implementation Steps**:
-1. Change `themeMode: ThemeMode.system` to `themeMode: ThemeMode.light`
+**Files**:
+- `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart`
 
 **Acceptance Criteria**:
-- [ ] App background light despite browser dark mode
-- [ ] App background light despite OS dark mode
-- [ ] Consistent across all browsers
+- [ ] Line items edit dialog matches other edit dialog patterns
+- [ ] Save button shows loading indicator during save
+- [ ] Success snackbar appears after successful save
+- [ ] Validation errors shown clearly
 
-**Manual Test - Mobile**:
-1. Enable iOS dark mode
-2. Open app in Safari → Verify light background
+**Test Steps**:
+- **Mobile**: Edit line items → Verify dialog pattern consistent with invoice name edit → Save → Verify loading indicator → Verify success snackbar
+- **Web**: Repeat test on desktop
 
-**Manual Test - Web (1440px)**:
-1. Enable browser dark mode
-2. Open app → Verify light background
-3. Test Chrome, Safari, Firefox
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Theme always light
-- [ ] Manual tests pass
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-### T002: [I02] Fix Responsive Layout Mobile
+### I11: Fix Profile Settings (Name + Currency)
 
-**Goal**: Fix buttons and charts overflowing on mobile
+- [ ] **I11**: Fix profile settings functionality - make name and currency changes work end-to-end
 
-**Files to Change**:
-- Update: All screens with charts (analytics, vendor analytics)
-- Update: All screens with button rows
-- Update: Any screens with potential overflow
+**What to Change**:
+- Update `frontend/lib/features/settings/presentation/screens/settings_screen.dart`:
+  - Edit name dialog: Wrap in `Consumer` widget, add `barrierDismissible: !isLoading`, show `CircularProgressIndicator` in save button during loading, add `ref.listen` for success/error snackbars, disable TextField and buttons during loading
+  - Currency picker: Wrap `onSelect` in try-catch, show success snackbar (green), show error snackbar (red) with "Retry"
+- Update `frontend/lib/features/settings/presentation/providers/settings_provider.dart`:
+  - In `updateName()`: Add `rethrow` to propagate errors to UI
+  - In `updateCurrency()`: Add `rethrow` and provider invalidation:
+    ```dart
+    await _apiClient.patch('/users/me', data: {'systemCurrency': currencyCode});
+    _ref.invalidate(authStateProvider);
+    _ref.invalidate(overallAnalyticsProvider);
+    _ref.invalidate(invoicesProvider);
+    ```
 
-**Implementation Steps**:
-1. Wrap charts in `LayoutBuilder`:
-   ```dart
-   LayoutBuilder(
-     builder: (context, constraints) {
-       return SizedBox(
-         width: constraints.maxWidth - 32,
-         height: 300,
-         child: LineChart(/* ... */),
-       );
-     },
-   )
-   ```
-
-2. Use `Expanded` or `Flexible` for button rows to prevent overflow
-
-3. Add `SingleChildScrollView` to long content sections
-
-4. Test at 375px width in Chrome DevTools
+**Files**:
+- `frontend/lib/features/settings/presentation/screens/settings_screen.dart`
+- `frontend/lib/features/settings/presentation/providers/settings_provider.dart`
 
 **Acceptance Criteria**:
-- [ ] No horizontal scrolling on any screen (375px)
-- [ ] All buttons visible and tappable
-- [ ] Charts fit screen with visible axes
-- [ ] 0 RenderFlex overflow errors
+- [ ] Name change saves and updates everywhere
+- [ ] Currency change saves and updates everywhere
+- [ ] Analytics refresh after currency change (< 2 seconds)
+- [ ] Loading states visible during save operations
+- [ ] Success/error snackbars shown appropriately
 
-**Manual Test - Mobile (375px)**:
-1. Navigate to every screen
-2. Verify no horizontal scrolling
-3. View analytics → Charts fit with axes visible
-4. Click all buttons → All tappable
-5. Console → Verify 0 overflow errors
+**Test Steps**:
+- **Mobile**: Settings → Edit name → Enter new name → Save → Verify loading indicator → Verify success snackbar → Check display in profile → Name updated
+- **Mobile**: Settings → Edit currency → Change to EUR → Save → Navigate to analytics → Verify EUR appears < 2 sec → Check invoices → Verify normalized amounts in EUR → Check charts → Verify € symbol on Y-axis
+- **Mobile**: Test error: Disconnect network → Try save → Verify error with "Retry" option
+- **Web**: Repeat all tests on desktop
 
-**Manual Test - Web (1440px)**:
-1. Verify no layout regressions on desktop
-2. Resize window → Content reflows
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes (0 overflow errors)
-- [ ] Manual tests pass
-- [ ] Responsive on all sizes
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-### T012: [I12] Fix Mobile Dialog Positioning
+### I12: Fix Mobile Dialog Positioning (Keyboard-Safe)
 
-**Goal**: Keep dialogs accessible when keyboard appears
+- [ ] **I12**: Make dialogs keyboard-safe on mobile - stay accessible when keyboard appears
 
-**Files to Change**:
-- Update: All dialogs (home, settings, invoices, vendors)
+**What to Change**:
+- Update all dialogs to wrap content in `SingleChildScrollView`:
+  ```dart
+  AlertDialog(
+    title: const Text('Edit Business'),
+    content: SingleChildScrollView(
+      shrinkWrap: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(/* ... */),
+          // ... other fields
+        ],
+      ),
+    ),
+    actions: [/* buttons */],
+  )
+  ```
 
-**Implementation Steps**:
-1. Wrap `AlertDialog` content in `SingleChildScrollView`:
-   ```dart
-   AlertDialog(
-     title: const Text('Edit Business'),
-     content: SingleChildScrollView(
-       shrinkWrap: true,
-       child: Column(
-         mainAxisSize: MainAxisSize.min,
-         children: [
-           TextField(/* ... */),
-           // ... other fields
-         ],
-       ),
-     ),
-     actions: [/* buttons */],
-   )
-   ```
+**Files**:
+- `frontend/lib/features/home/presentation/screens/home_screen.dart` (add/edit business dialogs)
+- `frontend/lib/features/settings/presentation/screens/settings_screen.dart` (edit name dialog)
+- `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart` (edit dialogs)
+- `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart` (if applicable)
+- Any other dialogs
 
 **Acceptance Criteria**:
-- [ ] Dialogs stay on screen when keyboard appears
-- [ ] Content scrollable with keyboard visible
-- [ ] Buttons accessible via scrolling
+- [ ] Dialogs remain on screen when keyboard appears
+- [ ] Dialog content is scrollable with keyboard visible
+- [ ] Action buttons accessible via scrolling
 - [ ] Keyboard dismisses without closing dialog
 
-**Manual Test - Mobile (actual device)**:
-1. Open add business dialog
-2. Tap text field → Keyboard appears
-3. Verify dialog still visible
-4. Scroll → Verify can reach buttons
-5. Tap outside keyboard → Keyboard dismisses, dialog stays
+**Test Steps**:
+- **Mobile (actual device or simulator)**: Open add business dialog → Tap text field → Keyboard appears → Verify dialog still visible → Scroll → Verify can reach buttons → Tap outside keyboard → Keyboard dismisses, dialog stays open
+- **Tablet**: Same verification
 
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Keyboard-safe on mobile
-- [ ] Manual tests pass
-
----
-
-### T016: [I16] File Size Validation
-
-**Goal**: Reject heavy images with clear error message
-
-**Files to Change**:
-- Update: `frontend/lib/features/home/presentation/providers/home_provider.dart`
-
-**Implementation Steps**:
-1. In `uploadFromGallery()` and `uploadPdf()`:
-   ```dart
-   Future<void> uploadFromGallery() async {
-     final result = await FilePicker.platform.pickFiles(type: FileType.image);
-     
-     if (result != null && result.files.single.bytes != null) {
-       final file = result.files.single;
-       const maxSizeBytes = 10 * 1024 * 1024; // 10MB
-       
-       if (file.size > maxSizeBytes) {
-         final sizeMB = (file.size / 1024 / 1024).toStringAsFixed(1);
-         _setError('File too large (max 10MB). Selected file: ${sizeMB}MB');
-         return;
-       }
-       
-       await _uploadFileFromBytes(file.bytes!, file.name);
-     }
-   }
-   ```
-
-**Acceptance Criteria**:
-- [ ] Files ≤10MB upload normally
-- [ ] Files >10MB show error with actual size
-- [ ] Can select different file after rejection
-
-**Manual Test - Mobile (375px)**:
-1. Select 5MB image → Upload proceeds
-2. Select 15MB image → Error: "File too large (max 10MB). Selected file: 15.0MB"
-3. Select 8MB image → Upload proceeds
-
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Size validation works
-- [ ] Manual tests pass
-
----
-
-### T017: [I17] Add Analytics Loading Message
-
-**Goal**: Show message explaining slow loading with demo resources
-
-**Files to Change**:
-- Update: `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
-
-**Implementation Steps**:
-1. Add conditional info card at top of analytics screen:
-   ```dart
-   if (analytics.kpis.invoiceCount == 0)
-     Card(
-       color: Colors.blue.withValues(alpha: 0.1),
-       child: Padding(
-         padding: const EdgeInsets.all(16),
-         child: Row(
-           children: [
-             Icon(Icons.info_outline, color: Colors.blue.shade700),
-             const SizedBox(width: 12),
-             Expanded(
-               child: Text(
-                 'Using demo resources - loading may be slower. Upload your first invoice to see real analytics.',
-                 style: TextStyle(color: Colors.blue.shade700),
-               ),
-             ),
-           ],
-         ),
-       ),
-     ),
-   ```
-
-**Acceptance Criteria**:
-- [ ] Message visible with 0 invoices
-- [ ] Message explains demo resources
-- [ ] Message disappears with invoices
-
-**Manual Test - Mobile (375px)**:
-1. With no invoices → Analytics → Verify message shows
-2. Upload invoice → Analytics → Verify message gone
-
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Message displays correctly
-- [ ] Manual tests pass
-
----
-
-### T019: [I19] Improve AI Insights Copy
-
-**Goal**: Make insights human-friendly (no JSON)
-
-**Files to Change**:
-- Update: `frontend/lib/features/insights/presentation/screens/insights_screen.dart`
-- Backend (optional): `backend/src/insights/insights.service.ts` (update prompt)
-
-**Implementation Steps**:
-1. Update AI prompt to request "3-5 short, friendly sentences"
-2. Parse response as plain text (split by newlines)
-3. Display in simple list format with icons
-
-**Acceptance Criteria**:
-- [ ] 3-5 readable sentences displayed
-- [ ] No JSON visible
-- [ ] No technical jargon
-- [ ] Non-technical users understand
-
-**Manual Test - Mobile (375px)**:
-1. Open insights screen
-2. Count insights → Should be 3-5
-3. Read each → Plain English
-4. Ask non-technical person → They understand
-
-**Manual Test - Web (1440px)**:
-1. Repeat mobile tests
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] Plain language insights
-- [ ] Manual tests pass
-
----
-
-### T020: [I20] Make Charts Responsive with Axes
-
-**Goal**: Ensure charts fit screens with visible X and Y axes
-
-**Files to Change**:
-- Update: `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
-- Update: `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
-- Update: Any other screens with charts
-
-**Implementation Steps**:
-1. Wrap all line charts in `LayoutBuilder`
-2. Set responsive size based on constraints
-3. Configure `titlesData`:
-   ```dart
-   LineChartData(
-     titlesData: FlTitlesData(
-       leftTitles: AxisTitles(
-         sideTitles: SideTitles(
-           showTitles: true,
-           reservedSize: 40,
-         ),
-       ),
-       bottomTitles: AxisTitles(
-         sideTitles: SideTitles(
-           showTitles: true,
-           reservedSize: 30,
-         ),
-       ),
-       topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-       rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-     ),
-   )
-   ```
-
-**Acceptance Criteria**:
-- [ ] Charts fit container on all devices
-- [ ] X-axis labels visible
-- [ ] Y-axis labels visible
-- [ ] No label overlap
-
-**Manual Test - Mobile (375px)**:
-1. View analytics charts
-2. Verify X-axis labels visible
-3. Verify Y-axis labels visible
-
-**Manual Test - Tablet (768px)**:
-1. Same verification
-
-**Manual Test - Web (1440px)**:
-1. Same verification
-2. Resize window → Charts respond
-
-**Definition of Done**:
-- [ ] `flutter analyze` passes
-- [ ] All charts have visible axes
-- [ ] Manual tests pass on all sizes
-
----
-
-**Phase P2 Validation Checkpoint**:
+**Automated Validation**:
 ```bash
-cd frontend
-flutter analyze        # Must pass: 0 errors
-flutter build web      # Must succeed
-```
-- [ ] All 7 P2 items complete (I01, I02, I12, I16, I17, I19, I20)
-- [ ] Manual tests pass on mobile + web
-
----
-
-## Final Validation
-
-### All Items Verification
-- [ ] I01: App background fixed ✅
-- [ ] I02: Responsive layout ✅
-- [ ] I03: Password validation ✅
-- [ ] I04: Snackbar working ✅
-- [ ] I05: Home empty state ✅
-- [ ] I06: Monthly limit field ✅
-- [ ] I07: Home with businesses ✅
-- [ ] I08: App bar icons ✅
-- [ ] I09: View file button removed ✅
-- [ ] I10: Line items edit ✅
-- [ ] I11: Profile settings ✅
-- [ ] I12: Mobile dialogs ✅
-- [ ] I13: Export working ✅
-- [ ] I14: Type error fixed ✅
-- [ ] I15: Currency validation ✅
-- [ ] I16: File size validation ✅
-- [ ] I17: Analytics message ✅
-- [ ] I18: Loading indicators ✅
-- [ ] I19: AI insights ✅
-- [ ] I20: Charts responsive ✅
-
-### Automated Validation
-```bash
-cd frontend
-flutter analyze          # 0 errors
-flutter build web        # Success
-cd ../backend
-npm run build            # Success (if backend touched)
-npx prisma validate      # Success (if schema changed)
+cd frontend && flutter analyze
 ```
 
-### Manual Validation
-- [ ] All 20 items tested on mobile (375px)
-- [ ] All 20 items tested on web (1440px)
-- [ ] Cross-browser testing (Chrome, Safari, Firefox)
-- [ ] No console errors during normal usage
-- [ ] No regressions in existing functionality
+---
+
+### I13: Implement CSV Export Functionality
+
+- [ ] **I13**: Implement working CSV export from invoices and analytics screens
+
+**What to Change**:
+- Add to `frontend/pubspec.yaml`: `csv: ^6.0.0`
+- Create `frontend/lib/core/utils/export_utils.dart` with:
+  - `generateInvoicesCsv(List<Invoice>)` → CSV string
+  - `downloadCsv(String csvContent, String filename)` using `dart:html` Blob
+  - `generateFilename(String prefix, {String? businessName})` with date
+- Update `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`: Add `exportCsv()` method using `ExportUtils`
+- Update `frontend/lib/features/invoices/presentation/screens/invoices_list_screen.dart`: Wire export button to provider
+- Update `frontend/lib/features/vendors/presentation/providers/vendor_analytics_provider.dart`: Add `exportCsv()` method
+- Update `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`: Wire export button
+
+**Files**:
+- `frontend/pubspec.yaml` (add csv package)
+- `frontend/lib/core/utils/export_utils.dart` (NEW)
+- `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`
+- `frontend/lib/features/invoices/presentation/screens/invoices_list_screen.dart`
+- `frontend/lib/features/vendors/presentation/providers/vendor_analytics_provider.dart`
+- `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
+
+**Acceptance Criteria**:
+- [ ] Export button on all invoices downloads CSV file
+- [ ] CSV contains headers: Date, Business, Amount, Currency, Invoice #, Status
+- [ ] Export from vendor analytics downloads vendor-specific CSV
+- [ ] Success snackbar after download
+- [ ] Error message if no data to export: "No invoices to export"
+
+**Test Steps**:
+- **Mobile**: All invoices screen → Click export → Verify CSV downloads → Open CSV → Verify headers and data correct
+- **Mobile**: Vendor analytics → Click export → Verify vendor-specific CSV downloads
+- **Mobile**: With 0 invoices → Click export → Verify error message
+- **Web**: Repeat all tests → Check Downloads folder → Open CSV in Excel/Sheets → Verify formatting
+
+**Automated Validation**:
+```bash
+cd frontend && flutter pub get  # Install csv package
+cd frontend && flutter analyze
+cd frontend && flutter build web
+```
 
 ---
 
-## Notes
+### I14: Fix Type Error in All Invoices Screen
 
-- **NOT retrospective**: All tasks require implementation
-- **NOT marked complete**: Checkboxes empty until work is done
-- **Exact mapping**: 20 tasks (T001-T020) map to 20 items (I01-I20)
-- **File paths**: Exact locations provided for each task
-- **Manual tests**: Both mobile and web for every item
-- **Definition of done**: Clear completion criteria for each
+- [ ] **I14**: Fix runtime type error: type 'minified:y0' is not a subtype of type 'String'
+
+**What to Change**:
+- In `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`:
+  - Add `_parseString()` static helper method to `Invoice` class:
+    ```dart
+    static String _parseString(dynamic value, String? defaultValue) {
+      if (value == null) return defaultValue ?? '';
+      if (value is String) return value;
+      return value.toString();
+    }
+    ```
+  - Update `Invoice.fromJson()` to use safe parsing for all string fields:
+    ```dart
+    id: _parseString(json['id'], 'unknown-id'),
+    vendorName: _parseString(json['vendor']?['name'], 'Unknown'),
+    originalCurrency: _parseString(json['originalCurrency'], 'USD'),
+    invoiceNumber: json['invoiceNumber'] != null 
+      ? _parseString(json['invoiceNumber'], null) 
+      : null,
+    // ... other fields with safe parsing
+    ```
+
+**Files**:
+- `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`
+
+**Acceptance Criteria**:
+- [ ] All invoices screen loads without errors
+- [ ] Console shows 0 type errors
+- [ ] All invoice fields display correctly
+- [ ] Fields with unexpected types show fallback values (e.g., "Unknown" for vendor)
+
+**Test Steps**:
+- **Mobile**: Open Chrome DevTools console (F12) → Navigate to "All Invoices" screen → Verify console shows 0 errors → Scroll through invoice list → All data displays → Click on invoices → Details open without errors
+- **Web**: Open DevTools console → Navigate to all invoices → Verify 0 errors → Test with various invoices
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-## Execution Strategy
+### I15: Validate Currency Change Propagation
 
-### Sequential (Single Developer)
-1. Implement Phase P0 (5 items): 2-3 days
-2. Validate P0 checkpoint
-3. Implement Phase P1 (8 items): 3-4 days
-4. Validate P1 checkpoint
-5. Implement Phase P2 (7 items): 2-3 days
-6. Final validation
+- [ ] **I15**: Ensure currency changes immediately propagate to all displays (analytics, invoices, charts)
 
-**Total**: 7-10 days
+**What to Change**:
+- In `frontend/lib/features/settings/presentation/providers/settings_provider.dart`:
+  - In `updateCurrency()` method, after successful API call, add:
+    ```dart
+    await _apiClient.patch('/users/me', data: {'systemCurrency': currencyCode});
+    _ref.invalidate(authStateProvider);
+    _ref.invalidate(overallAnalyticsProvider);  // Add this
+    _ref.invalidate(invoicesProvider);          // Add this
+    state = const AsyncValue.data(null);
+    ```
+  - Add necessary imports: `overall_analytics_provider.dart`, `invoices_provider.dart`
 
-### Parallel (Multiple Developers)
-- Developer A: P0 items
-- Developer B: P1 items (after P0 checkpoint)
-- Developer C: P2 items (after P0 checkpoint)
+**Files**:
+- `frontend/lib/features/settings/presentation/providers/settings_provider.dart`
 
-**Total**: 5-7 days
+**Acceptance Criteria**:
+- [ ] Currency change in settings triggers analytics refresh
+- [ ] Analytics KPIs show new currency within 2 seconds
+- [ ] Invoice list shows updated normalized amounts in new currency
+- [ ] Chart Y-axis labels show correct currency symbol (e.g., $, €, ₪)
+- [ ] All updates happen consistently
+
+**Test Steps**:
+- **Mobile**: Note current currency (e.g., USD) → Navigate to analytics → Note KPI values → Settings → Change currency to EUR → Save → Navigate back to analytics → Verify values updated to EUR < 2 seconds → Navigate to invoices → Verify amounts show EUR → View charts → Verify € symbol on Y-axis → Change back to USD → Verify all update again
+- **Web**: Repeat all tests on desktop
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
 
 ---
 
-**Ready for Implementation**: All 20 tasks defined with clear instructions.
+### I16: Validate Image File Size (Reject Heavy Images)
+
+- [ ] **I16**: Add file size validation before upload - reject images > 10MB with clear error message
+
+**What to Change**:
+- In `frontend/lib/features/home/presentation/providers/home_provider.dart`:
+  - In `uploadFromGallery()` and `uploadPdf()` methods, add size check:
+    ```dart
+    Future<void> uploadFromGallery() async {
+      final result = await FilePicker.platform.pickFiles(type: FileType.image);
+      
+      if (result != null && result.files.single.bytes != null) {
+        final file = result.files.single;
+        const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+        
+        if (file.size > maxSizeBytes) {
+          final sizeMB = (file.size / 1024 / 1024).toStringAsFixed(1);
+          _setError('File too large (max 10MB). Selected file: ${sizeMB}MB');
+          return;
+        }
+        
+        await _uploadFileFromBytes(file.bytes!, file.name);
+      }
+    }
+    ```
+
+**Files**:
+- `frontend/lib/features/home/presentation/providers/home_provider.dart`
+
+**Acceptance Criteria**:
+- [ ] Files ≤ 10MB upload normally
+- [ ] Files > 10MB show error: "File too large (max 10MB). Selected file: X.XMB"
+- [ ] User can select different file after rejection
+
+**Test Steps**:
+- **Mobile**: Select 5MB image → Verify upload proceeds → Select 15MB image → Verify error message with actual file size → Select 8MB image → Verify upload proceeds
+- **Web**: Repeat all tests on desktop
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
+
+---
+
+### I17: Add Analytics Loading Message (Demo Resources)
+
+- [ ] **I17**: Show message explaining slow loading due to demo resources when analytics screen has 0 invoices
+
+**What to Change**:
+- In `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`:
+  - Add conditional info card at top when `invoiceCount == 0`:
+    ```dart
+    if (analytics.kpis.invoiceCount == 0)
+      Card(
+        color: Colors.blue.withValues(alpha: 0.1),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Using demo resources - loading may be slower. Upload your first invoice to see real analytics.',
+                  style: TextStyle(color: Colors.blue.shade700),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ```
+
+**Files**:
+- `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
+
+**Acceptance Criteria**:
+- [ ] Message visible when `invoiceCount == 0`
+- [ ] Message explains demo resource limits clearly
+- [ ] Message disappears after uploading first invoice
+
+**Test Steps**:
+- **Mobile**: With no invoices → Navigate to analytics → Verify message shows → Upload invoice → Navigate to analytics → Verify message gone
+- **Web**: Repeat test on desktop
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
+
+---
+
+### I18: Add Loading Indicators to All Dialogs
+
+- [ ] **I18**: Show immediate loading feedback in all add/edit/delete dialogs during save operations
+
+**What to Change**:
+- For each dialog in the following files, wrap in `Consumer` widget and add loading states:
+  ```dart
+  Consumer(
+    builder: (context, ref, child) {
+      final isLoading = ref.watch(someProvider.select((s) => s.isLoading));
+      
+      return AlertDialog(
+        title: const Text('Add Business'),
+        content: TextField(enabled: !isLoading, /* ... */),
+        actions: [
+          TextButton(
+            onPressed: isLoading ? null : () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: isLoading ? null : () { /* save */ },
+            child: isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Save'),
+          ),
+        ],
+      );
+    },
+  )
+  ```
+  - Set `barrierDismissible: !isLoading` to prevent dismissing during save
+
+**Files**:
+- `frontend/lib/features/home/presentation/screens/home_screen.dart` (add/edit business, delete dialogs)
+- `frontend/lib/features/settings/presentation/screens/settings_screen.dart` (edit name, currency dialogs)
+- `frontend/lib/features/invoices/presentation/screens/invoice_detail_screen.dart` (edit invoice, line items, delete dialogs)
+- `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart` (if applicable)
+
+**Acceptance Criteria**:
+- [ ] All save buttons show loading indicator immediately on click
+- [ ] Delete buttons show loading indicator during operation
+- [ ] All buttons disabled during loading
+- [ ] Dialog cannot be dismissed during loading
+
+**Test Steps**:
+- **Mobile**: Add business → Click save → Verify immediate loading indicator → Verify buttons disabled → Edit business → Click save → Verify loading → Delete business → Click confirm → Verify loading on delete button → Try tap outside during loading → Dialog stays open
+- **Web**: Repeat all tests on desktop
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+```
+
+---
+
+### I19: Improve AI Insights Copy (Plain Language)
+
+- [ ] **I19**: Make AI insights screen show 3-5 plain language sentences instead of JSON or technical language
+
+**What to Change**:
+- Update `frontend/lib/features/insights/presentation/screens/insights_screen.dart`:
+  - Update AI prompt to request "3-5 short, friendly sentences" (if prompt is in frontend)
+  - Parse response as plain text (split by newlines, not JSON)
+  - Display in simple list format with icons (e.g., bullet points or numbered list)
+- If backend prompt needs updating:
+  - Update `backend/src/insights/insights.service.ts` prompt to request plain language output
+
+**Files**:
+- `frontend/lib/features/insights/presentation/screens/insights_screen.dart`
+- `backend/src/insights/insights.service.ts` (optional, if prompt is backend-side)
+
+**Acceptance Criteria**:
+- [ ] Insights screen shows 3-5 readable sentences
+- [ ] No JSON visible to user
+- [ ] No technical jargon or code-like output
+- [ ] Non-technical users can understand insights
+
+**Test Steps**:
+- **Mobile**: Open insights screen → Count insights → Should be 3-5 sentences → Read each → Plain English, no JSON → Ask non-technical person → They understand meaning
+- **Web**: Repeat test on desktop
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+cd backend && npm run build  # If backend changed
+```
+
+---
+
+### I20: Make Charts Responsive with Visible Axes
+
+- [ ] **I20**: Ensure all line charts are responsive with visible X and Y axes at all screen sizes
+
+**What to Change**:
+- For all chart screens, wrap charts in `LayoutBuilder` and configure axes:
+  ```dart
+  LayoutBuilder(
+    builder: (context, constraints) {
+      return SizedBox(
+        width: constraints.maxWidth - 32, // Minus padding
+        height: 300,
+        child: LineChart(
+          LineChartData(
+            titlesData: FlTitlesData(
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 40,
+                  getTitlesWidget: (value, meta) {
+                    return Text(
+                      '\$${value.toInt()}',
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  },
+                ),
+              ),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: true,
+                  reservedSize: 30,
+                  getTitlesWidget: (value, meta) {
+                    return Text(
+                      'Jan',
+                      style: const TextStyle(fontSize: 10),
+                    );
+                  },
+                ),
+              ),
+              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            ),
+          ),
+        ),
+      );
+    },
+  )
+  ```
+
+**Files**:
+- `frontend/lib/features/analytics/presentation/screens/overall_analytics_screen.dart`
+- `frontend/lib/features/vendors/presentation/screens/vendor_analytics_screen.dart`
+- Any other screens with line charts
+
+**Acceptance Criteria**:
+- [ ] Charts fit within container on all devices
+- [ ] X-axis labels visible and readable at all screen sizes
+- [ ] Y-axis labels visible and readable at all screen sizes
+- [ ] No axis label overlap
+
+**Test Steps**:
+- **Mobile (375px)**: View analytics charts → Verify X-axis labels visible → Verify Y-axis labels visible → No overlap
+- **Tablet (768px)**: Same verification
+- **Desktop (1440px)**: Same verification → Resize window → Charts respond smoothly
+
+**Automated Validation**:
+```bash
+cd frontend && flutter analyze
+cd frontend && flutter build web
+```
+
+---
+
+## Execution Notes
+
+### Safe Execution Order
+
+**Recommended Approach**: Implement in priority phases to minimize regressions
+
+#### Phase P0: Critical (5 items)
+**Execute First** - Fixes broken core functionality
+- I03 (Password validation)
+- I11 (Profile settings)
+- I13 (Export functionality)
+- I14 (Type error fix)
+- I15 (Currency validation)
+
+**Why First**: These fix critical bugs that prevent users from completing essential tasks
+
+**Validation After P0**:
+```bash
+cd frontend && flutter analyze  # Must pass: 0 errors
+cd frontend && flutter build web  # Must succeed
+```
+Manual test: Signup, change profile, change currency, view all invoices, export CSV
+
+---
+
+#### Phase P1: UX Improvements (8 items)
+**Execute Second** - Improves user experience and consistency
+- I04 (Snackbar auto-dismiss)
+- I05 (Home empty state)
+- I06 (Monthly limit field)
+- I07 (Home with businesses)
+- I08 (App bar icons)
+- I09 (Remove view file button)
+- I10 (Line items edit)
+- I18 (Dialog loading indicators)
+
+**Why Second**: Improves UX but doesn't break existing functionality
+
+**Validation After P1**:
+```bash
+cd frontend && flutter analyze
+cd frontend && flutter build web
+```
+Manual test: All P0 items still work + all P1 items work
+
+---
+
+#### Phase P2: Responsiveness & Polish (7 items)
+**Execute Last** - Makes app responsive and polished
+- I01 (App background color)
+- I02 (Responsive layout)
+- I12 (Mobile dialog positioning)
+- I16 (File size validation)
+- I17 (Analytics loading message)
+- I19 (AI insights)
+- I20 (Charts responsive)
+
+**Why Last**: These are polish items that don't affect core functionality
+
+**Validation After P2**:
+```bash
+cd frontend && flutter analyze
+cd frontend && flutter build web
+```
+Manual test: Full regression suite (all 20 items) on mobile (375px), tablet (768px), desktop (1440px)
+
+---
+
+### Verifying No Regressions
+
+After implementing all 20 items, run full regression suite:
+
+#### Automated Validation
+```bash
+# Frontend
+cd frontend
+flutter analyze        # MUST: 0 errors (info/warnings ok)
+flutter build web      # MUST: Success
+dart format --set-exit-if-changed lib/  # SHOULD: Formatted
+
+# Backend (if touched)
+cd backend
+npm run build          # MUST: Success
+npx prisma validate    # MUST: Success (if schema changed)
+```
+
+#### Manual Regression Tests
+
+**Critical Flows** (must work without errors):
+1. Signup → Login → Dashboard
+2. Add business → View business
+3. Upload invoice → View invoice
+4. View analytics → Export CSV
+5. Edit profile → Settings update
+
+**Console Check**:
+- Open Chrome DevTools (F12) → Console tab
+- Navigate through all screens
+- Perform all critical flows
+- **MUST**: 0 errors during normal usage
+
+**Cross-Browser Testing** (Web):
+- Chrome Desktop (primary) - all items work
+- Safari Desktop - all items work
+- Firefox Desktop - all items work
+
+**Device Testing** (Mobile):
+- Mobile emulator (375px) - all items work
+- Tablet (768px) - all items work
+- Actual device - especially test I12 (keyboard behavior)
+
+---
+
+### Known Dependencies
+
+**Item Dependencies** (must complete in order):
+- I04 (Snackbar) before I11, I18 (uses SnackbarUtils)
+- I11 (Profile) before I15 (Currency validation builds on profile provider)
+
+**No Other Hard Dependencies**: Most items are independent and can be parallelized within phases
+
+---
+
+### Rollback Strategy
+
+If critical regression discovered after phase:
+
+1. **Identify affected item**: Check which item introduced regression
+2. **Revert specific commit**: Use `git revert <commit-hash>`
+3. **Re-test**: Run validation suite
+4. **Fix and retry**: Fix issue, re-implement item
+
+**Emergency Rollback** (full phase):
+```bash
+git revert HEAD~N  # N = number of commits in phase
+git push origin 003-invoiceme-stabilization --force-with-lease
+```
+
+---
+
+## Summary
+
+**Total Tasks**: 20 (I01-I20)  
+**All Unchecked**: Ready for implementation  
+**Execution Time**: 7-10 days (2-3 days per phase)
+
+**Key Metrics**:
+- Frontend-only: 15 items
+- Full-stack: 5 items
+- Backend-only: 0 items
+
+**Success Criteria**:
+- [ ] All 20 items implemented
+- [ ] All acceptance criteria met
+- [ ] All manual tests passed (mobile + web)
+- [ ] `flutter analyze` passes (0 errors)
+- [ ] `flutter build web` succeeds
+- [ ] No regressions in critical flows
+- [ ] Cross-browser testing passed
+- [ ] Mobile device testing passed
+
+**Ready to implement!** 🚀
