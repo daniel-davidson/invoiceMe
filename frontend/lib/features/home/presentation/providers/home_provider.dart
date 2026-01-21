@@ -261,9 +261,20 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
           withData: true, // Get bytes on web
         );
         if (result != null && result.files.single.bytes != null) {
+          final file = result.files.single;
+          
+          // Check file size (max 10MB)
+          const maxSizeBytes = 10 * 1024 * 1024;
+          if (file.size > maxSizeBytes) {
+            final sizeMB = (file.size / 1024 / 1024).toStringAsFixed(1);
+            _setError('File too large (max 10MB). Selected file: ${sizeMB}MB');
+            _setUploading(false);
+            return;
+          }
+          
           await _uploadFileFromBytes(
-            result.files.single.bytes!,
-            result.files.single.name,
+            file.bytes!,
+            file.name,
           );
         }
       } else {
@@ -271,6 +282,16 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
           source: ImageSource.gallery,
         );
         if (image != null) {
+          // Check file size on mobile
+          const maxSizeBytes = 10 * 1024 * 1024;
+          final fileSize = await image.length();
+          if (fileSize > maxSizeBytes) {
+            final sizeMB = (fileSize / 1024 / 1024).toStringAsFixed(1);
+            _setError('File too large (max 10MB). Selected file: ${sizeMB}MB');
+            _setUploading(false);
+            return;
+          }
+          
           await _uploadFileFromPath(image.path, image.name);
         }
       }
@@ -292,6 +313,16 @@ class VendorsNotifier extends StateNotifier<AsyncValue<List<Vendor>>> {
 
       if (result != null) {
         final file = result.files.single;
+        
+        // Check file size (max 10MB)
+        const maxSizeBytes = 10 * 1024 * 1024;
+        if (file.size > maxSizeBytes) {
+          final sizeMB = (file.size / 1024 / 1024).toStringAsFixed(1);
+          _setError('File too large (max 10MB). Selected file: ${sizeMB}MB');
+          _setUploading(false);
+          return;
+        }
+        
         if (kIsWeb) {
           // On web, use bytes
           if (file.bytes != null) {

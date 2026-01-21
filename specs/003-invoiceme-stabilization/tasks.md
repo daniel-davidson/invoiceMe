@@ -559,7 +559,7 @@ cd frontend && flutter analyze
 
 ### I16: Validate Image File Size (Reject Heavy Images)
 
-- [ ] **I16**: Add file size validation before upload - reject images > 10MB with clear error message
+- [x] **I16**: Add file size validation before upload - reject images > 10MB with clear error message
 
 **What to Change**:
 - In `frontend/lib/features/home/presentation/providers/home_provider.dart`:
