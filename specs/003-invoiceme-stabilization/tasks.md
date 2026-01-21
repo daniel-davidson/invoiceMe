@@ -477,7 +477,7 @@ cd frontend && flutter build web
 
 ### I14: Fix Type Error in All Invoices Screen
 
-- [ ] **I14**: Fix runtime type error: type 'minified:y0' is not a subtype of type 'String'
+- [x] **I14**: Fix runtime type error: type 'minified:y0' is not a subtype of type 'String'
 
 **What to Change**:
 - In `frontend/lib/features/invoices/presentation/providers/invoices_provider.dart`:
