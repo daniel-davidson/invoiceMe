@@ -139,10 +139,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onPressed: () => context.push('/insights'),
                 tooltip: 'AI Insights',
               ),
-              IconButton(
-                icon: const Icon(Icons.analytics_outlined),
-                onPressed: () => context.push('/analytics'),
-                tooltip: 'Analytics',
+              // I08: Remove analytics icon (already exists near search)
+              // Add business icon when vendors exist
+              vendorsState.maybeWhen(
+                data: (vendors) => vendors.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.business),
+                        onPressed: () => _showAddVendorDialog(context, ref),
+                        tooltip: 'Add Business',
+                      )
+                    : const SizedBox.shrink(),
+                orElse: () => const SizedBox.shrink(),
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
@@ -312,37 +319,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
           ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FloatingActionButton.small(
-                heroTag: 'add_vendor',
-                onPressed: () => _showAddVendorDialog(context, ref),
-                backgroundColor: AppTheme.secondaryColor,
-                child: const Icon(Icons.business),
-              ),
-              const SizedBox(height: 12),
-              FloatingActionButton.extended(
-                heroTag: 'upload',
-                onPressed: uploadState.isUploading
-                    ? null
-                    : () => _showUploadDialog(context, ref),
-                icon: uploadState.isUploading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.upload),
-                label: Text(
-                  uploadState.isUploading ? 'Uploading...' : 'Upload Invoice',
-                ),
-              ),
-            ],
+          // I05: No floating button when empty (EmptyState has its own buttons)
+          // I07: Centered upload button when vendors exist
+          floatingActionButton: vendorsState.maybeWhen(
+            data: (vendors) => vendors.isNotEmpty
+                ? FloatingActionButton.extended(
+                    heroTag: 'upload',
+                    onPressed: uploadState.isUploading
+                        ? null
+                        : () => _showUploadDialog(context, ref),
+                    icon: uploadState.isUploading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.upload),
+                    label: Text(
+                      uploadState.isUploading ? 'Uploading...' : 'Upload Invoice',
+                    ),
+                  )
+                : null,
+            orElse: () => null,
           ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         ),
         // Upload overlay with stage-based progress
         if (uploadState.isUploading)

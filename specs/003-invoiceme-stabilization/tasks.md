@@ -162,7 +162,7 @@ cd frontend && flutter analyze
 
 ### I05: Fix Home Empty State
 
-- [ ] **I05**: Clean up home screen empty state - show exactly 2 centered buttons, remove duplicates
+- [x] **I05**: Clean up home screen empty state - show exactly 2 centered buttons, remove duplicates
 
 **What to Change**:
 - In `frontend/lib/features/home/presentation/screens/home_screen.dart`, when `vendors.isEmpty`:
@@ -228,7 +228,7 @@ cd backend && npx prisma validate  # If schema changed
 
 ### I07: Fix Home Screen With Businesses
 
-- [ ] **I07**: Center the floating upload invoice button, remove duplicate add business icon
+- [x] **I07**: Center the floating upload invoice button, remove duplicate add business icon
 
 **What to Change**:
 - In `frontend/lib/features/home/presentation/screens/home_screen.dart`, when `vendors.isNotEmpty`:
@@ -257,7 +257,7 @@ cd frontend && flutter analyze
 
 ### I08: Update App Bar Icons
 
-- [ ] **I08**: Remove analytics icon from app bar, add business icon on home screen
+- [x] **I08**: Remove analytics icon from app bar, add business icon on home screen
 
 **What to Change**:
 - In `frontend/lib/features/home/presentation/screens/home_screen.dart`:
