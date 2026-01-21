@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-invoiceme-stabilization`  
 **Created**: 2026-01-21  
-**Status**: Draft  
+**Status**: Specified ✅  
 **Parent Spec**: [002-invoiceme-mvp](../002-invoiceme-mvp/)
 
 ## Overview
