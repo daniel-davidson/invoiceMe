@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,33 +15,8 @@ final navigatorKeyProvider = Provider<GlobalKey<NavigatorState>>((ref) {
   return navigatorKey;
 });
 
-/// Get VM Service URI for debugging
-Future<Uri?> getVmUri() async {
-  try {
-    developer.ServiceProtocolInfo serviceProtocolInfo =
-        await developer.Service.getInfo();
-    return serviceProtocolInfo.serverUri;
-  } catch (e) {
-    if (kDebugMode) {
-      print('Error getting VM URI: $e');
-    }
-    return null;
-  }
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Print VM Service URI for debugging
-  if (kDebugMode) {
-    final vmUri = await getVmUri();
-    if (vmUri != null) {
-      print('════════════════════════════════════════════════════════════');
-      print('🔧 VM Service URI: $vmUri');
-      print('🔗 Open DevTools: ${vmUri.replace(path: '/')}');
-      print('════════════════════════════════════════════════════════════');
-    }
-  }
 
   // Initialize dependencies in parallel
   final results = await Future.wait([
