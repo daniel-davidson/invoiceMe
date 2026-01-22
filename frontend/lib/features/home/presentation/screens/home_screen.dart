@@ -138,18 +138,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 onPressed: () => context.push('/insights'),
                 tooltip: 'AI Insights',
               ),
-              // I08: Remove analytics icon (already exists near search)
-              // Add business icon when vendors exist
-              vendorsState.maybeWhen(
-                data: (vendors) => vendors.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.business),
-                        onPressed: () => _showAddVendorDialog(context, ref),
-                        tooltip: 'Add Business',
-                      )
-                    : const SizedBox.shrink(),
-                orElse: () => const SizedBox.shrink(),
-              ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined),
                 onPressed: () => context.push('/settings'),

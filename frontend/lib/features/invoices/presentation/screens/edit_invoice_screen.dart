@@ -456,7 +456,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         ),
         const SizedBox(height: 16),
 
-        if (items.isEmpty) ...[
+        if (items.isEmpty && _editingItemIndex != -1) ...[
           // Empty state
           Container(
             padding: const EdgeInsets.all(32),
@@ -496,12 +496,103 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
           const SizedBox(height: 16),
 
+          // Add new item card (inline, similar to editing)
+          if (_editingItemIndex == -1) ...[
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.add_circle_outline),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Add New Item',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _itemDescriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description *',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _itemQuantityController,
+                            decoration: const InputDecoration(
+                              labelText: 'Quantity',
+                              hintText: 'e.g., 2.5',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _itemUnitPriceController,
+                            decoration: const InputDecoration(
+                              labelText: 'Unit Price',
+                              hintText: 'e.g., 50.25',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _itemTotalController,
+                      decoration: const InputDecoration(
+                        labelText: 'Total *',
+                        hintText: 'e.g., 100.00',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _cancelItemEdit(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => _saveItem(editState),
+                          child: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Calculated total
           if (editState.currentUseItemsTotal)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -521,14 +612,15 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
           const SizedBox(height: 8),
 
-          // Add Item button
-          OutlinedButton.icon(
-            onPressed: () => _startAddingItem(editState),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Item'),
-          ),
+          // Add Item button (only show when not adding)
+          if (_editingItemIndex != -1)
+            OutlinedButton.icon(
+              onPressed: () => _startAddingItem(editState),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Item'),
+            ),
 
-          if (!editState.currentUseItemsTotal)
+          if (!editState.currentUseItemsTotal && _editingItemIndex != -1)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
@@ -537,18 +629,13 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               ),
             ),
         ],
-
-        // Add/Edit Item Form
-        if (_editingItemIndex != null) ...[
-          const SizedBox(height: 16),
-          _buildItemForm(context, editState),
-        ],
       ],
     );
   }
 
   Widget _buildItemCard(BuildContext context, EditInvoiceState editState, LineItem item, int index) {
     final isDeleting = _deletingItemIndex == index;
+    final isEditing = _editingItemIndex == index;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -571,6 +658,81 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               onPressed: () => setState(() => _deletingItemIndex = index),
             ),
           ),
+          if (isEditing) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _itemDescriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description *',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _itemQuantityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Quantity',
+                            hintText: 'e.g., 2.5',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: _itemUnitPriceController,
+                          decoration: const InputDecoration(
+                            labelText: 'Unit Price',
+                            hintText: 'e.g., 50.25',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _itemTotalController,
+                    decoration: const InputDecoration(
+                      labelText: 'Total *',
+                      hintText: 'e.g., 100.00',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => _cancelItemEdit(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _saveItem(editState),
+                        child: const Text('Save'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (isDeleting) ...[
             const Divider(height: 1),
             Padding(
@@ -596,87 +758,6 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildItemForm(BuildContext context, EditInvoiceState editState) {
-    final isAdding = _editingItemIndex == -1;
-
-    return Card(
-      color: Theme.of(context).colorScheme.surfaceVariant,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              isAdding ? 'Add Item' : 'Edit Item',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _itemDescriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description *',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _itemQuantityController,
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity',
-                      hintText: 'e.g., 2.5',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _itemUnitPriceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Unit Price',
-                      hintText: 'e.g., 50.25',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _itemTotalController,
-              decoration: const InputDecoration(
-                labelText: 'Total *',
-                hintText: 'e.g., 100.00',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton(
-                  onPressed: () => _cancelItemEdit(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => _saveItem(editState),
-                  child: Text(isAdding ? 'Add' : 'Save'),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
