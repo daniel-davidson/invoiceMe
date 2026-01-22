@@ -16,7 +16,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
     final analyticsState = ref.watch(vendorAnalyticsProvider(vendorId));
     final notifier = ref.watch(vendorAnalyticsProvider(vendorId).notifier);
     final authState = ref.watch(authStateProvider);
-    
+
     // Get user's system currency, default to USD
     final systemCurrency = authState.maybeWhen(
       data: (user) => user?.systemCurrency ?? 'USD',
@@ -124,7 +124,12 @@ class VendorAnalyticsScreen extends ConsumerWidget {
             return const Center(child: Text('No data available'));
           }
 
-          return _buildAnalyticsContent(context, analytics, ref, systemCurrency);
+          return _buildAnalyticsContent(
+            context,
+            analytics,
+            ref,
+            systemCurrency,
+          );
         },
       ),
     );

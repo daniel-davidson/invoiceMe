@@ -291,8 +291,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     }
 
                     final vendor = filteredVendors[index - 2];
-                    final hasInvoices = vendor.invoiceCount != null && vendor.invoiceCount! > 0;
-                    
+                    final hasInvoices =
+                        vendor.invoiceCount != null && vendor.invoiceCount! > 0;
+
                     return VendorCard(
                       vendor: vendor,
                       onTap: () {
@@ -398,10 +399,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context: context,
       builder: (context) => _AddVendorDialog(
         onAdd: (name, limit) async {
-          await ref.read(vendorsProvider.notifier).addVendor(
-                name,
-                monthlyLimit: limit,
-              );
+          await ref
+              .read(vendorsProvider.notifier)
+              .addVendor(name, monthlyLimit: limit);
         },
       ),
     );
@@ -417,11 +417,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       builder: (context) => _EditVendorDialog(
         vendor: vendor,
         onUpdate: (name, limit) async {
-          await ref.read(vendorsProvider.notifier).updateVendor(
-                vendor.id,
-                name,
-                monthlyLimit: limit,
-              );
+          await ref
+              .read(vendorsProvider.notifier)
+              .updateVendor(vendor.id, name, monthlyLimit: limit);
         },
         onDelete: () async {
           await ref.read(vendorsProvider.notifier).deleteVendor(vendor.id);
@@ -517,18 +515,14 @@ class _EditVendorDialogState extends State<_EditVendorDialog> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Business?'),
-        content: const Text(
-          'This will also delete all related invoices.',
-        ),
+        content: const Text('This will also delete all related invoices.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Delete'),
           ),
@@ -573,9 +567,9 @@ class _EditVendorDialogState extends State<_EditVendorDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating business: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating business: $e')));
       }
     }
   }
@@ -652,9 +646,7 @@ class _EditVendorDialogState extends State<_EditVendorDialog> {
             Positioned.fill(
               child: Container(
                 color: Colors.black.withValues(alpha: 0.1),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: const Center(child: CircularProgressIndicator()),
               ),
             ),
         ],
@@ -666,9 +658,7 @@ class _EditVendorDialogState extends State<_EditVendorDialog> {
 class _AddVendorDialog extends StatefulWidget {
   final Future<void> Function(String name, double limit) onAdd;
 
-  const _AddVendorDialog({
-    required this.onAdd,
-  });
+  const _AddVendorDialog({required this.onAdd});
 
   @override
   State<_AddVendorDialog> createState() => _AddVendorDialogState();
@@ -705,9 +695,9 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding business: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error adding business: $e')));
       }
     }
   }
@@ -768,9 +758,7 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
             Positioned.fill(
               child: Container(
                 color: Colors.black.withValues(alpha: 0.1),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: const Center(child: CircularProgressIndicator()),
               ),
             ),
         ],
