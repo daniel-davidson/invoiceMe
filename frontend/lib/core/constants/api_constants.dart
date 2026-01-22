@@ -76,8 +76,9 @@ class ApiConstants {
   // TIMEOUTS
   // ============================================
 
-  static const int connectTimeout = 30000; // 30 seconds
+  static const int connectTimeout = 180000; // 3 minutes (same as analytics timeout)
   static const int receiveTimeout = 60000; // 60 seconds (default for regular requests)
+  static const int analyticsTimeout = 180000; // 3 minutes (for analytics queries with aggregations)
   static const int uploadTimeout = 300000; // 5 minutes (for file upload + OCR + LLM processing)
   static const int uploadReceiveTimeout = 300000; // 5 minutes (waiting for backend OCR/LLM)
 

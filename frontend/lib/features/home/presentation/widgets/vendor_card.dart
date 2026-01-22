@@ -29,6 +29,7 @@ class _VendorCardState extends State<VendorCard> {
   Widget build(BuildContext context) {
     final hasInvoices = widget.vendor.latestInvoices != null && 
                         widget.vendor.latestInvoices!.isNotEmpty;
+    final invoiceCount = widget.vendor.invoiceCount ?? 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -45,9 +46,16 @@ class _VendorCardState extends State<VendorCard> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                      ),
+                      gradient: invoiceCount > 0
+                          ? const LinearGradient(
+                              colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
+                            )
+                          : LinearGradient(
+                              colors: [
+                                Colors.grey.shade400,
+                                Colors.grey.shade500,
+                              ],
+                            ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
@@ -70,10 +78,18 @@ class _VendorCardState extends State<VendorCard> {
                           widget.vendor.name,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
-                        if (widget.vendor.invoiceCount != null)
+                        if (invoiceCount > 0)
                           Text(
-                            '${widget.vendor.invoiceCount} invoices',
+                            '$invoiceCount ${invoiceCount == 1 ? 'invoice' : 'invoices'}',
                             style: Theme.of(context).textTheme.bodyMedium,
+                          )
+                        else
+                          Text(
+                            'No invoices yet',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                       ],
                     ),
@@ -93,8 +109,13 @@ class _VendorCardState extends State<VendorCard> {
                         });
                       },
                     )
+                  else if (invoiceCount > 0)
+                    const Icon(Icons.chevron_right)
                   else
-                    const Icon(Icons.chevron_right),
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.grey.shade400,
+                    ),
                 ],
               ),
             ),

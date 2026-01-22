@@ -101,6 +101,12 @@ class Invoice {
     this.items = const [],
   });
 
+  static String _parseString(dynamic value, [String defaultValue = '']) {
+    if (value == null) return defaultValue;
+    if (value is String) return value;
+    return value.toString();
+  }
+
   factory Invoice.fromJson(Map<String, dynamic> json) {
     // Parse normalized items array from backend (invoice_items table)
     List<LineItem> items = [];
@@ -136,17 +142,19 @@ class Invoice {
     }
 
     return Invoice(
-      id: json['id'] as String,
-      vendorId: json['vendorId'] as String,
-      vendorName: json['vendor']?['name'] as String? ?? 'Unknown',
-      name: json['name'] as String?,
+      id: _parseString(json['id'], 'unknown-id'),
+      vendorId: _parseString(json['vendorId'], 'unknown-vendor'),
+      vendorName: json['vendor']?['name'] != null 
+          ? _parseString(json['vendor']['name'], 'Unknown')
+          : 'Unknown',
+      name: json['name'] != null ? _parseString(json['name']) : null,
       originalAmount: _parseDoubleStatic(json['originalAmount']),
-      originalCurrency: json['originalCurrency'] as String,
+      originalCurrency: _parseString(json['originalCurrency'], 'USD'),
       normalizedAmount: json['normalizedAmount'] != null
           ? _parseDoubleStatic(json['normalizedAmount'])
           : null,
-      invoiceDate: DateTime.parse(json['invoiceDate'] as String),
-      invoiceNumber: json['invoiceNumber'] as String?,
+      invoiceDate: DateTime.parse(_parseString(json['invoiceDate'], DateTime.now().toIso8601String())),
+      invoiceNumber: json['invoiceNumber'] != null ? _parseString(json['invoiceNumber']) : null,
       fxRate:
           json['fxRate'] != null ? _parseDoubleStatic(json['fxRate']) : null,
       needsReview: json['needsReview'] as bool? ?? false,

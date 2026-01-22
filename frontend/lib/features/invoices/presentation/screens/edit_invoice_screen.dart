@@ -5,6 +5,7 @@ import 'package:frontend/core/utils/currency_formatter.dart';
 import 'package:frontend/core/utils/date_formatter.dart';
 import 'package:frontend/features/invoices/presentation/providers/edit_invoice_provider.dart';
 import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
+import 'package:frontend/features/invoices/presentation/providers/invoice_detail_provider.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
 
 class EditInvoiceScreen extends ConsumerStatefulWidget {
@@ -21,13 +22,12 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
   final _nameController = TextEditingController();
   final _numberController = TextEditingController();
   final _amountController = TextEditingController();
-  
+
   // Item form controllers
   final _itemDescriptionController = TextEditingController();
   final _itemQuantityController = TextEditingController();
-  final _itemUnitPriceController = TextEditingController();
   final _itemTotalController = TextEditingController();
-  
+
   // UI state
   bool _showNameEdit = false;
   bool _showNumberEdit = false;
@@ -43,7 +43,6 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
     _amountController.dispose();
     _itemDescriptionController.dispose();
     _itemQuantityController.dispose();
-    _itemUnitPriceController.dispose();
     _itemTotalController.dispose();
     super.dispose();
   }
@@ -54,9 +53,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
     // Show loading indicator
     if (editState.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // Show error if load failed
@@ -72,7 +69,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               Text(editState.error!),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => ref.read(editInvoiceProvider(widget.invoiceId).notifier).load(),
+                onPressed: () => ref
+                    .read(editInvoiceProvider(widget.invoiceId).notifier)
+                    .load(),
                 child: const Text('Retry'),
               ),
             ],
@@ -85,7 +84,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
     return PopScope(
       canPop: !editState.hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final shouldDiscard = await _showDiscardDialog(context);
         if (shouldDiscard == true && context.mounted) {
@@ -93,9 +92,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Edit Invoice'),
-        ),
+        appBar: AppBar(title: const Text('Edit Invoice')),
         body: Column(
           children: [
             Expanded(
@@ -118,7 +115,11 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                       editWidget: _buildInlineEditField(
                         controller: _nameController,
                         onSave: () {
-                          ref.read(editInvoiceProvider(widget.invoiceId).notifier).updateName(_nameController.text);
+                          ref
+                              .read(
+                                editInvoiceProvider(widget.invoiceId).notifier,
+                              )
+                              .updateName(_nameController.text);
                           setState(() => _showNameEdit = false);
                         },
                         onCancel: () => setState(() => _showNameEdit = false),
@@ -133,14 +134,19 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                       value: editState.currentInvoiceNumber ?? 'Not set',
                       icon: Icons.tag,
                       onEdit: () {
-                        _numberController.text = editState.currentInvoiceNumber ?? '';
+                        _numberController.text =
+                            editState.currentInvoiceNumber ?? '';
                         setState(() => _showNumberEdit = true);
                       },
                       isEditing: _showNumberEdit,
                       editWidget: _buildInlineEditField(
                         controller: _numberController,
                         onSave: () {
-                          ref.read(editInvoiceProvider(widget.invoiceId).notifier).updateInvoiceNumber(_numberController.text);
+                          ref
+                              .read(
+                                editInvoiceProvider(widget.invoiceId).notifier,
+                              )
+                              .updateInvoiceNumber(_numberController.text);
                           setState(() => _showNumberEdit = false);
                         },
                         onCancel: () => setState(() => _showNumberEdit = false),
@@ -152,7 +158,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                     _buildEditableCard(
                       context,
                       title: 'Invoice Date',
-                      value: DateFormatter.format(editState.currentInvoiceDate!),
+                      value: DateFormatter.format(
+                        editState.currentInvoiceDate!,
+                      ),
                       icon: Icons.calendar_today,
                       onEdit: () async {
                         final date = await showDatePicker(
@@ -162,7 +170,11 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                           lastDate: DateTime(2100),
                         );
                         if (date != null) {
-                          ref.read(editInvoiceProvider(widget.invoiceId).notifier).updateInvoiceDate(date);
+                          ref
+                              .read(
+                                editInvoiceProvider(widget.invoiceId).notifier,
+                              )
+                              .updateInvoiceDate(date);
                         }
                       },
                     ),
@@ -178,7 +190,8 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                       title: 'Currency',
                       value: invoice.originalCurrency,
                       icon: Icons.attach_money,
-                      subtitle: 'Currency from original invoice, cannot be changed',
+                      subtitle:
+                          'Currency from original invoice, cannot be changed',
                     ),
                     const SizedBox(height: 16),
 
@@ -217,7 +230,10 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
           ListTile(
             leading: Icon(icon),
             title: Text(title, style: Theme.of(context).textTheme.bodyMedium),
-            subtitle: Text(value, style: Theme.of(context).textTheme.titleMedium),
+            subtitle: Text(
+              value,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             trailing: IconButton(
               icon: const Icon(Icons.edit),
               onPressed: onEdit,
@@ -225,10 +241,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
           ),
           if (isEditing && editWidget != null) ...[
             const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: editWidget,
-            ),
+            Padding(padding: const EdgeInsets.all(16), child: editWidget),
           ],
         ],
       ),
@@ -280,23 +293,17 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        ElevatedButton(
-          onPressed: onSave,
-          child: const Text('Save'),
-        ),
+        ElevatedButton(onPressed: onSave, child: const Text('Save')),
         const SizedBox(width: 8),
-        OutlinedButton(
-          onPressed: onCancel,
-          child: const Text('Cancel'),
-        ),
+        OutlinedButton(onPressed: onCancel, child: const Text('Cancel')),
       ],
     );
   }
 
   Widget _buildAmountCard(BuildContext context, EditInvoiceState editState) {
     final useItemsTotal = editState.currentUseItemsTotal;
-    final amount = useItemsTotal 
-        ? editState.calculatedItemsTotal 
+    final amount = useItemsTotal
+        ? editState.calculatedItemsTotal
         : (editState.currentOriginalAmount ?? 0.0);
 
     return Card(
@@ -305,13 +312,19 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.attach_money),
-            title: Text('Amount', style: Theme.of(context).textTheme.bodyMedium),
+            title: Text(
+              'Amount',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             subtitle: Text(
-              CurrencyFormatter.format(amount, editState.invoice!.originalCurrency),
+              CurrencyFormatter.format(
+                amount,
+                editState.invoice!.originalCurrency,
+              ),
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            trailing: useItemsTotal 
-                ? null 
+            trailing: useItemsTotal
+                ? null
                 : IconButton(
                     icon: const Icon(Icons.edit),
                     onPressed: () {
@@ -327,7 +340,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                 Switch(
                   value: useItemsTotal,
                   onChanged: (value) {
-                    ref.read(editInvoiceProvider(widget.invoiceId).notifier).toggleUseItemsTotal(value);
+                    ref
+                        .read(editInvoiceProvider(widget.invoiceId).notifier)
+                        .toggleUseItemsTotal(value);
                   },
                 ),
                 const SizedBox(width: 8),
@@ -349,11 +364,15 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               padding: const EdgeInsets.all(16),
               child: _buildInlineEditField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 onSave: () {
                   final amount = double.tryParse(_amountController.text);
                   if (amount != null) {
-                    ref.read(editInvoiceProvider(widget.invoiceId).notifier).updateOriginalAmount(amount);
+                    ref
+                        .read(editInvoiceProvider(widget.invoiceId).notifier)
+                        .updateOriginalAmount(amount);
                   }
                   setState(() => _showAmountEdit = false);
                 },
@@ -375,14 +394,21 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.business),
-            title: Text('Business', style: Theme.of(context).textTheme.bodyMedium),
+            title: Text(
+              'Business',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             subtitle: Text(
               editState.invoice!.vendorName,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             trailing: IconButton(
-              icon: Icon(_showBusinessDropdown ? Icons.expand_less : Icons.expand_more),
-              onPressed: () => setState(() => _showBusinessDropdown = !_showBusinessDropdown),
+              icon: Icon(
+                _showBusinessDropdown ? Icons.expand_less : Icons.expand_more,
+              ),
+              onPressed: () => setState(
+                () => _showBusinessDropdown = !_showBusinessDropdown,
+              ),
             ),
           ),
           if (_showBusinessDropdown) ...[
@@ -406,13 +432,20 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                       itemCount: vendors.length,
                       itemBuilder: (context, index) {
                         final vendor = vendors[index];
-                        final isSelected = vendor.id == editState.currentVendorId;
+                        final isSelected =
+                            vendor.id == editState.currentVendorId;
                         return ListTile(
                           title: Text(vendor.name),
                           selected: isSelected,
                           trailing: isSelected ? const Icon(Icons.check) : null,
                           onTap: () {
-                            ref.read(editInvoiceProvider(widget.invoiceId).notifier).updateVendorId(vendor.id);
+                            ref
+                                .read(
+                                  editInvoiceProvider(
+                                    widget.invoiceId,
+                                  ).notifier,
+                                )
+                                .updateVendorId(vendor.id);
                             setState(() => _showBusinessDropdown = false);
                           },
                         );
@@ -456,7 +489,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         ),
         const SizedBox(height: 16),
 
-        if (items.isEmpty) ...[
+        if (items.isEmpty && _editingItemIndex != -1) ...[
           // Empty state
           Container(
             padding: const EdgeInsets.all(32),
@@ -496,12 +529,92 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
           const SizedBox(height: 16),
 
+          // Add new item card (inline, similar to editing)
+          if (_editingItemIndex == -1) ...[
+            Card(
+              color: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.3),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.add_circle_outline),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Add New Item',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _itemDescriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Description *',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _itemQuantityController,
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity',
+                        hintText: 'e.g., 2.5',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _itemTotalController,
+                      decoration: const InputDecoration(
+                        labelText: 'Total *',
+                        hintText: 'e.g., 100.00',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _cancelItemEdit(),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => _saveItem(editState),
+                          child: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Calculated total
           if (editState.currentUseItemsTotal)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primaryContainer.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -509,11 +622,18 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                 children: [
                   Text(
                     'Calculated total from items:',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
-                    CurrencyFormatter.format(editState.calculatedItemsTotal, editState.invoice!.originalCurrency),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    CurrencyFormatter.format(
+                      editState.calculatedItemsTotal,
+                      editState.invoice!.originalCurrency,
+                    ),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -521,14 +641,15 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
           const SizedBox(height: 8),
 
-          // Add Item button
-          OutlinedButton.icon(
-            onPressed: () => _startAddingItem(editState),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Item'),
-          ),
+          // Add Item button (only show when not adding)
+          if (_editingItemIndex != -1)
+            OutlinedButton.icon(
+              onPressed: () => _startAddingItem(editState),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Item'),
+            ),
 
-          if (!editState.currentUseItemsTotal)
+          if (!editState.currentUseItemsTotal && _editingItemIndex != -1)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
@@ -537,18 +658,18 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               ),
             ),
         ],
-
-        // Add/Edit Item Form
-        if (_editingItemIndex != null) ...[
-          const SizedBox(height: 16),
-          _buildItemForm(context, editState),
-        ],
       ],
     );
   }
 
-  Widget _buildItemCard(BuildContext context, EditInvoiceState editState, LineItem item, int index) {
+  Widget _buildItemCard(
+    BuildContext context,
+    EditInvoiceState editState,
+    LineItem item,
+    int index,
+  ) {
     final isDeleting = _deletingItemIndex == index;
+    final isEditing = _editingItemIndex == index;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -556,11 +677,17 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ListTile(
-            title: Text(item.description, style: const TextStyle(fontWeight: FontWeight.bold)),
+            title: Text(
+              item.description,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             subtitle: Text(
-              item.quantity != null && item.unitPrice != null
-                  ? 'Qty: ${item.quantity} × ${CurrencyFormatter.format(item.unitPrice!, editState.invoice!.originalCurrency)} = ${CurrencyFormatter.format(item.total, editState.invoice!.originalCurrency)}'
-                  : CurrencyFormatter.format(item.total, editState.invoice!.originalCurrency),
+              item.quantity != null
+                  ? 'Qty: ${item.quantity} — ${CurrencyFormatter.format(item.total, editState.invoice!.originalCurrency)}'
+                  : CurrencyFormatter.format(
+                      item.total,
+                      editState.invoice!.originalCurrency,
+                    ),
             ),
             leading: IconButton(
               icon: const Icon(Icons.edit),
@@ -571,6 +698,66 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               onPressed: () => setState(() => _deletingItemIndex = index),
             ),
           ),
+          if (isEditing) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: _itemDescriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description *',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _itemQuantityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity',
+                      hintText: 'e.g., 2.5',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _itemTotalController,
+                    decoration: const InputDecoration(
+                      labelText: 'Total *',
+                      hintText: 'e.g., 100.00',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => _cancelItemEdit(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => _saveItem(editState),
+                        child: const Text('Save'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (isDeleting) ...[
             const Divider(height: 1),
             Padding(
@@ -585,10 +772,14 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () {
-                      ref.read(editInvoiceProvider(widget.invoiceId).notifier).deleteItem(index);
+                      ref
+                          .read(editInvoiceProvider(widget.invoiceId).notifier)
+                          .deleteItem(index);
                       setState(() => _deletingItemIndex = null);
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
                     child: const Text('Delete'),
                   ),
                 ],
@@ -600,87 +791,6 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
     );
   }
 
-  Widget _buildItemForm(BuildContext context, EditInvoiceState editState) {
-    final isAdding = _editingItemIndex == -1;
-
-    return Card(
-      color: Theme.of(context).colorScheme.surfaceVariant,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              isAdding ? 'Add Item' : 'Edit Item',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _itemDescriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description *',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _itemQuantityController,
-                    decoration: const InputDecoration(
-                      labelText: 'Quantity',
-                      hintText: 'e.g., 2.5',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: _itemUnitPriceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Unit Price',
-                      hintText: 'e.g., 50.25',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _itemTotalController,
-              decoration: const InputDecoration(
-                labelText: 'Total *',
-                hintText: 'e.g., 100.00',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton(
-                  onPressed: () => _cancelItemEdit(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => _saveItem(editState),
-                  child: Text(isAdding ? 'Add' : 'Save'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomActions(BuildContext context, EditInvoiceState editState) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -688,7 +798,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -699,7 +809,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ElevatedButton(
-            onPressed: editState.isSaving ? null : () => _saveAllChanges(context),
+            onPressed: editState.isSaving
+                ? null
+                : () => _saveAllChanges(context),
             child: editState.isSaving
                 ? const SizedBox(
                     height: 20,
@@ -710,7 +822,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
           ),
           const SizedBox(height: 8),
           OutlinedButton(
-            onPressed: editState.isSaving ? null : () => _confirmDelete(context),
+            onPressed: editState.isSaving
+                ? null
+                : () => _confirmDelete(context),
             style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Delete Invoice'),
           ),
@@ -722,7 +836,6 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
   void _startAddingItem(EditInvoiceState editState) {
     _itemDescriptionController.clear();
     _itemQuantityController.clear();
-    _itemUnitPriceController.clear();
     _itemTotalController.clear();
     setState(() => _editingItemIndex = -1);
   }
@@ -730,7 +843,6 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
   void _startEditingItem(int index, LineItem item) {
     _itemDescriptionController.text = item.description;
     _itemQuantityController.text = item.quantity?.toString() ?? '';
-    _itemUnitPriceController.text = item.unitPrice?.toString() ?? '';
     _itemTotalController.text = item.total.toString();
     setState(() => _editingItemIndex = index);
   }
@@ -742,7 +854,6 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
   void _saveItem(EditInvoiceState editState) {
     final description = _itemDescriptionController.text.trim();
     final quantity = double.tryParse(_itemQuantityController.text);
-    final unitPrice = double.tryParse(_itemUnitPriceController.text);
     final total = double.tryParse(_itemTotalController.text);
 
     if (description.isEmpty || total == null) {
@@ -753,10 +864,12 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
     }
 
     final newItem = LineItem(
-      id: _editingItemIndex == -1 ? null : editState.currentItems[_editingItemIndex!].id,
+      id: _editingItemIndex == -1
+          ? null
+          : editState.currentItems[_editingItemIndex!].id,
       description: description,
       quantity: quantity,
-      unitPrice: unitPrice,
+      unitPrice: null,
       total: total,
       currency: editState.invoice!.originalCurrency,
     );
@@ -764,24 +877,39 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
     if (_editingItemIndex == -1) {
       ref.read(editInvoiceProvider(widget.invoiceId).notifier).addItem(newItem);
     } else {
-      ref.read(editInvoiceProvider(widget.invoiceId).notifier).updateItem(_editingItemIndex!, newItem);
+      ref
+          .read(editInvoiceProvider(widget.invoiceId).notifier)
+          .updateItem(_editingItemIndex!, newItem);
     }
 
     _cancelItemEdit();
   }
 
   Future<void> _saveAllChanges(BuildContext context) async {
-    final success = await ref.read(editInvoiceProvider(widget.invoiceId).notifier).saveAll();
-    
+    final success = await ref
+        .read(editInvoiceProvider(widget.invoiceId).notifier)
+        .saveAll();
+
     if (success && context.mounted) {
+      // Invalidate providers to refetch updated data
+      ref.invalidate(invoicesProvider);
+      ref.invalidate(vendorsProvider);
+      ref.invalidate(invoiceDetailProvider(widget.invoiceId));
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invoice updated successfully'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Invoice updated successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
       context.pop();
     } else if (context.mounted) {
       final error = ref.read(editInvoiceProvider(widget.invoiceId)).error;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error ?? 'Failed to save invoice'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(error ?? 'Failed to save invoice'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -791,7 +919,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Invoice?'),
-        content: const Text('Are you sure you want to delete this invoice? This action cannot be undone.'),
+        content: const Text(
+          'Are you sure you want to delete this invoice? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -807,10 +937,20 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
     );
 
     if (confirmed == true && context.mounted) {
-      final success = await ref.read(editInvoiceProvider(widget.invoiceId).notifier).delete();
+      final success = await ref
+          .read(editInvoiceProvider(widget.invoiceId).notifier)
+          .delete();
       if (success && context.mounted) {
+        // Invalidate providers to refetch updated data
+        ref.invalidate(invoicesProvider);
+        ref.invalidate(vendorsProvider);
+        ref.invalidate(invoiceDetailProvider(widget.invoiceId));
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invoice deleted successfully'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Invoice deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
         context.pop();
       }
@@ -822,7 +962,9 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Discard unsaved changes?'),
-        content: const Text('You have unsaved changes to this invoice. Discard changes and go back?'),
+        content: const Text(
+          'You have unsaved changes to this invoice. Discard changes and go back?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

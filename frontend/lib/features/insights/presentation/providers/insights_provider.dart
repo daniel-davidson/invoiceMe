@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class Insight {
@@ -44,7 +46,12 @@ class InsightsNotifier extends StateNotifier<AsyncValue<List<Insight>>> {
   Future<void> load() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _apiClient.get('/insights');
+      final response = await _apiClient.get(
+        '/insights',
+        options: Options(
+          receiveTimeout: Duration(milliseconds: ApiConstants.analyticsTimeout),
+        ),
+      );
       final List<dynamic> data = response.data as List<dynamic>;
       final insights = data
           .map((json) => Insight.fromJson(json as Map<String, dynamic>))
@@ -58,7 +65,13 @@ class InsightsNotifier extends StateNotifier<AsyncValue<List<Insight>>> {
   Future<void> generate() async {
     state = const AsyncValue.loading();
     try {
-      await _apiClient.post('/insights/generate', data: {});
+      await _apiClient.post(
+        '/insights/generate',
+        data: {},
+        options: Options(
+          receiveTimeout: Duration(milliseconds: ApiConstants.analyticsTimeout),
+        ),
+      );
       await load();
     } catch (e, st) {
       state = AsyncValue.error(e, st);

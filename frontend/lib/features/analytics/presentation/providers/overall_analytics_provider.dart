@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 import 'package:frontend/features/vendors/presentation/providers/vendor_analytics_provider.dart';
 
@@ -120,7 +122,12 @@ class OverallAnalyticsNotifier
   Future<void> load() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _apiClient.get('/analytics/overall');
+      final response = await _apiClient.get(
+        '/analytics/overall',
+        options: Options(
+          receiveTimeout: Duration(milliseconds: ApiConstants.analyticsTimeout),
+        ),
+      );
       final analytics =
           OverallAnalytics.fromJson(response.data as Map<String, dynamic>);
       state = AsyncValue.data(analytics);

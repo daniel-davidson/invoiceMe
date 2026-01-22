@@ -43,16 +43,16 @@ class EmptyState extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 32),
-            Row(
+            Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton.icon(
+                ElevatedButton.icon(
                   onPressed: onAddBusiness,
                   icon: const Icon(Icons.business),
                   label: const Text('Add Business'),
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
                   onPressed: onUploadInvoice,
                   icon: const Icon(Icons.upload),
                   label: const Text('Upload Invoice'),
