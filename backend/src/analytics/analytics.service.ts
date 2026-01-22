@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CurrencyService } from '../currency/currency.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import {
   VendorAnalyticsDto,
@@ -10,10 +11,53 @@ import {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private currencyService: CurrencyService,
+  ) {}
 
   private toNumber(value: Decimal | null): number {
     return value ? Number(value) : 0;
+  }
+
+  /**
+   * Convert amount from stored currency to user's target currency
+   * If currencies are the same, return the amount as-is
+   */
+  private async convertToUserCurrency(
+    amount: number,
+    fromCurrency: string,
+    toCurrency: string,
+  ): Promise<number> {
+    if (fromCurrency === toCurrency || amount === 0) {
+      return amount;
+    }
+
+    try {
+      const result = await this.currencyService.convert(
+        amount,
+        fromCurrency,
+        toCurrency,
+      );
+      return result.normalizedAmount;
+    } catch (error) {
+      this.logger.warn(
+        `Currency conversion failed from ${fromCurrency} to ${toCurrency}: ${error}`,
+      );
+      // Fallback: return original amount
+      return amount;
+    }
+  }
+
+  /**
+   * Get user's system currency
+   */
+  private async getUserCurrency(tenantId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: tenantId },
+      select: { systemCurrency: true },
+    });
+    return user?.systemCurrency || 'USD';
   }
 
   private getMonthLabels(referenceDate: Date): string[] {
@@ -109,6 +153,9 @@ export class AnalyticsService {
       throw new NotFoundException('Vendor not found');
     }
 
+    // Get user's current system currency for conversion
+    const userCurrency = await this.getUserCurrency(tenantId);
+
     // If year/month not provided, use current date
     // If year provided without month, use latest month in that year with data
     let referenceDate: Date;
@@ -148,46 +195,72 @@ export class AnalyticsService {
       1,
     );
 
-    // Current month spend
-    const currentMonthResult = await this.prisma.invoice.aggregate({
+    // Fetch invoices for conversion - current month
+    const currentMonthInvoices = await this.prisma.invoice.findMany({
       where: {
         tenantId,
         vendorId,
         invoiceDate: { gte: startOfMonth },
       },
-      _sum: { normalizedAmount: true, originalAmount: true },
+      select: {
+        originalAmount: true,
+        originalCurrency: true,
+      },
     });
-    // Fallback to originalAmount if normalizedAmount is null (FX conversion failed)
-    const currentMonthSpend =
-      this.toNumber(currentMonthResult._sum.normalizedAmount) ||
-      this.toNumber(currentMonthResult._sum.originalAmount);
 
-    // Monthly average (last 12 months)
-    const last12MonthsResult = await this.prisma.invoice.aggregate({
+    // Convert and sum current month spend
+    let currentMonthSpend = 0;
+    for (const invoice of currentMonthInvoices) {
+      const amount = this.toNumber(invoice.originalAmount);
+      const currency = invoice.originalCurrency;
+      const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+      currentMonthSpend += converted;
+    }
+
+    // Fetch invoices for conversion - last 12 months
+    const last12MonthsInvoices = await this.prisma.invoice.findMany({
       where: {
         tenantId,
         vendorId,
         invoiceDate: { gte: twelveMonthsAgo },
       },
-      _sum: { normalizedAmount: true, originalAmount: true },
+      select: {
+        originalAmount: true,
+        originalCurrency: true,
+      },
     });
-    const total12Months =
-      this.toNumber(last12MonthsResult._sum.normalizedAmount) ||
-      this.toNumber(last12MonthsResult._sum.originalAmount);
+
+    // Convert and sum last 12 months
+    let total12Months = 0;
+    for (const invoice of last12MonthsInvoices) {
+      const amount = this.toNumber(invoice.originalAmount);
+      const currency = invoice.originalCurrency;
+      const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+      total12Months += converted;
+    }
     const monthlyAverage = total12Months / 12;
 
-    // Yearly average
-    const yearlyResult = await this.prisma.invoice.aggregate({
+    // Fetch invoices for conversion - yearly
+    const yearlyInvoices = await this.prisma.invoice.findMany({
       where: {
         tenantId,
         vendorId,
         invoiceDate: { gte: startOfYear },
       },
-      _sum: { normalizedAmount: true, originalAmount: true },
+      select: {
+        originalAmount: true,
+        originalCurrency: true,
+      },
     });
-    const yearlyAverage =
-      this.toNumber(yearlyResult._sum.normalizedAmount) ||
-      this.toNumber(yearlyResult._sum.originalAmount);
+
+    // Convert and sum yearly
+    let yearlyAverage = 0;
+    for (const invoice of yearlyInvoices) {
+      const amount = this.toNumber(invoice.originalAmount);
+      const currency = invoice.originalCurrency;
+      const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+      yearlyAverage += converted;
+    }
 
     const monthlyLimit = vendor.monthlyLimit
       ? Number(vendor.monthlyLimit)
@@ -201,18 +274,26 @@ export class AnalyticsService {
     const monthlyData: number[] = [];
 
     for (const range of monthRanges) {
-      const result = await this.prisma.invoice.aggregate({
+      const invoices = await this.prisma.invoice.findMany({
         where: {
           tenantId,
           vendorId,
           invoiceDate: { gte: range.start, lte: range.end },
         },
-        _sum: { normalizedAmount: true, originalAmount: true },
+        select: {
+          originalAmount: true,
+          originalCurrency: true,
+        },
       });
-      const amount =
-        this.toNumber(result._sum.normalizedAmount) ||
-        this.toNumber(result._sum.originalAmount);
-      monthlyData.push(amount);
+
+      let monthTotal = 0;
+      for (const invoice of invoices) {
+        const amount = this.toNumber(invoice.originalAmount);
+        const currency = invoice.originalCurrency;
+        const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+        monthTotal += converted;
+      }
+      monthlyData.push(monthTotal);
     }
 
     const duration = Date.now() - startTime;
@@ -259,14 +340,27 @@ export class AnalyticsService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Total spend current month
-    const totalSpendResult = await this.prisma.invoice.aggregate({
+    // Get user's current system currency for conversion
+    const userCurrency = await this.getUserCurrency(tenantId);
+
+    // Fetch invoices for conversion - current month
+    const currentMonthInvoices = await this.prisma.invoice.findMany({
       where: { tenantId, invoiceDate: { gte: startOfMonth } },
-      _sum: { normalizedAmount: true, originalAmount: true },
+      select: {
+        originalAmount: true,
+        originalCurrency: true,
+        vendorId: true,
+      },
     });
-    const totalSpend =
-      this.toNumber(totalSpendResult._sum.normalizedAmount) ||
-      this.toNumber(totalSpendResult._sum.originalAmount);
+
+    // Convert and sum total spend
+    let totalSpend = 0;
+    for (const invoice of currentMonthInvoices) {
+      const amount = this.toNumber(invoice.originalAmount);
+      const currency = invoice.originalCurrency;
+      const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+      totalSpend += converted;
+    }
 
     // Total limits (v2.0: monthlyLimit is always set, no need to check for null)
     const limitsResult = await this.prisma.vendor.aggregate({
@@ -281,36 +375,43 @@ export class AnalyticsService {
       this.prisma.invoice.count({ where: { tenantId } }),
     ]);
 
-    // Top 5 vendors by spend
-    const topVendors = await this.prisma.invoice.groupBy({
-      by: ['vendorId'],
+    // Top 5 vendors by spend - fetch all invoices grouped by vendor
+    const allInvoices = await this.prisma.invoice.findMany({
       where: { tenantId },
-      _sum: { normalizedAmount: true, originalAmount: true },
-      orderBy: { _sum: { normalizedAmount: 'desc' } },
-      take: 5,
+      select: {
+        vendorId: true,
+        originalAmount: true,
+        originalCurrency: true,
+      },
     });
 
-    const vendorIds = topVendors
-      .map((v) => v.vendorId)
-      .filter((id): id is string => id !== null);
+    // Group by vendorId and convert/sum
+    const vendorSpendMap = new Map<string, number>();
+    for (const invoice of allInvoices) {
+      if (!invoice.vendorId) continue;
+      const amount = this.toNumber(invoice.originalAmount);
+      const currency = invoice.originalCurrency;
+      const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+      
+      const currentTotal = vendorSpendMap.get(invoice.vendorId) || 0;
+      vendorSpendMap.set(invoice.vendorId, currentTotal + converted);
+    }
+
+    // Sort and take top 5
+    const sortedVendors = Array.from(vendorSpendMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    const vendorIds = sortedVendors.map(([vendorId]) => vendorId);
     const vendors = await this.prisma.vendor.findMany({
       where: { id: { in: vendorIds } },
     });
 
-    const totalAllSpend = topVendors.reduce(
-      (sum, v) =>
-        sum +
-        (this.toNumber(v._sum.normalizedAmount) ||
-          this.toNumber(v._sum.originalAmount)),
-      0,
-    );
+    const totalAllSpend = sortedVendors.reduce((sum, [, spend]) => sum + spend, 0);
 
     const colors = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
-    const segments = topVendors.map((v, i) => {
-      const vendor = vendors.find((vn) => vn.id === v.vendorId);
-      const value =
-        this.toNumber(v._sum.normalizedAmount) ||
-        this.toNumber(v._sum.originalAmount);
+    const segments = sortedVendors.map(([vendorId, value], i) => {
+      const vendor = vendors.find((v) => v.id === vendorId);
       return {
         label: vendor?.name || 'Unknown',
         value,
@@ -324,17 +425,25 @@ export class AnalyticsService {
     const monthlyData: number[] = [];
 
     for (const range of monthRanges) {
-      const result = await this.prisma.invoice.aggregate({
+      const invoices = await this.prisma.invoice.findMany({
         where: {
           tenantId,
           invoiceDate: { gte: range.start, lte: range.end },
         },
-        _sum: { normalizedAmount: true, originalAmount: true },
+        select: {
+          originalAmount: true,
+          originalCurrency: true,
+        },
       });
-      const amount =
-        this.toNumber(result._sum.normalizedAmount) ||
-        this.toNumber(result._sum.originalAmount);
-      monthlyData.push(amount);
+
+      let monthTotal = 0;
+      for (const invoice of invoices) {
+        const amount = this.toNumber(invoice.originalAmount);
+        const currency = invoice.originalCurrency;
+        const converted = await this.convertToUserCurrency(amount, currency, userCurrency);
+        monthTotal += converted;
+      }
+      monthlyData.push(monthTotal);
     }
 
     const duration = Date.now() - startTime;

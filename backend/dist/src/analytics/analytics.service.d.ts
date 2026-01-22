@@ -1,11 +1,15 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { CurrencyService } from '../currency/currency.service';
 import { Decimal } from '@prisma/client/runtime/library';
 import { VendorAnalyticsDto, OverallAnalyticsDto } from './dto/analytics-response.dto';
 export declare class AnalyticsService {
     private prisma;
+    private currencyService;
     private readonly logger;
-    constructor(prisma: PrismaService);
+    constructor(prisma: PrismaService, currencyService: CurrencyService);
     private toNumber;
+    private convertToUserCurrency;
+    private getUserCurrency;
     private getMonthLabels;
     private getMonthRanges;
     getAvailablePeriods(tenantId: string, vendorId: string): Promise<{

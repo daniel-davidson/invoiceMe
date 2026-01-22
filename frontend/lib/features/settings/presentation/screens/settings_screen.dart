@@ -87,28 +87,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     subtitle: user.systemCurrency,
                     onTap: () => _showCurrencyPicker(context),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: Colors.orange.shade700,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Note: Currency change only updates the display symbol. Amounts remain in their original values.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   if (user.personalBusinessId != null)
                     _SettingsTile(
                       icon: Icons.badge_outlined,
