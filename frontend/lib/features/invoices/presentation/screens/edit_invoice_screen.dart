@@ -5,6 +5,7 @@ import 'package:frontend/core/utils/currency_formatter.dart';
 import 'package:frontend/core/utils/date_formatter.dart';
 import 'package:frontend/features/invoices/presentation/providers/edit_invoice_provider.dart';
 import 'package:frontend/features/invoices/presentation/providers/invoices_provider.dart';
+import 'package:frontend/features/invoices/presentation/providers/invoice_detail_provider.dart';
 import 'package:frontend/features/home/presentation/providers/home_provider.dart';
 
 class EditInvoiceScreen extends ConsumerStatefulWidget {
@@ -24,6 +25,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
   // Item form controllers
   final _itemDescriptionController = TextEditingController();
+  final _itemQuantityController = TextEditingController();
   final _itemTotalController = TextEditingController();
 
   // UI state
@@ -40,6 +42,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
     _numberController.dispose();
     _amountController.dispose();
     _itemDescriptionController.dispose();
+    _itemQuantityController.dispose();
     _itemTotalController.dispose();
     super.dispose();
   }
@@ -81,7 +84,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
     return PopScope(
       canPop: !editState.hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final shouldDiscard = await _showDiscardDialog(context);
         if (shouldDiscard == true && context.mounted) {
@@ -558,6 +561,19 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      controller: _itemQuantityController,
+                      decoration: const InputDecoration(
+                        labelText: 'Quantity',
+                        hintText: 'e.g., 2.5',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
                       controller: _itemTotalController,
                       decoration: const InputDecoration(
                         labelText: 'Total *',
@@ -666,10 +682,12 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              CurrencyFormatter.format(
-                item.total,
-                editState.invoice!.originalCurrency,
-              ),
+              item.quantity != null
+                  ? 'Qty: ${item.quantity} — ${CurrencyFormatter.format(item.total, editState.invoice!.originalCurrency)}'
+                  : CurrencyFormatter.format(
+                      item.total,
+                      editState.invoice!.originalCurrency,
+                    ),
             ),
             leading: IconButton(
               icon: const Icon(Icons.edit),
@@ -693,6 +711,19 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
                       labelText: 'Description *',
                       border: OutlineInputBorder(),
                       isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _itemQuantityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Quantity',
+                      hintText: 'e.g., 2.5',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -767,7 +798,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -804,12 +835,14 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
   void _startAddingItem(EditInvoiceState editState) {
     _itemDescriptionController.clear();
+    _itemQuantityController.clear();
     _itemTotalController.clear();
     setState(() => _editingItemIndex = -1);
   }
 
   void _startEditingItem(int index, LineItem item) {
     _itemDescriptionController.text = item.description;
+    _itemQuantityController.text = item.quantity?.toString() ?? '';
     _itemTotalController.text = item.total.toString();
     setState(() => _editingItemIndex = index);
   }
@@ -820,6 +853,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
 
   void _saveItem(EditInvoiceState editState) {
     final description = _itemDescriptionController.text.trim();
+    final quantity = double.tryParse(_itemQuantityController.text);
     final total = double.tryParse(_itemTotalController.text);
 
     if (description.isEmpty || total == null) {
@@ -834,7 +868,7 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
           ? null
           : editState.currentItems[_editingItemIndex!].id,
       description: description,
-      quantity: null,
+      quantity: quantity,
       unitPrice: null,
       total: total,
       currency: editState.invoice!.originalCurrency,
@@ -857,6 +891,11 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
         .saveAll();
 
     if (success && context.mounted) {
+      // Invalidate providers to refetch updated data
+      ref.invalidate(invoicesProvider);
+      ref.invalidate(vendorsProvider);
+      ref.invalidate(invoiceDetailProvider(widget.invoiceId));
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invoice updated successfully'),
@@ -902,6 +941,11 @@ class _EditInvoiceScreenState extends ConsumerState<EditInvoiceScreen> {
           .read(editInvoiceProvider(widget.invoiceId).notifier)
           .delete();
       if (success && context.mounted) {
+        // Invalidate providers to refetch updated data
+        ref.invalidate(invoicesProvider);
+        ref.invalidate(vendorsProvider);
+        ref.invalidate(invoiceDetailProvider(widget.invoiceId));
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Invoice deleted successfully'),

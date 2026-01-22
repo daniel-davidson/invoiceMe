@@ -291,10 +291,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     }
 
                     final vendor = filteredVendors[index - 2];
+                    final hasInvoices = vendor.invoiceCount != null && vendor.invoiceCount! > 0;
+                    
                     return VendorCard(
                       vendor: vendor,
-                      onTap: () =>
-                          context.push('/vendor/${vendor.id}/analytics'),
+                      onTap: () {
+                        if (hasInvoices) {
+                          context.push('/vendor/${vendor.id}/analytics');
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'No invoices for this business yet. Upload an invoice first.',
+                              ),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                       onEdit: () => _showEditVendorDialog(context, ref, vendor),
                       onViewAllInvoices: (vendorId) {
                         // Navigate to invoices list (could add filter in the future)
@@ -380,56 +394,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _showAddVendorDialog(BuildContext context, WidgetRef ref) {
-    final nameController = TextEditingController();
-    final monthlyLimitController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Business'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Business Name',
-                hintText: 'e.g. Google, IKEA, Cellcom',
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: monthlyLimitController,
-              decoration: const InputDecoration(
-                labelText: 'Monthly Limit',
-                hintText: 'e.g. 5000',
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty &&
-                  monthlyLimitController.text.isNotEmpty) {
-                final limit = double.tryParse(monthlyLimitController.text);
-                if (limit != null && limit > 0) {
-                  await ref
-                      .read(vendorsProvider.notifier)
-                      .addVendor(nameController.text, monthlyLimit: limit);
-                  if (context.mounted) Navigator.pop(context);
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
+      builder: (context) => _AddVendorDialog(
+        onAdd: (name, limit) async {
+          await ref.read(vendorsProvider.notifier).addVendor(
+                name,
+                monthlyLimit: limit,
+              );
+        },
       ),
     );
   }
@@ -439,103 +412,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetRef ref,
     dynamic vendor,
   ) {
-    final nameController = TextEditingController(text: vendor.name);
-    final monthlyLimitController = TextEditingController(
-      text: vendor.monthlyLimit?.toString() ?? '',
-    );
-
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Business'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Business Name'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: monthlyLimitController,
-              decoration: const InputDecoration(
-                labelText: 'Monthly Limit',
-                hintText: 'e.g. 5000',
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actionsOverflowButtonSpacing: 8,
-        actions: [
-          Row(
-            children: [
-              TextButton(
-                onPressed: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: const Text('Delete Business?'),
-                      content: const Text(
-                        'This will also delete all related invoices.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(dialogContext, false),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                          ),
-                          onPressed: () => Navigator.pop(dialogContext, true),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirmed == true && context.mounted) {
-                    // Close the edit dialog first
-                    Navigator.pop(context);
-                    // Then delete the vendor
-                    await ref
-                        .read(vendorsProvider.notifier)
-                        .deleteVendor(vendor.id);
-                  }
-                },
-                child: const Text(
-                  'Delete',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () async {
-                  if (nameController.text.isNotEmpty &&
-                      monthlyLimitController.text.isNotEmpty) {
-                    final limit = double.tryParse(monthlyLimitController.text);
-                    if (limit != null && limit > 0) {
-                      await ref
-                          .read(vendorsProvider.notifier)
-                          .updateVendor(
-                            vendor.id,
-                            nameController.text,
-                            monthlyLimit: limit,
-                          );
-                      if (context.mounted) Navigator.pop(context);
-                    }
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        ],
+      builder: (context) => _EditVendorDialog(
+        vendor: vendor,
+        onUpdate: (name, limit) async {
+          await ref.read(vendorsProvider.notifier).updateVendor(
+                vendor.id,
+                name,
+                monthlyLimit: limit,
+              );
+        },
+        onDelete: () async {
+          await ref.read(vendorsProvider.notifier).deleteVendor(vendor.id);
+        },
       ),
     );
   }
@@ -581,6 +471,309 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EditVendorDialog extends StatefulWidget {
+  final dynamic vendor;
+  final Future<void> Function(String name, double limit) onUpdate;
+  final Future<void> Function() onDelete;
+
+  const _EditVendorDialog({
+    required this.vendor,
+    required this.onUpdate,
+    required this.onDelete,
+  });
+
+  @override
+  State<_EditVendorDialog> createState() => _EditVendorDialogState();
+}
+
+class _EditVendorDialogState extends State<_EditVendorDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _monthlyLimitController;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.vendor.name);
+    _monthlyLimitController = TextEditingController(
+      text: widget.vendor.monthlyLimit?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _monthlyLimitController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Business?'),
+        content: const Text(
+          'This will also delete all related invoices.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _isLoading = true);
+      try {
+        await widget.onDelete();
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting business: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleSave() async {
+    if (_nameController.text.isEmpty || _monthlyLimitController.text.isEmpty) {
+      return;
+    }
+
+    final limit = double.tryParse(_monthlyLimitController.text);
+    if (limit == null || limit <= 0) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await widget.onUpdate(_nameController.text, limit);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating business: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isLoading,
+      child: Stack(
+        children: [
+          AlertDialog(
+            title: const Text('Edit Business'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Business Name'),
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _monthlyLimitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Monthly Limit',
+                    hintText: 'e.g. 5000',
+                  ),
+                  keyboardType: TextInputType.number,
+                  enabled: !_isLoading,
+                ),
+              ],
+            ),
+            actionsOverflowButtonSpacing: 8,
+            actions: [
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: _isLoading ? null : _handleDelete,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _handleSave,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (_isLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.1),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddVendorDialog extends StatefulWidget {
+  final Future<void> Function(String name, double limit) onAdd;
+
+  const _AddVendorDialog({
+    required this.onAdd,
+  });
+
+  @override
+  State<_AddVendorDialog> createState() => _AddVendorDialogState();
+}
+
+class _AddVendorDialogState extends State<_AddVendorDialog> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _monthlyLimitController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _monthlyLimitController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleAdd() async {
+    if (_nameController.text.isEmpty || _monthlyLimitController.text.isEmpty) {
+      return;
+    }
+
+    final limit = double.tryParse(_monthlyLimitController.text);
+    if (limit == null || limit <= 0) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await widget.onAdd(_nameController.text, limit);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding business: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isLoading,
+      child: Stack(
+        children: [
+          AlertDialog(
+            title: const Text('Add Business'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Business Name',
+                    hintText: 'e.g. Google, IKEA, Cellcom',
+                  ),
+                  autofocus: true,
+                  enabled: !_isLoading,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _monthlyLimitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Monthly Limit',
+                    hintText: 'e.g. 5000',
+                  ),
+                  keyboardType: TextInputType.number,
+                  enabled: !_isLoading,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: _isLoading ? null : () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _handleAdd,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Add'),
+              ),
+            ],
+          ),
+          if (_isLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.1),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

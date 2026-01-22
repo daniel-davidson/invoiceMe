@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:frontend/core/utils/currency_formatter.dart';
 import 'package:frontend/core/utils/date_formatter.dart';
 import 'package:frontend/features/invoices/presentation/providers/invoice_detail_provider.dart';
+import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class InvoiceDetailScreen extends ConsumerWidget {
   final String invoiceId;
@@ -13,6 +14,13 @@ class InvoiceDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final invoiceState = ref.watch(invoiceDetailProvider(invoiceId));
+    final authState = ref.watch(authStateProvider);
+    
+    // Get user's system currency for normalized amounts
+    final systemCurrency = authState.maybeWhen(
+      data: (user) => user?.systemCurrency ?? 'USD',
+      orElse: () => 'USD',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -97,7 +105,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
                     title: 'Normalized Amount',
                     value: CurrencyFormatter.format(
                       invoice.normalizedAmount!,
-                      'USD',
+                      systemCurrency,
                     ),
                     icon: Icons.currency_exchange,
                     subtitle:

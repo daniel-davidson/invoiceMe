@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend/core/network/api_client.dart';
+import 'package:frontend/core/constants/api_constants.dart';
 import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class VendorKpis {
@@ -185,7 +187,12 @@ class VendorAnalyticsNotifier
   Future<void> _initialize() async {
     // First load available periods
     try {
-      final periodsResponse = await _apiClient.get('/analytics/vendor/$_vendorId/available-periods');
+      final periodsResponse = await _apiClient.get(
+        '/analytics/vendor/$_vendorId/available-periods',
+        options: Options(
+          receiveTimeout: Duration(milliseconds: ApiConstants.analyticsTimeout),
+        ),
+      );
       _availablePeriods = AvailablePeriods.fromJson(periodsResponse.data as Map<String, dynamic>);
       
       // Auto-load analytics for latest period with data
@@ -196,15 +203,21 @@ class VendorAnalyticsNotifier
         await load();
       }
     } catch (e, st) {
-      // If periods fetch fails, fall back to loading current month
-      await load();
+      // If periods fetch fails, propagate error instead of falling back
+      // This helps identify issues with vendor ID or permissions
+      state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> load() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _apiClient.get('/analytics/vendor/$_vendorId');
+      final response = await _apiClient.get(
+        '/analytics/vendor/$_vendorId',
+        options: Options(
+          receiveTimeout: Duration(milliseconds: ApiConstants.analyticsTimeout),
+        ),
+      );
       final analytics =
           VendorAnalytics.fromJson(response.data as Map<String, dynamic>);
       state = AsyncValue.data(analytics);
@@ -222,6 +235,9 @@ class VendorAnalyticsNotifier
           'year': period.year,
           'month': period.month,
         },
+        options: Options(
+          receiveTimeout: Duration(milliseconds: ApiConstants.analyticsTimeout),
+        ),
       );
       final analytics =
           VendorAnalytics.fromJson(response.data as Map<String, dynamic>);

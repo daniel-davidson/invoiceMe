@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/utils/currency_formatter.dart';
 import 'package:frontend/features/vendors/presentation/providers/vendor_analytics_provider.dart';
+import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class VendorAnalyticsScreen extends ConsumerWidget {
   final String vendorId;
@@ -14,6 +15,13 @@ class VendorAnalyticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsState = ref.watch(vendorAnalyticsProvider(vendorId));
     final notifier = ref.watch(vendorAnalyticsProvider(vendorId).notifier);
+    final authState = ref.watch(authStateProvider);
+    
+    // Get user's system currency, default to USD
+    final systemCurrency = authState.maybeWhen(
+      data: (user) => user?.systemCurrency ?? 'USD',
+      orElse: () => 'USD',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -92,14 +100,31 @@ class VendorAnalyticsScreen extends ConsumerWidget {
         ],
       ),
       body: analyticsState.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'It might take a while...',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              SizedBox(height: 8),
+              Text(
+                "After all, it's made for demo purposes...",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
         error: (error, _) => Center(child: Text('Error: $error')),
         data: (analytics) {
           if (analytics == null) {
             return const Center(child: Text('No data available'));
           }
 
-          return _buildAnalyticsContent(context, analytics, ref);
+          return _buildAnalyticsContent(context, analytics, ref, systemCurrency);
         },
       ),
     );
@@ -109,6 +134,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
     BuildContext context,
     VendorAnalytics analytics,
     WidgetRef ref,
+    String systemCurrency,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -128,7 +154,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
                   title: 'This Month',
                   value: CurrencyFormatter.format(
                     analytics.kpis.currentMonthSpend,
-                    'USD',
+                    systemCurrency,
                   ),
                   color: AppTheme.primaryColor,
                 ),
@@ -140,7 +166,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
                   value: analytics.kpis.monthlyLimit != null
                       ? CurrencyFormatter.format(
                           analytics.kpis.monthlyLimit!,
-                          'USD',
+                          systemCurrency,
                         )
                       : 'Not set',
                   color: AppTheme.secondaryColor,
@@ -159,7 +185,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
                   title: 'Monthly Avg',
                   value: CurrencyFormatter.format(
                     analytics.kpis.monthlyAverage,
-                    'USD',
+                    systemCurrency,
                   ),
                   color: AppTheme.accentColor,
                 ),
@@ -170,7 +196,7 @@ class VendorAnalyticsScreen extends ConsumerWidget {
                   title: 'Yearly Total',
                   value: CurrencyFormatter.format(
                     analytics.kpis.yearlyAverage,
-                    'USD',
+                    systemCurrency,
                   ),
                   color: Colors.purple,
                 ),

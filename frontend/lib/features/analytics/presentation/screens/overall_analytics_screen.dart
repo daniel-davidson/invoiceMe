@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/utils/currency_formatter.dart';
 import 'package:frontend/features/analytics/presentation/providers/overall_analytics_provider.dart';
+import 'package:frontend/features/auth/presentation/providers/auth_provider.dart';
 
 class OverallAnalyticsScreen extends ConsumerWidget {
   const OverallAnalyticsScreen({super.key});
@@ -11,6 +12,13 @@ class OverallAnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsState = ref.watch(overallAnalyticsProvider);
+    final authState = ref.watch(authStateProvider);
+    
+    // Get user's system currency, default to USD
+    final systemCurrency = authState.maybeWhen(
+      data: (user) => user?.systemCurrency ?? 'USD',
+      orElse: () => 'USD',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -33,14 +41,42 @@ class OverallAnalyticsScreen extends ConsumerWidget {
         ],
       ),
       body: analyticsState.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'It might take a while...',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+              SizedBox(height: 8),
+              Text(
+                "After all, it's made for demo purposes...",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
         error: (error, _) => Center(child: Text('Error: $error')),
         data: (analytics) {
           if (analytics == null) {
             return const Center(child: Text('No data available'));
           }
 
-          return SingleChildScrollView(
+          return _buildAnalyticsContent(context, analytics, systemCurrency);
+        },
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsContent(
+    BuildContext context,
+    OverallAnalytics analytics,
+    String systemCurrency,
+  ) {
+    return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,7 +120,7 @@ class OverallAnalyticsScreen extends ConsumerWidget {
                         Text(
                           CurrencyFormatter.format(
                             analytics.kpis.remainingBalance,
-                            'USD',
+                            systemCurrency,
                           ),
                           style: Theme.of(context)
                               .textTheme
@@ -97,7 +133,7 @@ class OverallAnalyticsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${CurrencyFormatter.format(analytics.kpis.totalSpend, 'USD')} of ${CurrencyFormatter.format(analytics.kpis.totalLimits, 'USD')}',
+                          '${CurrencyFormatter.format(analytics.kpis.totalSpend, systemCurrency)} of ${CurrencyFormatter.format(analytics.kpis.totalLimits, systemCurrency)}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -170,7 +206,7 @@ class OverallAnalyticsScreen extends ConsumerWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(child: Text(s.label)),
-                        Text(CurrencyFormatter.format(s.value, 'USD')),
+                        Text(CurrencyFormatter.format(s.value, systemCurrency)),
                       ],
                     ),
                   ),
@@ -214,9 +250,6 @@ class OverallAnalyticsScreen extends ConsumerWidget {
               ],
             ),
           );
-        },
-      ),
-    );
   }
 
   Color _parseColor(String hexColor) {
