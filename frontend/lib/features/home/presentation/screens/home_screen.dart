@@ -428,16 +428,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (nameController.text.isNotEmpty && 
+              if (nameController.text.isNotEmpty &&
                   monthlyLimitController.text.isNotEmpty) {
                 final limit = double.tryParse(monthlyLimitController.text);
                 if (limit != null && limit > 0) {
                   await ref
                       .read(vendorsProvider.notifier)
-                      .addVendor(
-                        nameController.text,
-                        monthlyLimit: limit,
-                      );
+                      .addVendor(nameController.text, monthlyLimit: limit);
                   if (context.mounted) Navigator.pop(context);
                 }
               }
